@@ -190,3 +190,4 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .banner.unofficial { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
 .banner.unofficial a { text-decoration: underline; font-weight: 700; }
 .hero .unofficial-note { display: inline-block; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 1px 8px; margin-bottom: 6px; }
+.logo-kana { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: -4px; letter-spacing: 0; }
