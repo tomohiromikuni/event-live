@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { CardList } from '@/components/EventCard';
+import { ItemList } from '@/components/EventCard';
 import { listGenres, searchEvents } from '@/lib/queries';
 import { PREFECTURES } from '@/lib/prefectures';
 
@@ -26,10 +26,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="container">
+      <h1 className="page-title">イベントを探す</h1>
       <form className="filters" action="/search">
         <div className="search-box">
-          <input className="input" name="q" type="search" defaultValue={params.q} placeholder="イベント名・地域・会場" aria-label="キーワード" />
-          <button className="btn" type="submit">検索</button>
+          <input name="q" type="search" defaultValue={params.q} placeholder="イベント名・地域・会場" aria-label="キーワード" />
+          <button className="btn pop" type="submit">検索</button>
         </div>
         <div className="row">
           <div className="field">
@@ -57,15 +58,17 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       <nav className="chips" aria-label="ジャンル" style={{ paddingTop: 0 }}>
         <Link className={`chip ${!params.genre ? 'active' : ''}`} href={href(params, { genre: undefined })}>全ジャンル</Link>
         {genres.map((g) => (
-          <Link key={g.id} className={`chip ${params.genre === g.slug ? 'active' : ''}`} href={href(params, { genre: g.slug })}>{g.icon} {g.name}</Link>
+          <Link key={g.id} className={`chip ${params.genre === g.slug ? 'active' : ''}`} href={href(params, { genre: g.slug })}>
+            <span className="chip-dot" style={{ background: g.color }} aria-hidden />{g.name}
+          </Link>
         ))}
       </nav>
 
-      <div className="section-head" style={{ marginTop: 4 }}>
-        <h2 style={{ fontSize: 15 }}>{conds.length ? conds.join('・') : '開催予定のイベント'}<span className="muted small">　{results.length}件</span></h2>
+      <div className="section-head result-head">
+        <h2>{conds.length ? conds.join('・') : '開催予定のイベント'}<span className="count-badge">{results.length}件</span></h2>
         {conds.length > 0 && <Link href="/search">条件をクリア</Link>}
       </div>
-      <CardList events={results} empty="条件に一致するイベントは見つかりませんでした" />
+      <ItemList events={results} empty="条件に一致するイベントは見つかりませんでした" />
     </div>
   );
 }
