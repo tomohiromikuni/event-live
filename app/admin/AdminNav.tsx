@@ -17,6 +17,7 @@ export default function AdminNav({ flags, inquiries, logout }: { flags: number; 
       { href: '/admin/reports?flagged=1', label: '通報', count: flags, match: (p, f) => p.startsWith('/admin/reports') && f },
       { href: '/admin/inquiries', label: '問い合わせ', count: inquiries, match: (p) => p.startsWith('/admin/inquiries') },
       { href: '/admin/sns', label: 'SNS・シェア', match: (p) => p.startsWith('/admin/sns') },
+      { href: '/admin/searches', label: '検索ワード', match: (p) => p.startsWith('/admin/searches') },
     ],
     [
       { href: '/admin/settings', label: '設定', match: (p) => p.startsWith('/admin/settings') },
