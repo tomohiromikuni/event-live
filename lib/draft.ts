@@ -21,7 +21,9 @@ export type Draft = {
     source_url?: string; source_checked_at?: string;
   };
   map?: {
-    aspect?: number; // ガイドマップ画像の 高さ÷幅（例: 横800×縦500 → 0.625）
+    /** 位置の表し方: 'image'（既定）= ガイドマップ画像上の % ／ 'geo' = 緯度経度（Googleマイマップ等）。geo は取り込み時に % へ変換する */
+    projection?: 'image' | 'geo';
+    aspect?: number; // ガイドマップ画像の 高さ÷幅（例: 横800×縦500 → 0.625）。geo のときは自動計算
     spots?: { category: string; name: string; note?: string; x: number; y: number }[];
     areas?: { style: string; label?: string; points: DraftPoint[] }[];
     lines?: { style: string; label?: string; points: DraftPoint[] }[];
@@ -50,8 +52,10 @@ export function checkDraft(text: string, known: { genres: string[]; categories: 
   } catch {
     return { errors: ['JSONとして読み取れません。コピーした内容をそのまま貼り付けてください。'], warnings, draft: null, summary: '' };
   }
+  if (!raw || typeof raw !== 'object') return { errors: ['下書きの形式が不正です'], warnings, draft: null, summary: '' };
+  const geoErr = (raw as Draft).map?.projection === 'geo' ? geoToImage(raw as Draft) : null;
+  if (geoErr) return { errors: [geoErr], warnings, draft: null, summary: '' };
   const d = raw as Draft;
-  if (!d || typeof d !== 'object') return { errors: ['下書きの形式が不正です'], warnings, draft: null, summary: '' };
 
   if (needEvent && !d.event) errors.push('新しいイベントとして登録するには event（イベント情報）が必要です');
   if (d.event) {
@@ -100,4 +104,39 @@ export function toCanvas(aspect: number | undefined) {
   const h = Math.round(CANVAS_W * (aspect ?? 0.7));
   const conv = ([x, y]: DraftPoint): [number, number] => [+(h - (y / 100) * h).toFixed(1), +((x / 100) * CANVAS_W).toFixed(1)];
   return { w: CANVAS_W, h, conv };
+}
+
+/**
+ * 緯度経度（projection: 'geo'）の下書きを、画像上の %（projection: 'image'）に変換する。
+ * spots は {lat, lng}、areas/lines の points は [lat, lng]。全体を囲む範囲に余白をとって収める。
+ * 変換できない場合はエラー文を返す（d は書き換える）。
+ */
+export function geoToImage(d: Draft): string | null {
+  const m = d.map!;
+  type GeoSpot = { lat: number; lng: number };
+  const spots = (m.spots ?? []) as unknown as (GeoSpot & { x?: number; y?: number })[];
+  const shapes = [...(m.areas ?? []), ...(m.lines ?? [])];
+  const pts: [number, number][] = [
+    ...spots.map((s) => [s.lat, s.lng] as [number, number]),
+    ...shapes.flatMap((a) => (Array.isArray(a.points) ? a.points : []) as [number, number][]),
+  ];
+  if (!pts.length) return null;
+  if (!pts.every(([la, ln]) => Number.isFinite(la) && Number.isFinite(ln) && Math.abs(la) <= 90 && Math.abs(ln) <= 180)) {
+    return '緯度経度（lat, lng）が不正なデータがあります';
+  }
+  const lats = pts.map((p) => p[0]), lngs = pts.map((p) => p[1]);
+  const minLa = Math.min(...lats), maxLa = Math.max(...lats), minLn = Math.min(...lngs), maxLn = Math.max(...lngs);
+  const k = Math.cos(((minLa + maxLa) / 2) * Math.PI / 180); // 経度方向の縮み補正
+  const spanX = Math.max((maxLn - minLn) * k, 1e-6), spanY = Math.max(maxLa - minLa, 1e-6);
+  const aspect = Math.min(Math.max(spanY / spanX, 0.3), 2.5);
+  const mx = 6, my = 6; // 余白（%）
+  const toPct = ([la, ln]: [number, number]): DraftPoint => [
+    +(mx + ((ln - minLn) * k / spanX) * (100 - 2 * mx)).toFixed(2),
+    +(my + ((maxLa - la) / spanY) * (100 - 2 * my)).toFixed(2),
+  ];
+  for (const s of spots) { [s.x, s.y] = toPct([s.lat, s.lng]); }
+  for (const a of shapes) a.points = (a.points as [number, number][]).map(toPct);
+  m.aspect = +aspect.toFixed(4);
+  m.projection = 'image';
+  return null;
 }

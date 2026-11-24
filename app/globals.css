@@ -311,3 +311,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .page-title { font-size: 32px; }
   .filters { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: end; gap: 16px; padding: 22px; }
 }
+/* 施設が多いマップの全体表示：小さな点にする（拡大すると元の大きさ） */
+.markers-small .mk { transform: scale(.42); border-width: 6px; }
+.markers-small .mk .mk-badge { display: none; }
+.markers-small .mk.selected { transform: scale(.8); }

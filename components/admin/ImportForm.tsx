@@ -1,6 +1,6 @@
 'use client';
 import { useActionState, useState } from 'react';
-import { importDraft, type ImportResult } from '@/app/admin/import-actions';
+import { draftFromMyMap, importDraft, type ImportResult, type MyMapResult } from '@/app/admin/import-actions';
 
 type Props = { events: { id: number; name: string }[]; defaultMode?: string };
 
@@ -8,6 +8,9 @@ export default function ImportForm({ events, defaultMode = 'new' }: Props) {
   const [res, action, pending] = useActionState<ImportResult | null, FormData>(importDraft, null);
   const [mode, setMode] = useState(defaultMode);
   const [json, setJson] = useState(''); // 送信後もフォームが空にならないよう、内容を自分で保持する
+  const [mapUrl, setMapUrl] = useState('');
+  const [mm, setMm] = useState<MyMapResult | null>(null);
+  const [loadingMap, setLoadingMap] = useState(false);
   return (
     <form action={action} className="form-grid">
       <div className="field">
@@ -16,6 +19,26 @@ export default function ImportForm({ events, defaultMode = 'new' }: Props) {
           <option value="new">新しいイベントとして登録（非公開で作成 → 確認後に公開）</option>
           {events.map((e) => <option key={e.id} value={e.id}>既存のイベントにマップを追加：{e.name}</option>)}
         </select>
+      </div>
+      <div className="field" style={{ background: '#f8fafc', border: '1px dashed var(--border)', borderRadius: 10, padding: 12 }}>
+        <label htmlFor="mymap">Google マイマップから作る（公式が公開している地図のURL）</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input id="mymap" className="input" value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} placeholder="https://www.google.com/maps/d/viewer?mid=..." />
+          <button type="button" className="btn ghost" disabled={!mapUrl || loadingMap} onClick={async () => {
+            setLoadingMap(true); setMm(null);
+            const r = await draftFromMyMap(mapUrl);
+            setMm(r); if (r.json) setJson(r.json); setLoadingMap(false);
+          }}>{loadingMap ? '読み込み中…' : '読み込む'}</button>
+        </div>
+        {mm && (
+          <div className="small" style={{ marginTop: 8, color: mm.ok ? '#134e4a' : '#991b1b' }}>
+            {mm.ok ? '✅ ' : '⚠️ '}{mm.message}
+            {mm.ok && <div className="muted">下の下書き欄に入りました。施設の名前・種類を確認し、イベント情報（event）が無い場合は「取り込み先」で登録済みのイベントを選んでください。</div>}
+            {!!mm.skipped?.length && (
+              <details style={{ marginTop: 4 }}><summary>含めなかったもの（{mm.skipped.length}件）</summary><div className="muted">{mm.skipped.join(' / ')}</div></details>
+            )}
+          </div>
+        )}
       </div>
       <div className="field">
         <label htmlFor="json">下書き（Claude から受け取った内容をそのまま貼り付け）</label>

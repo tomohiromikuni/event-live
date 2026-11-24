@@ -50,9 +50,15 @@ export default function LeafletMap(props: Props) {
       map.fitBounds(bounds, { padding: [8, 8] });
       const baseZoom = map.getZoom();
       map.setMinZoom(baseZoom - 1);
-      // 全体表示より小さくしたときはエリア名を隠して、表示がごちゃつかないようにする
-      const toggleLabels = () => map.getContainer().classList.toggle('labels-hidden', map.getZoom() < baseZoom - 0.5);
+      // 表示がごちゃつかないように、縮小時は名前を隠す。施設が多いマップでは全体表示中は施設を小さな点にし、拡大すると元に戻す
+      const toggleLabels = () => {
+        const z = map.getZoom(), c = map.getContainer();
+        const dense = cbRef.current.markers.length > 20;
+        c.classList.toggle('labels-hidden', z < baseZoom - 0.5 || (dense && z < baseZoom + 1));
+        c.classList.toggle('markers-small', dense && z < baseZoom + 1);
+      };
       map.on('zoomend', toggleLabels);
+      toggleLabels();
       map.on('click', (e: L.LeafletMouseEvent) => cbRef.current.onMapClick?.(e.latlng.lat, e.latlng.lng));
       shapeLayer.current = lib.layerGroup().addTo(map);
       markerLayer.current = lib.layerGroup().addTo(map);
@@ -102,7 +108,7 @@ export default function LeafletMap(props: Props) {
   }
 
   useEffect(renderShapes, [props.shapes]);
-  useEffect(renderMarkers, [props.markers]);
+  useEffect(() => { renderMarkers(); mapRef.current?.fire('zoomend'); }, [props.markers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (props.focus && mapRef.current) mapRef.current.panTo([props.focus.lat, props.focus.lng], { animate: true });

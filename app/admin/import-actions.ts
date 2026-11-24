@@ -95,3 +95,36 @@ export async function importDraft(_prev: ImportResult | null, f: FormData): Prom
   revalidatePath('/', 'layout');
   redirect(`/admin/events/${eventId}?imported=1`);
 }
+
+export type MyMapResult = { ok: boolean; json?: string; message: string; skipped?: string[] };
+
+/**
+ * Google マイマップの URL から KML を取得し、下書き（マップ部分）に変換する。
+ * 結果は画面の下書き欄に入るだけで、まだ登録はしない（管理者が確認してから「取り込む」）。
+ */
+export async function draftFromMyMap(url: string): Promise<MyMapResult> {
+  await requireAdmin();
+  const { kmlToDraft, myMapsId } = await import('@/lib/kml');
+  const mid = myMapsId(url);
+  if (!mid) return { ok: false, message: 'Google マイマップのURL（https://www.google.com/maps/d/…?mid=…）を入れてください' };
+  let kml: string;
+  try {
+    const res = await fetch(`https://www.google.com/maps/d/kml?mid=${encodeURIComponent(mid)}&forcekml=1`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return { ok: false, message: `地図を取得できませんでした（${res.status}）。地図が「リンクを知っている全員」に公開されているか確認してください` };
+    kml = await res.text();
+  } catch {
+    return { ok: false, message: '地図を取得できませんでした。時間をおいて再度お試しください' };
+  }
+  if (!kml.includes('<kml')) return { ok: false, message: '地図データ（KML）として読み取れませんでした' };
+  const r = kmlToDraft(kml);
+  const m = r.draft.map!;
+  const nSpots = m.spots?.length ?? 0, nAreas = m.areas?.length ?? 0, nLines = m.lines?.length ?? 0;
+  const folders = [...new Set(r.skipped.map((s) => s.folder || '（フォルダなし）'))];
+  return {
+    ok: nSpots + nAreas + nLines > 0,
+    json: JSON.stringify(r.draft, null, 2),
+    message: `「${r.title}」${r.credit ? `（${r.credit}）` : ''}から 施設 ${nSpots}件・エリア ${nAreas}件・線 ${nLines}件 を下書きにしました。`
+      + (r.skipped.length ? ` 分類できなかった ${r.skipped.length}件（${folders.join('、')}）は含めていません。` : ''),
+    skipped: r.skipped.slice(0, 60).map((s) => `${s.folder ? `[${s.folder}] ` : ''}${s.name}`),
+  };
+}
