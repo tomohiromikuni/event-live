@@ -6,13 +6,48 @@ import { eventCategories, eventSpots, getEventBySlug, listGenres, recentReports 
 import { fmtRange, isOngoing } from '@/lib/dates';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
-import { UNOFFICIAL } from '@/lib/site';
+import { UNOFFICIAL, siteUrl } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const e = await getEventBySlug((await params).slug);
-  return e ? { title: UNOFFICIAL ? `${e.name}（非公式情報）` : e.name, description: e.summary.slice(0, 120) } : {};
+  if (!e) return {};
+  const title = UNOFFICIAL ? `${e.name}（非公式情報）` : e.name;
+  const description = `${fmtRange(e.start_date, e.end_date)}・${e.prefecture}${e.city}${e.venue_name ? `「${e.venue_name}」` : ''}で開催。`
+    + `会場マップ、トイレ・駐車場・屋台の混雑や待ち時間を来場者がリアルタイムで共有。${e.summary}`.slice(0, 110);
+  return {
+    title, description,
+    alternates: { canonical: `/events/${e.slug}` },
+    openGraph: { title, description, type: 'article', url: `/events/${e.slug}`, ...(e.image_url ? { images: [e.image_url] } : {}) },
+    // サンプル（架空）・非公開のイベントは検索エンジンに登録させない
+    robots: e.is_sample || !e.published ? { index: false, follow: false } : undefined,
+  };
+}
+
+/** Google のイベント検索向け構造化データ（schema.org/Event）。事実情報のみを出力し、不明な項目は出さない。 */
+function eventJsonLd(e: EventCard, url: string) {
+  const status = { canceled: 'https://schema.org/EventCancelled', postponed: 'https://schema.org/EventPostponed' }[e.status as string]
+    ?? 'https://schema.org/EventScheduled';
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Event',
+    name: e.name,
+    startDate: e.start_date,
+    endDate: e.end_date,
+    eventStatus: status,
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    ...(e.summary ? { description: e.summary } : {}),
+    ...(e.image_url ? { image: [e.image_url] } : {}),
+    url,
+    location: {
+      '@type': 'Place',
+      name: e.venue_name || `${e.prefecture}${e.city}`,
+      address: { '@type': 'PostalAddress', addressRegion: e.prefecture, addressLocality: e.city, ...(e.address ? { streetAddress: e.address } : {}), addressCountry: 'JP' },
+      geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lng },
+    },
+    ...(e.organizer ? { organizer: { '@type': 'Organization', name: e.organizer, ...(e.official_url ? { url: e.official_url } : {}) } } : {}),
+  };
 }
 
 const NONE = <span className="none">情報なし</span>;
@@ -51,6 +86,10 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
 
   return (
     <div className="container">
+      {!e.is_sample && (
+        <script type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(e, `${siteUrl()}/events/${e.slug}`)).replace(/</g, '\\u003c') }} />
+      )}
       {e.is_sample ? (
         <div className="banner sample">⚠️ <span>これは動作確認用の<strong>サンプルデータ</strong>です。実在のイベントではありません。</span></div>
       ) : null}

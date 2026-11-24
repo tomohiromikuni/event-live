@@ -2,12 +2,15 @@ import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import 'leaflet/dist/leaflet.css';
 import './globals.css';
-import { SITE_NAME, SITE_NAME_KANA, UNOFFICIAL } from '@/lib/site';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_NAME_KANA, UNOFFICIAL, siteUrl } from '@/lib/site';
 
 const TAG = UNOFFICIAL ? '【非公式】' : '';
 export const metadata: Metadata = {
   title: { default: `${SITE_NAME}（${SITE_NAME_KANA}）${TAG}｜全国のイベント情報と現地のリアルタイム状況`, template: `%s｜${SITE_NAME}${TAG}` },
-  description: `${UNOFFICIAL ? '非公式・' : ''}全国のイベント情報と、来場者が投稿する会場の混雑・待ち時間・駐車場の状況をリアルタイムで共有するサービス`,
+  description: `${UNOFFICIAL ? '非公式・' : ''}${SITE_DESCRIPTION}`,
+  metadataBase: new URL(siteUrl()),
+  openGraph: { siteName: `${SITE_NAME}（${SITE_NAME_KANA}）`, type: 'website', locale: 'ja_JP' },
+  twitter: { card: 'summary' },
 };
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0f766e' };
 
