@@ -203,7 +203,21 @@ CREATE TABLE IF NOT EXISTS share_events (
 CREATE INDEX IF NOT EXISTS idx_share_event_time ON share_events(event_id, created_at);
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6];
+/**
+ * v7: 投稿の閲覧記録（貢献実績の「あなたの投稿は○回閲覧されています」用）。
+ * 投稿が「現在の状況」として実際に表示されたときだけ、閲覧者ごとに30分に1回まで記録する（slot = 30分単位の時刻）。
+ */
+const V7 = `
+CREATE TABLE IF NOT EXISTS report_views (
+  report_id INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+  viewer TEXT NOT NULL,                   -- 閲覧者の匿名ID（なければIPのハッシュ）
+  slot BIGINT NOT NULL,                   -- 30分単位の時間枠
+  PRIMARY KEY (report_id, viewer, slot)
+);
+CREATE INDEX IF NOT EXISTS idx_reports_client ON reports(client_id);
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

@@ -112,11 +112,12 @@ export function eventSpots(eventId: number): Promise<Spot[]> {
 }
 
 /** リアルタイム表示用の投稿（非表示を除く直近 FEED_HOURS 時間） */
-export function recentReports(eventId: number): Promise<Report[]> {
+export function recentReports(eventId: number, cid?: string | null): Promise<Report[]> {
   if (!Number.isInteger(eventId)) return Promise.resolve([]);
-  return q<Report>(`SELECT id, event_id, spot_id, value, label, level, created_at, flag_count FROM reports
+  // mine: 閲覧しているブラウザ自身の投稿か（匿名IDは返さず、真偽だけを返す）
+  return q<Report>(`SELECT id, event_id, spot_id, value, label, level, created_at, flag_count, (client_id = $3) AS mine FROM reports
     WHERE event_id = $1 AND hidden = 0 AND created_at >= $2 ORDER BY created_at DESC LIMIT 300`,
-    [eventId, Date.now() - FEED_HOURS * 3600_000]);
+    [eventId, Date.now() - FEED_HOURS * 3600_000, cid ?? '']);
 }
 
 /** 簡易マップの図形（エリア・線） */
