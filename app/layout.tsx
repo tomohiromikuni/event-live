@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import 'leaflet/dist/leaflet.css';
 import './globals.css';
+import { BubbleMark, LogoLockup } from '@/components/Logo';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_NAME_KANA, UNOFFICIAL, siteUrl } from '@/lib/site';
 
 const TAG = UNOFFICIAL ? '【非公式】' : '';
@@ -29,9 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="site-header">
           <div className="container header-inner">
             <Link href="/" className="logo">
-              <span className="logo-mark" aria-hidden>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><circle cx="12" cy="12" r="3" /><path d="M5 12a7 7 0 0 1 14 0" /></svg>
-              </span>{SITE_NAME}<span className="logo-kana">{SITE_NAME_KANA}</span>
+              <BubbleMark size={34} />{SITE_NAME}<span className="logo-kana">{SITE_NAME_KANA}</span>
               {UNOFFICIAL && <span className="unofficial-tag">非公式</span>}
             </Link>
             <Link href="/search" className="header-link">
@@ -43,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main>{children}</main>
         <footer className="site-footer">
           <div className="container">
+            <div className="footer-logo"><LogoLockup fontSize={30} /></div>
             {UNOFFICIAL && (
               <p><strong>{SITE_NAME}（{SITE_NAME_KANA}）は非公式のサービスです。</strong>掲載している各イベントの主催者・運営団体・会場とは一切関係がなく、承認や提携も受けていません。</p>
             )}
