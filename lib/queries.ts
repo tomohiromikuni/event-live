@@ -1,9 +1,9 @@
 import 'server-only';
 import { one, q, type Param } from './db';
 import { todayJST, weekendRange } from './dates';
-import { FEED_HOURS } from './freshness';
+import { FEED_HOURS, FRESH_MIN } from './freshness';
 import type { MapShape } from './shapes';
-import type { Category, EventCard, EventRow, Genre, Report, ReportOption, Spot } from './types';
+import type { Category, EventCard, EventRow, Genre, Report, ReportOption, Spot, SpotStatus } from './types';
 
 const CARD_SELECT = `SELECT e.*, g.name AS genre_name, g.icon AS genre_icon, g.slug AS genre_slug, g.color AS genre_color
   FROM events e JOIN genres g ON g.id = e.genre_id`;
@@ -50,6 +50,26 @@ export function liveEvents(): Promise<EventCard[]> {
   return q<EventCard>(`SELECT e.*, g.name AS genre_name, g.icon AS genre_icon, g.slug AS genre_slug, g.color AS genre_color, COUNT(r.id)::int AS live_count
     FROM events e JOIN genres g ON g.id = e.genre_id JOIN reports r ON r.event_id = e.id AND r.hidden = 0 AND r.created_at >= $1
     WHERE e.published = 1 GROUP BY e.id, g.id ORDER BY live_count DESC LIMIT 10`, [Date.now() - 3600_000]);
+}
+
+/**
+ * イベントごとの「いまの状況」。地点ごとの最新の投稿のうち、新しい（FRESH_MIN 分以内）ものを
+ * 新しい順に最大 perEvent 件返す。
+ */
+export async function latestSpotStatuses(eventIds: number[], perEvent = 3): Promise<Record<number, SpotStatus[]>> {
+  const ids = eventIds.filter(Number.isInteger);
+  if (ids.length === 0) return {};
+  const rows = await q<SpotStatus>(`SELECT DISTINCT ON (r.spot_id) r.event_id, r.spot_id, s.name AS spot_name,
+      c.slug AS cat_slug, c.icon AS cat_icon, r.label, r.level, r.created_at
+    FROM reports r JOIN spots s ON s.id = r.spot_id JOIN spot_categories c ON c.id = s.category_id
+    WHERE r.hidden = 0 AND r.created_at >= $1 AND r.event_id IN (${ids.map((_, i) => `$${i + 2}`).join(', ')})
+    ORDER BY r.spot_id, r.created_at DESC`, [Date.now() - FRESH_MIN * 60_000, ...ids]);
+  const out: Record<number, SpotStatus[]> = {};
+  for (const r of rows.sort((a, b) => Number(b.created_at) - Number(a.created_at))) {
+    const list = (out[r.event_id] ??= []);
+    if (list.length < perEvent) list.push(r);
+  }
+  return out;
 }
 
 export async function prefectureCounts(): Promise<Record<string, number>> {

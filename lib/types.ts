@@ -35,3 +35,9 @@ export type Report = {
   id: number; event_id: number; spot_id: number; value: string; label: string; level: number;
   created_at: number; flag_count: number;
 };
+
+/** トップのカードに出す「いまの状況」（地点ごとの最新の投稿） */
+export type SpotStatus = {
+  event_id: number; spot_id: number; spot_name: string; cat_slug: string; cat_icon: string;
+  label: string; level: number; created_at: number;
+};

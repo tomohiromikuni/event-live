@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import EventCard, { CardRow, ItemList } from '@/components/EventCard';
-import { featuredEvents, listGenres, liveEvents, prefectureCounts, searchEvents } from '@/lib/queries';
+import { featuredEvents, latestSpotStatuses, listGenres, liveEvents, prefectureCounts, searchEvents } from '@/lib/queries';
 import { REGIONS } from '@/lib/prefectures';
 import { UNOFFICIAL } from '@/lib/site';
 
@@ -16,6 +16,9 @@ export default async function Home() {
     searchEvents({ when: 'upcoming', limit: 12 }),
     prefectureCounts(),
   ]);
+  // いちばん投稿の多いイベントは、地点ごとのいまの状況もカードに出す
+  const statuses = live[0] ? await latestSpotStatuses([live[0].id]) : {};
+  const now = Date.now();
 
   return (
     <>
@@ -49,7 +52,7 @@ export default async function Home() {
         {live.length > 0 && (
           <section className="section" style={{ marginTop: 18 }}>
             <div className="section-head"><h2><span className="live-dot" />いま、現地が盛り上がり中</h2></div>
-            <EventCard e={live[0]} hero />
+            <EventCard e={live[0]} hero statuses={statuses[live[0].id]} now={now} />
             {live.length > 1 && <div style={{ marginTop: 14 }}><CardRow events={live.slice(1)} empty="" /></div>}
           </section>
         )}
