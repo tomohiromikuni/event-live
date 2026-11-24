@@ -21,9 +21,11 @@ export default async function Home() {
     <>
       <div className="container hero-wrap">
         <section className="hero">
-          {UNOFFICIAL && <span className="unofficial-note">非公式・主催者とは無関係</span>}
-          <h1>イベントの<br />「今」が<br />わかる。</h1>
-          <p>混雑・待ち時間・駐車場を、<br />来場者がリアルタイムで投稿。</p>
+          <div className="hero-copy">
+            {UNOFFICIAL && <span className="unofficial-note">非公式・主催者とは無関係</span>}
+            <h1>イベントの<br className="sp-only" />「今」が<br className="sp-only" />わかる。</h1>
+            <p>混雑・待ち時間・駐車場を、<br />来場者がリアルタイムで投稿。</p>
+          </div>
           <form action="/search" className="search-box">
             <input name="q" type="search" placeholder="イベント名・地域・会場" aria-label="キーワード" />
             <button className="btn pop" type="submit">検索</button>

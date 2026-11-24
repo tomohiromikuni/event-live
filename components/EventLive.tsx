@@ -138,6 +138,8 @@ export default function EventLive(p: Props) {
       {!p.postable && <div className="notice">{p.postBlockedReason}</div>}
       {p.postable && <div className="notice">地図やリストの地点をタップすると、いまの状況をワンタップで投稿できます（登録不要）</div>}
 
+      <div className="live-body">
+      <div className="live-map">
       <LeafletMap canvas={p.canvas} markers={markers} shapes={p.shapes}
         onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
 
@@ -146,7 +148,9 @@ export default function EventLive(p: Props) {
         <span><i style={{ background: '#94a3b8' }} />情報なし</span>
         <span>点線＝{FRESH_MIN}分以上前</span>
       </div>
+      </div>
 
+      <div className="live-side">
       <nav className="chips" style={{ padding: '10px 14px', margin: 0, borderTop: '1.5px solid var(--border)' }} aria-label="カテゴリ">
         <button className={`chip ${filter === null ? 'active' : ''}`} onClick={() => setFilter(null)}>すべて</button>
         {usedCats.map((c) => (
@@ -203,6 +207,8 @@ export default function EventLive(p: Props) {
             </div>
           );
         })}
+      </div>
+      </div>
       </div>
 
       {sel && selCat && (

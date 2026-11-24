@@ -253,3 +253,61 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .labels-hidden .leaflet-tooltip.shape-label { display: none; }
 .map-canvas { background: #eef2f1 !important; }
 .tool-guide { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 10px 12px; background: #f8fafc; border: 1px dashed var(--border); border-radius: 10px; }
+
+/* ============ PC（幅 960px 以上） ============ */
+@media (min-width: 960px) {
+  .sp-only { display: none; }
+  .container { max-width: 1160px; padding: 0 32px; }
+  .header-inner { height: 72px; }
+
+  /* トップ：見出しと検索を左右に */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 40px; align-items: end; padding: 44px 44px 40px; border-radius: 32px; }
+  .hero::before { width: 260px; height: 260px; right: -60px; top: -80px; }
+  .hero::after { width: 40px; height: 40px; right: 120px; top: 120px; }
+  .hero h1 { font-size: 52px; }
+  .hero p { font-size: 15px; margin-bottom: 0; }
+  .search-box input { height: 58px; font-size: 17px; }
+  .btn.pop { height: 58px; padding: 0 26px; font-size: 16px; }
+  .when-links { max-width: 640px; }
+  .when-links a:hover, .event-card:hover, .event-item:hover, .header-link:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink); }
+  .event-card, .event-item, .when-links a, .header-link { transition: transform .12s, box-shadow .12s; }
+  .chips { flex-wrap: wrap; overflow: visible; }
+
+  /* カード：横スクロールをやめて3列に */
+  .card-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; margin: 0; padding: 0; }
+  .card-row .event-card { max-width: none; }
+  .card-list, .event-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .section-head h2 { font-size: 24px; }
+
+  /* いちばん盛り上がっているイベントは横長カード */
+  .event-card.hero-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+  .event-card.hero-card .thumb { height: auto; min-height: 220px; font-size: 80px; border-bottom: 0; border-right: 3px solid var(--ink); }
+  .event-card.hero-card .body { padding: 28px 30px; align-self: center; }
+  .event-card.hero-card h3 { font-size: 26px; }
+  .event-card.hero-card .meta { font-size: 15px; gap: 4px; }
+
+  .pref-region { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: start; }
+  .pref-region h3 { padding-top: 6px; }
+
+  /* 詳細：地図とリストを左右に */
+  .event-head { padding: 26px 30px; }
+  .event-head h1 { font-size: 32px; }
+  .tabs { top: 72px; max-width: 560px; }
+  .live-body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+  .live-map { border-right: 2.5px solid var(--ink); }
+  .live-map .map { height: 620px; max-height: none; border-bottom: 2.5px solid var(--ink); }
+  .live-side { max-height: 700px; overflow-y: auto; }
+  .live-side > .chips:first-child { border-top: 0 !important; }
+  .live-side .live-head { position: sticky; top: 0; background: #fff; z-index: 1; }
+  .live-card .map { border-top: 2.5px solid var(--ink); }
+  #info { max-width: 820px; }
+  .info-table .row { grid-template-columns: 160px 1fr; }
+
+  /* 投稿シートは画面中央のダイアログに */
+  .sheet { top: 50%; bottom: auto; left: 50%; right: auto; width: 480px; transform: translate(-50%, -50%); border-radius: 26px; border-bottom: 3px solid var(--ink); box-shadow: 8px 8px 0 var(--ink); animation: fade .15s; padding-bottom: 24px; }
+  .sheet-grip { display: none; }
+
+  /* 検索：条件を1行に */
+  .page-title { font-size: 32px; }
+  .filters { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: end; gap: 16px; padding: 22px; }
+}
