@@ -24,5 +24,8 @@
 ポイント・全国共通ポイント・枚数限定クーポン・スポンサー協賛は**利用者が増えてから**。
 **イベナウは絶対に自腹を切らない**（確保済みのスポンサー予算の範囲内・枚数限定・自動管理）。詳細は `docs/FUTURE_VISION.md`。
 
+## 投稿モチベーション（貢献実績）
+報酬（ポイント・クーポン）ではなく「誰かの役に立った」実感で投稿を促す。数字は実データのみ（推測値・架空の数字は出さない）、重複・不正投稿は実績に数えない、ランキング等の競争要素は作らない。仕様は `docs/CONTRIBUTION_SPEC.md`。
+
 ## 主なドキュメント
-- `docs/DESIGN.md` 全体設計 ／ `docs/DRAFT_FORMAT.md` 下書き（取り込み）形式 ／ `docs/AUTOMATION_PLAN.md` 自動収集・SNS ／ `docs/FUTURE_VISION.md` 将来構想
+- `docs/DESIGN.md` 全体設計 ／ `docs/DRAFT_FORMAT.md` 下書き（取り込み）形式 ／ `docs/AUTOMATION_PLAN.md` 自動収集・SNS ／ `docs/FUTURE_VISION.md` 将来構想 ／ `docs/CONTRIBUTION_SPEC.md` 貢献実績
