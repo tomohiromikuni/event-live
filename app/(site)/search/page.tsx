@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { ItemList } from '@/components/EventCard';
 import { listGenres, searchEvents } from '@/lib/queries';
 import { PREFECTURES } from '@/lib/prefectures';
+import SearchBeacon from '@/components/SearchBeacon';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'イベントを探す' };
@@ -26,6 +27,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="container">
+      {params.q ? <SearchBeacon q={params.q} count={results.length} /> : null}
       <h1 className="page-title">イベントを探す</h1>
       <form className="filters" action="/search">
         <div className="search-box">

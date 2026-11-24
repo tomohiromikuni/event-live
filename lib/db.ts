@@ -241,7 +241,21 @@ CREATE TABLE IF NOT EXISTS event_view_seen (
 /** v9: 毎年開催のイベントか（終了後もページを検索エンジンに残し、翌年は同じURLで復活させる） */
 const V9 = `ALTER TABLE events ADD COLUMN IF NOT EXISTS recurring INTEGER NOT NULL DEFAULT 0`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9];
+/**
+ * v10: サイト内検索で使われた言葉（管理画面のアナリティクス用）。
+ * 「日×言葉」の合計だけを持つ。zero_results は結果が0件だった回数（＝載っていないのに探されたイベント）。
+ */
+const V10 = `
+CREATE TABLE IF NOT EXISTS search_queries (
+  day TEXT NOT NULL,                      -- YYYY-MM-DD（日本時間）
+  query TEXT NOT NULL,                    -- 正規化した検索語
+  searches INTEGER NOT NULL DEFAULT 0,
+  zero_results INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, query)
+);
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
