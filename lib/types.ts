@@ -24,6 +24,7 @@ export type EventRow = {
   map_style: string;
   map_w: number; map_h: number;
   map_mode: 'canvas' | 'geo';
+  hashtags: string;
   created_at: number; updated_at: number;
 };
 

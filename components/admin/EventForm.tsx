@@ -5,6 +5,8 @@ import { PREFECTURES } from '@/lib/prefectures';
 import type { Category, EventRow, Genre } from '@/lib/types';
 
 type Props = {
+  /** 自動で付くハッシュタグ（入力欄が空欄のとき） */
+  autoTags?: string[];
   event?: EventRow;
   genres: Genre[];
   categories: Category[];
@@ -26,7 +28,7 @@ function T({ label, name, def, placeholder }: { label: string; name: string; def
   );
 }
 
-export default function EventForm({ event: e, genres, categories, genreDefaults, customCategoryIds }: Props) {
+export default function EventForm({ event: e, genres, categories, genreDefaults, customCategoryIds, autoTags }: Props) {
   const [err, action, pending] = useActionState(saveEvent, null);
   const [genreId, setGenreId] = useState<number>(e?.genre_id ?? genres[0]?.id);
   const [custom, setCustom] = useState(customCategoryIds.length > 0);
@@ -100,6 +102,11 @@ export default function EventForm({ event: e, genres, categories, genreDefaults,
           <F label="主催者" name="organizer" def={e?.organizer} />
           <F label="公式サイトURL" name="official_url" type="url" def={e?.official_url} />
           <T label="ジャンル別の追加項目（「項目名: 値」を1行ずつ）" name="extra_info" def={e?.extra_info} placeholder={'打ち上げ数: 約1万発\n雨天時: 翌日に順延'} />
+          <div className="field">
+            <label htmlFor="hashtags">SNSのハッシュタグ（空欄なら自動。#イベナウ は常に先頭に付きます・最大3個）</label>
+            <input id="hashtags" name="hashtags" defaultValue={e?.hashtags ?? ''} placeholder={autoTags?.slice(1).join(' ') || '#神奈川イベント #花火大会'} />
+            {autoTags && <div className="muted small" style={{ marginTop: 4 }}>自動の場合：{autoTags.join(' ')}</div>}
+          </div>
           <div className="two">
             <F label="画像URL（利用許諾済みのもののみ）" name="image_url" type="url" def={e?.image_url} />
             <F label="画像クレジット" name="image_credit" def={e?.image_credit} />

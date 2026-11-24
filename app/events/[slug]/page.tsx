@@ -8,6 +8,11 @@ import { fmtRange, isOngoing } from '@/lib/dates';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
+import ShareButtons from '@/components/ShareButtons';
+import { hashtagsFor, type TagContext } from '@/lib/hashtags';
+import { composePost, shareUrl } from '@/lib/share';
+import { q } from '@/lib/db';
+import { todayJST, weekendRange } from '@/lib/dates';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,13 +75,31 @@ function fieldValue(e: EventCard, key: string): React.ReactNode {
   }
 }
 
-export default async function EventPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function EventPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ ref?: string }> }) {
   const e = await getEventBySlug((await params).slug);
   if (!e || !e.published) notFound();
   const [genres, categories, spots, reports, shapes] = await Promise.all([
     listGenres(), eventCategories(e.id, e.genre_id), eventSpots(e.id), recentReports(e.id), eventShapes(e.id),
   ]);
   const genre = genres.find((g) => g.id === e.genre_id)!;
+
+  // 共有リンク（?ref=x など）から来た訪問を記録（SNSからの流入の目安。個人情報は保存しない）
+  const { ref } = await searchParams;
+  if (ref && /^[a-z_]{1,20}$/.test(ref) && e.published) {
+    await q("INSERT INTO share_events (event_id, action, channel, context, created_at) VALUES ($1, 'visit', $2, $3, $4)",
+      [e.id, ref, ref.endsWith('_live') ? 'live' : 'event', Date.now()]);
+  }
+
+  // SNS共有の文章（イベント名・日程・場所・URL・ハッシュタグ）
+  const base = siteUrl();
+  const today = todayJST();
+  const [wkStart, wkEnd] = weekendRange(today);
+  const tagCtx: TagContext = e.start_date <= today && today <= e.end_date ? 'today'
+    : e.start_date <= wkEnd && e.end_date >= wkStart ? 'weekend' : 'default';
+  const tags = hashtagsFor({ ...e, genre_slug: genre.slug }, tagCtx);
+  const shareLines = [e.name, `📅 ${fmtRange(e.start_date, e.end_date)}`, `📍 ${e.prefecture}${e.city}`, 'トイレ・駐車場の混雑や待ち時間をチェック！'];
+  const eventPath = `/events/${e.slug}`;
+  const liveTags = hashtagsFor({ ...e, genre_slug: genre.slug }, 'live');
   const ongoing = isOngoing(e.start_date, e.end_date);
   const postable = e.status === 'scheduled' && ongoing;
   const blocked = e.status === 'canceled' ? 'このイベントは中止のため、投稿を受け付けていません。'
@@ -123,13 +146,20 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
         </div>
       </div>
 
+      {!e.is_sample && e.published ? (
+        <ShareButtons eventId={e.id} title="このイベントを共有" url={shareUrl(base, eventPath, 'copy')}
+          xText={composePost(shareLines, shareUrl(base, eventPath, 'x'), tags)}
+          lineText={composePost(shareLines, shareUrl(base, eventPath, 'line'), tags, 1000)} />
+      ) : null}
+
       <nav className="tabs">
         <a href="#live" className="primary">現地の状況</a>
         <a href="#info">イベント情報</a>
       </nav>
 
       <EventLive eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
-        initialReports={reports} serverNow={Date.now()} postable={postable} postBlockedReason={blocked} />
+        initialReports={reports} serverNow={Date.now()} postable={postable} postBlockedReason={blocked}
+        share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined} />
 
       <section className="section" id="info" style={{ scrollMarginTop: 130 }}>
         <div className="section-head"><h2>イベント情報</h2></div>

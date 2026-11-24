@@ -1,3 +1,4 @@
+import { autoHashtags } from '@/lib/hashtags';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import EventForm from '@/components/admin/EventForm';
@@ -23,7 +24,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
       {!e.published && <div className="banner postponed">🔒 このイベントは<strong>非公開</strong>です（一般の人には表示されません）</div>}
       <MapEditor eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} spots={spots} shapes={shapes} categories={cats} />
       <h2 style={{ fontSize: 17, marginTop: 24 }}>イベント情報の編集</h2>
-      <EventForm event={e} {...fd} />
+      <EventForm event={e} {...fd} autoTags={autoHashtags({ ...e, genre_slug: fd.genres.find((g) => g.id === e.genre_id)?.slug })} />
       <form action={deleteEvent} className="panel">
         <input type="hidden" name="id" value={e.id} />
         <h2>イベントの削除</h2>

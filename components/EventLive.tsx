@@ -6,6 +6,8 @@ import { iconHtml } from '@/lib/icons';
 import { clockTime, EXPIRE_MIN, FRESH_MIN, freshness, LEVEL_COLORS, levelColor, relTime } from '@/lib/freshness';
 import type { Category, Report, Spot } from '@/lib/types';
 import type { MapMarker } from './LeafletMap';
+import ShareButtons from './ShareButtons';
+import { composePost, shareUrl } from '@/lib/share';
 import type { MapShape } from '@/lib/shapes';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
@@ -25,6 +27,8 @@ type Props = {
   serverNow: number;
   postable: boolean;
   postBlockedReason: string;
+  /** 現地情報を投稿した直後に出す共有（サンプル・非公開イベントでは出さない） */
+  share?: { eventName: string; base: string; path: string; tags: string[] };
 };
 
 const POLL_MS = 20_000;
@@ -41,6 +45,7 @@ export default function EventLive(p: Props) {
   const [selected, setSelected] = useState<number | null>(null);
   const [toast, setToast] = useState<{ msg: string; error?: boolean } | null>(null);
   const [posting, setPosting] = useState(false);
+  const [liveShare, setLiveShare] = useState<{ spot: string; label: string; time: string } | null>(null);
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
 
   const catById = useMemo(() => new Map(p.categories.map((c) => [c.id, c])), [p.categories]);
@@ -109,6 +114,8 @@ export default function EventLive(p: Props) {
         setNow(Date.now() + skew);
         setSelected(null);
         setToast({ msg: '投稿しました。ありがとうございます！' });
+        const sp = spotById.get(spotId);
+        if (p.share && sp) setLiveShare({ spot: sp.name, label: data.report.label, time: clockTime(data.report.created_at) });
       } else {
         setToast({ msg: data.error ?? '投稿できませんでした', error: true });
       }
@@ -256,6 +263,20 @@ export default function EventLive(p: Props) {
         </>
       )}
       {toast && <div className={`toast ${toast.error ? 'error' : ''}`} role="status">{toast.msg}</div>}
+      {liveShare && p.share && !toast && (() => {
+        const s = p.share;
+        const lines = [`${s.eventName}の${liveShare.spot}、いま「${liveShare.label}」です！（${liveShare.time}時点）`, 'トイレ・駐車場など現地の最新状況はこちら'];
+        const live = (ref: string) => shareUrl(s.base, s.path, ref) + '#live';
+        return (
+          <div className="live-share" role="dialog" aria-label="現地の状況を共有">
+            <button className="close" aria-label="閉じる" onClick={() => setLiveShare(null)}>×</button>
+            <p><strong>この情報をシェアして、ほかの来場者にも知らせませんか？</strong></p>
+            <p className="muted small">{lines[0]}</p>
+            <ShareButtons eventId={p.eventId} context="live" compact url={live('copy_live')}
+              xText={composePost(lines, live('x_live'), s.tags)} lineText={composePost(lines, live('line_live'), s.tags, 1000)} />
+          </div>
+        );
+      })()}
     </div>
   );
 }

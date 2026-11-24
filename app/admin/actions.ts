@@ -9,6 +9,7 @@ import { seedSamples } from '@/lib/seed';
 import type { ReportOption } from '@/lib/types';
 import { SHAPE_STYLES } from '@/lib/shapes';
 import { CANVAS_W } from '@/lib/canvas';
+import { cleanTag, OFFICIAL_TAG } from '@/lib/hashtags';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const n = (f: FormData, k: string) => Number(f.get(k));
@@ -40,7 +41,9 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
     start_date: s(f, 'start_date'), end_date: s(f, 'end_date') || s(f, 'start_date'), time_text: s(f, 'time_text'),
     summary: s(f, 'summary'), organizer: s(f, 'organizer'), official_url: s(f, 'official_url'), access: s(f, 'access'),
     nearest_station: s(f, 'nearest_station'), traffic_info: s(f, 'traffic_info'), parking_info: s(f, 'parking_info'),
-    ticket_info: s(f, 'ticket_info'), extra_info: s(f, 'extra_info'), status: s(f, 'status') || 'scheduled', status_note: s(f, 'status_note'),
+    ticket_info: s(f, 'ticket_info'), extra_info: s(f, 'extra_info'),
+    // ハッシュタグ（空欄なら自動）。記号を除いて重複をなくし、#イベナウ以外で最大3個まで保存
+    hashtags: cleanHashtags(s(f, 'hashtags')), status: s(f, 'status') || 'scheduled', status_note: s(f, 'status_note'),
     image_url: s(f, 'image_url'), image_credit: s(f, 'image_credit'), is_sample: f.get('is_sample') ? 1 : 0,
     is_featured: f.get('is_featured') ? 1 : 0, published: f.get('published') ? 1 : 0,
     source_url: s(f, 'source_url'), source_checked_at: s(f, 'source_checked_at'),
@@ -249,4 +252,13 @@ async function meetsPublishRule(eventId: number): Promise<boolean> {
       COUNT(*) FILTER (WHERE c.slug IN ('toilet', 'parking'))::int AS key
     FROM spots s JOIN spot_categories c ON c.id = s.category_id WHERE s.event_id = $1`, [eventId]);
   return r.total >= 3 && r.key >= 1;
+}
+
+/** 管理画面で入力されたハッシュタグを整える（#イベナウ は自動で先頭に付くので保存しない） */
+function cleanHashtags(raw: string): string {
+  const out: string[] = [];
+  for (const t of raw.split(/[\s,、]+/).map(cleanTag)) {
+    if (t && t !== OFFICIAL_TAG && !out.includes(t)) out.push(t);
+  }
+  return out.slice(0, 3).join(' ');
 }

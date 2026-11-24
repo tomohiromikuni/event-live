@@ -185,7 +185,25 @@ CREATE TABLE IF NOT EXISTS inquiries (
 CREATE INDEX IF NOT EXISTS idx_inquiries_created ON inquiries(created_at);
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5];
+/**
+ * v6: ハッシュタグとSNS共有の記録。
+ * share_events には「共有ボタンが押された」「共有リンクから来訪した」を自前で記録する
+ * （SNS側の表示回数・反応数はAPIで取得できる範囲が限られるため、取れるものだけを持つ）。
+ */
+const V6 = `
+ALTER TABLE events ADD COLUMN IF NOT EXISTS hashtags TEXT NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS share_events (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,                   -- click（共有ボタン）/ visit（共有リンクからの来訪）
+  channel TEXT NOT NULL,                  -- x / line / copy / native ／ visit は ref の値
+  context TEXT NOT NULL DEFAULT 'event',  -- event（イベント紹介）/ live（現地情報）
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_share_event_time ON share_events(event_id, created_at);
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
