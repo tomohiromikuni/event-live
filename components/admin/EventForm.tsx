@@ -65,7 +65,7 @@ export default function EventForm({ event: e, genres, categories, genreDefaults,
             <F label="開催状況の補足" name="status_note" def={e?.status_note} placeholder="中止・延期の理由など" />
           </div>
           <div className="check-grid">
-            <label><input type="checkbox" name="published" defaultChecked={e ? !!e.published : true} /> 公開する</label>
+            <label title="会場マップ（施設3件以上、うちトイレか駐車場1件以上）ができてから公開できます"><input type="checkbox" name="published" defaultChecked={e ? !!e.published : false} /> 公開する（会場マップ作成後）</label>
             <label><input type="checkbox" name="is_featured" defaultChecked={!!e?.is_featured} /> 注目イベント</label>
             <label><input type="checkbox" name="is_sample" defaultChecked={e ? !!e.is_sample : false} /> サンプルデータ</label>
           </div>

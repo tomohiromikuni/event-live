@@ -51,6 +51,11 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
   if (!DATE_RE.test(v.start_date) || !DATE_RE.test(v.end_date) || v.end_date < v.start_date) return '開催日が不正です';
   if (!['scheduled', 'canceled', 'postponed'].includes(v.status)) return '開催状況が不正です';
   for (const u of [v.official_url, v.source_url, v.image_url]) if (u && !/^https?:\/\//.test(u)) return 'URLは http(s):// から入力してください';
+  // 掲載基準: 会場マップがあるイベントだけを公開する（施設3件以上、うちトイレか駐車場が1件以上）
+  if (v.published) {
+    const ok = id ? await meetsPublishRule(id) : false;
+    if (!ok) return PUBLISH_RULE_MSG;
+  }
   const cats = f.getAll('categories').map(Number).filter(Boolean);
 
   let eventId: number;
@@ -233,4 +238,15 @@ export async function saveReportType(f: FormData) {
     await q('INSERT INTO report_types (slug, name, options) VALUES ($1, $2, $3) ON CONFLICT (slug) DO NOTHING', [s(f, 'slug'), s(f, 'name'), JSON.stringify(options)]);
   }
   revalidatePath('/', 'layout');
+}
+
+// ---------- 掲載基準 ----------
+const PUBLISH_RULE_MSG = '公開するには会場マップが必要です（施設3件以上、うちトイレか駐車場が1件以上）。「公開する」のチェックを外して保存し、マップを作ってから公開してください';
+
+/** 会場マップが掲載基準を満たしているか（施設3件以上、うちトイレか駐車場が1件以上） */
+async function meetsPublishRule(eventId: number): Promise<boolean> {
+  const [r] = await q<{ total: number; key: number }>(`SELECT COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE c.slug IN ('toilet', 'parking'))::int AS key
+    FROM spots s JOIN spot_categories c ON c.id = s.category_id WHERE s.event_id = $1`, [eventId]);
+  return r.total >= 3 && r.key >= 1;
 }

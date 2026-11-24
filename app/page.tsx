@@ -1,20 +1,16 @@
 import Link from 'next/link';
 import EventCard, { CardRow, ItemList } from '@/components/EventCard';
-import { featuredEvents, latestSpotStatuses, listGenres, liveEvents, prefectureCounts, searchEvents } from '@/lib/queries';
-import { REGIONS } from '@/lib/prefectures';
+import { latestSpotStatuses, liveEvents, searchEvents } from '@/lib/queries';
 import { UNOFFICIAL } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [genres, live, today, weekend, featured, upcoming, prefCounts] = await Promise.all([
-    listGenres(),
+  // トップは「イベント名で検索」が主役。一覧は開催中と近日開催だけに絞る（会場マップのあるイベントだけを掲載する方針）
+  const [live, today, upcoming] = await Promise.all([
     liveEvents(),
     searchEvents({ when: 'today', limit: 20 }),
-    searchEvents({ when: 'weekend', limit: 20 }),
-    featuredEvents(),
     searchEvents({ when: 'upcoming', limit: 12 }),
-    prefectureCounts(),
   ]);
   // いちばん投稿の多いイベントは、地点ごとのいまの状況もカードに出す
   const statuses = live[0] ? await latestSpotStatuses([live[0].id]) : {};
@@ -30,24 +26,12 @@ export default async function Home() {
             <p>混雑・待ち時間・駐車場を、<br />来場者がリアルタイムで投稿。</p>
           </div>
           <form action="/search" className="search-box">
-            <input name="q" type="search" placeholder="イベント名・地域・会場" aria-label="キーワード" />
+            <input name="q" type="search" placeholder="イベント名で探す" aria-label="キーワード" />
             <button className="btn pop" type="submit">検索</button>
           </form>
         </section>
 
-        <nav className="when-links" aria-label="いつ">
-          <Link href="/search?when=today">今日</Link>
-          <Link href="/search?when=weekend">今週末</Link>
-          <Link href="/search?when=upcoming">今後</Link>
-        </nav>
 
-        <nav className="chips" aria-label="ジャンル" style={{ marginTop: 6 }}>
-          {genres.map((g) => (
-            <Link key={g.id} href={`/search?genre=${g.slug}`} className="chip">
-              <span className="chip-dot" style={{ background: g.color }} aria-hidden />{g.name}
-            </Link>
-          ))}
-        </nav>
 
         {live.length > 0 && (
           <section className="section" style={{ marginTop: 18 }}>
@@ -58,40 +42,17 @@ export default async function Home() {
         )}
 
         <section className="section">
-          <div className="section-head"><h2>今日開催</h2><Link href="/search?when=today">すべて見る</Link></div>
-          <ItemList events={today} empty="今日開催のイベントは登録されていません" />
+          <div className="section-head"><h2>開催中</h2><Link href="/search?when=today">すべて見る</Link></div>
+          <ItemList events={today} empty="いま開催中のイベントはありません" />
         </section>
 
-        <section className="section">
-          <div className="section-head"><h2>今週末</h2><Link href="/search?when=weekend">すべて見る</Link></div>
-          <CardRow events={weekend} empty="今週末のイベントは登録されていません" />
-        </section>
+
 
         <section className="section">
-          <div className="section-head"><h2>注目のイベント</h2></div>
-          <CardRow events={featured} empty="注目イベントはありません" />
+          <div className="section-head"><h2>近日開催</h2><Link href="/search?when=upcoming">すべて見る</Link></div>
+          <ItemList events={upcoming} empty="近日開催のイベントはまだありません" />
         </section>
 
-        <section className="section">
-          <div className="section-head"><h2>今後の予定</h2><Link href="/search?when=upcoming">すべて見る</Link></div>
-          <ItemList events={upcoming} empty="今後の予定はまだ登録されていません" />
-        </section>
-
-        <section className="section">
-          <div className="section-head"><h2>都道府県から探す</h2></div>
-          {REGIONS.map((r) => (
-            <div key={r.name} className="pref-region">
-              <h3>{r.name}</h3>
-              <div className="pref-list">
-                {r.prefs.map((p) => (
-                  <Link key={p} href={`/search?pref=${encodeURIComponent(p)}`} className={prefCounts[p] ? 'has' : 'none'}>
-                    {p.replace(/[都府県]$/, '')}{prefCounts[p] ? ` ${prefCounts[p]}` : ''}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </section>
       </div>
     </>
   );
