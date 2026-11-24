@@ -11,7 +11,7 @@ import type { Category, Spot } from '@/lib/types';
 
 const LeafletMap = dynamic(() => import('../LeafletMap'), { ssr: false, loading: () => <div className="admin-map" /> });
 
-type Props = { eventId: number; canvas: { w: number; h: number }; spots: Spot[]; shapes: MapShape[]; categories: Category[] };
+type Props = { eventId: number; canvas: { w: number; h: number }; geo?: boolean; center?: [number, number]; spots: Spot[]; shapes: MapShape[]; categories: Category[] };
 type Mode = 'spot' | 'area' | 'line';
 
 const HINTS: Record<Mode, string> = {
@@ -24,7 +24,7 @@ const HINTS: Record<Mode, string> = {
  * 簡易マップ（見取り図）の作図画面。
  * ガイドマップ画像は「下敷き」としてこのブラウザ内でだけ使い、サーバーには送信・保存しない（公開もされない）。
  */
-export default function MapEditor({ eventId, canvas, spots, shapes, categories }: Props) {
+export default function MapEditor({ eventId, canvas, geo, center, spots, shapes, categories }: Props) {
   const router = useRouter();
   const [, start] = useTransition();
   const [mode, setMode] = useState<Mode>('spot');
@@ -76,9 +76,9 @@ export default function MapEditor({ eventId, canvas, spots, shapes, categories }
   }
 
   function onMapClick(y: number, x: number) {
-    if (y < 0 || x < 0 || y > canvas.h || x > canvas.w) return; // 用紙の外は無視
+    if (!geo && (y < 0 || x < 0 || y > canvas.h || x > canvas.w)) return; // 見取り図では用紙の外は無視
     if (mode === 'spot') setPos({ lat: y, lng: x });
-    else if (!finishing) setVerts((v) => [...v, [+y.toFixed(1), +x.toFixed(1)]]);
+    else if (!finishing) setVerts((v) => [...v, [+y.toFixed(6), +x.toFixed(6)]]);
   }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -118,6 +118,9 @@ export default function MapEditor({ eventId, canvas, spots, shapes, categories }
         絵や配色はなぞらず、エリア・線・施設の位置だけを描いてください。主催者が利用を禁止している場合は使わないでください。
       </p>
 
+      {geo ? (
+        <div className="tool-guide small">🗾 この会場マップは<strong>地図（国土地理院の地図を背景に表示）</strong>です。Google マイマップ等から取り込んだ位置をそのまま使っています。地図をタップして施設を追加・修正できます。</div>
+      ) : (
       <div className="tool-guide">
         <label className="btn ghost sm" style={{ cursor: 'pointer' }}>
           🗺️ ガイドマップを読み込む
@@ -131,6 +134,7 @@ export default function MapEditor({ eventId, canvas, spots, shapes, categories }
         )}
         {!guideUrl && <span className="muted small">PNG・JPG（PDFは該当ページを画像にしてから）</span>}
       </div>
+      )}
 
       <div className="tool-bar" role="toolbar">
         <button className={mode === 'spot' ? 'on' : ''} onClick={() => switchMode('spot')}>📍 施設を置く</button>
@@ -139,7 +143,7 @@ export default function MapEditor({ eventId, canvas, spots, shapes, categories }
       </div>
       <div className="tool-hint">{HINTS[mode]}</div>
 
-      <LeafletMap key={`${canvas.w}x${canvas.h}`} className="admin-map" canvas={canvas} markers={markers} shapes={shapes}
+      <LeafletMap key={`${geo ? 'geo' : 'canvas'}-${canvas.w}x${canvas.h}`} className="admin-map" canvas={canvas} geo={geo} center={center} markers={markers} shapes={shapes}
         onReady={(map, lib) => setMapInst({ map, lib })} onMapClick={onMapClick}
         onMarkerDragEnd={(id, y, x) => { if (id > 0) start(async () => { await moveSpot(id, y, x); refresh('施設の位置を更新しました'); }); }} />
       {msg && <div className="flash">{msg}</div>}

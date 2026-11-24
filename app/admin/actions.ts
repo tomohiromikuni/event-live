@@ -145,7 +145,7 @@ function cleanCoords(coords: unknown): [number, number][] | null {
     if (!Array.isArray(c) || c.length !== 2) return null;
     const [lat, lng] = c.map(Number);
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 10000 || Math.abs(lng) > 10000) return null;
-    out.push([+lat.toFixed(1), +lng.toFixed(1)]);
+    out.push([+lat.toFixed(6), +lng.toFixed(6)]); // 緯度経度（地図モード）でも精度が落ちないように6桁
   }
   return out;
 }

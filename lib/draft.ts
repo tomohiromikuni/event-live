@@ -31,6 +31,8 @@ export type Draft = {
 };
 
 export type CheckedDraft = {
+  /** true = 緯度経度の下書き（draft は緯度経度のまま。取り込み時に地図モードで保存する） */
+  geo?: boolean;
   errors: string[];
   warnings: string[];
   draft: Draft | null;
@@ -53,9 +55,12 @@ export function checkDraft(text: string, known: { genres: string[]; categories: 
     return { errors: ['JSONとして読み取れません。コピーした内容をそのまま貼り付けてください。'], warnings, draft: null, summary: '' };
   }
   if (!raw || typeof raw !== 'object') return { errors: ['下書きの形式が不正です'], warnings, draft: null, summary: '' };
-  const geoErr = (raw as Draft).map?.projection === 'geo' ? geoToImage(raw as Draft) : null;
+  // 緯度経度の下書きは、チェック用のコピーだけ画像上の % に変換して同じ検査を通す（元データは緯度経度のまま返す）
+  const isGeo = (raw as Draft).map?.projection === 'geo';
+  const original = raw as Draft;
+  const d = isGeo ? (structuredClone(raw) as Draft) : original;
+  const geoErr = isGeo ? geoToImage(d) : null;
   if (geoErr) return { errors: [geoErr], warnings, draft: null, summary: '' };
-  const d = raw as Draft;
 
   if (needEvent && !d.event) errors.push('新しいイベントとして登録するには event（イベント情報）が必要です');
   if (d.event) {
@@ -90,13 +95,13 @@ export function checkDraft(text: string, known: { genres: string[]; categories: 
   }
   const nSpots = m.spots?.length ?? 0, nAreas = m.areas?.length ?? 0, nLines = m.lines?.length ?? 0;
   if (!d.event && nSpots + nAreas + nLines === 0) errors.push('取り込む内容がありません');
-  if (d.map && m.aspect == null) warnings.push('map.aspect がないため、用紙の比率は 横1000×縦700 になります');
+  if (d.map && m.aspect == null && !isGeo) warnings.push('map.aspect がないため、用紙の比率は 横1000×縦700 になります');
 
   const summary = [
     d.event ? `イベント「${d.event.name}」（${d.event.start_date}${d.event.end_date && d.event.end_date !== d.event.start_date ? `〜${d.event.end_date}` : ''}・${d.event.prefecture}）` : null,
     `施設 ${nSpots}件・エリア ${nAreas}件・線 ${nLines}件`,
   ].filter(Boolean).join(' / ');
-  return { errors, warnings, draft: errors.length ? null : d, summary };
+  return { geo: isGeo, errors, warnings, draft: errors.length ? null : original, summary };
 }
 
 /** ガイドマップ上の位置（%）→ 用紙の座標 [y, x]（下が0） */

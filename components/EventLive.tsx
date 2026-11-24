@@ -16,6 +16,8 @@ const LeafletMap = dynamic(() => import('./LeafletMap'), {
 type Props = {
   eventId: number;
   canvas: { w: number; h: number };
+  geo?: boolean;
+  center?: [number, number];
   categories: Category[];
   spots: Spot[];
   shapes: MapShape[];
@@ -142,7 +144,7 @@ export default function EventLive(p: Props) {
 
       <div className="live-body">
       <div className="live-map">
-      <LeafletMap canvas={p.canvas} markers={markers} shapes={p.shapes}
+      <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={p.shapes}
         onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
 
       <div className="legend">

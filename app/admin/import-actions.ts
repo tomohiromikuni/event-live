@@ -27,7 +27,13 @@ export async function importDraft(_prev: ImportResult | null, f: FormData): Prom
 
   const d = chk.draft;
   const catId = new Map(cats.map((c) => [c.slug, c.id]));
-  const { w, h, conv } = toCanvas(d.map?.aspect);
+  const geo = !!chk.geo;
+  const { w, h, conv: toCanvasPt } = toCanvas(d.map?.aspect);
+  // 位置の変換: 見取り図は画像上の% → 用紙座標、地図（geo）は緯度経度をそのまま [lat, lng] で保存
+  const conv = (p: [number, number]): [number, number] => (geo ? [p[0], p[1]] : toCanvasPt(p));
+  const geoSpots = (d.map?.spots ?? []) as unknown as { lat: number; lng: number }[];
+  const center = geo && geoSpots.length
+    ? [geoSpots.reduce((a, s) => a + s.lat, 0) / geoSpots.length, geoSpots.reduce((a, s) => a + s.lng, 0) / geoSpots.length] : null;
   let eventId: number;
   try {
     eventId = await tx(async (tq) => {
@@ -42,27 +48,32 @@ export async function importDraft(_prev: ImportResult | null, f: FormData): Prom
           organizer: e.organizer ?? '', official_url: e.official_url ?? '', access: e.access ?? '', nearest_station: e.nearest_station ?? '',
           traffic_info: e.traffic_info ?? '', parking_info: e.parking_info ?? '', ticket_info: e.ticket_info ?? '', extra_info: e.extra_info ?? '',
           source_url: e.source_url ?? '', source_checked_at: e.source_checked_at ?? '',
-          published: 0, is_sample: 0, map_w: w, map_h: h, created_at: now, updated_at: now,
+          published: 0, is_sample: 0, map_w: w, map_h: h, map_mode: geo ? 'geo' : 'canvas',
+          lat: center?.[0] ?? 0, lng: center?.[1] ?? 0, created_at: now, updated_at: now,
         };
         const keys = Object.keys(cols);
         eid = (await tq<{ id: number }>(`INSERT INTO events (${keys.join(', ')}) VALUES (${keys.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING id`,
           Object.values(cols)))[0].id;
       } else {
         eid = Number(mode);
-        const ev = (await tq<{ map_h: number }>('SELECT map_h FROM events WHERE id = $1', [eid]))[0];
+        const ev = (await tq<{ map_h: number; map_mode: string }>('SELECT map_h, map_mode FROM events WHERE id = $1', [eid]))[0];
         if (!ev) throw new Error('対象のイベントが見つかりません');
         const [{ n }] = await tq<{ n: number }>(
           'SELECT ((SELECT COUNT(*) FROM spots WHERE event_id = $1) + (SELECT COUNT(*) FROM map_shapes WHERE event_id = $1))::int AS n', [eid]);
         if (n === 0) {
-          // まだ何も描いていなければ、用紙の比率を下書きに合わせる
-          await tq('UPDATE events SET map_w = $1, map_h = $2 WHERE id = $3', [w, h, eid]);
-        } else if (Math.abs(ev.map_h - h) > 2) {
+          // まだ何も描いていなければ、地図の種類・用紙の比率を下書きに合わせる
+          await tq('UPDATE events SET map_w = $1, map_h = $2, map_mode = $3 WHERE id = $4', [w, h, geo ? 'geo' : 'canvas', eid]);
+          if (center) await tq('UPDATE events SET lat = $1, lng = $2 WHERE id = $3 AND lat = 0 AND lng = 0', [center[0], center[1], eid]);
+        } else if ((ev.map_mode === 'geo') !== geo) {
+          throw new Error('このイベントにはすでに別の種類のマップ（見取り図／地図）が描かれています。既存の施設・エリアを削除してから取り込んでください');
+        } else if (!geo && Math.abs(ev.map_h - h) > 2) {
           throw new Error('このイベントにはすでに別の比率でマップが描かれています。既存の施設・エリアを削除してから取り込むか、新しいイベントとして取り込んでください');
         }
       }
       const m = d.map ?? {};
       for (const sp of m.spots ?? []) {
-        const [y, x] = conv([sp.x, sp.y]);
+        const g = sp as unknown as { lat: number; lng: number };
+        const [y, x] = geo ? [g.lat, g.lng] : conv([sp.x, sp.y]);
         await tq(`INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort)
           VALUES ($1, $2, $3, $4, $5, $6, (SELECT COALESCE(MAX(sort), 0) + 1 FROM spots WHERE event_id = $1))`,
           [eid, catId.get(sp.category)!, sp.name.trim().slice(0, 60), (sp.note ?? '').slice(0, 100), y, x]);

@@ -22,7 +22,7 @@ export default async function Home() {
       <div className="container hero-wrap">
         <section className="hero">
           <div className="hero-copy">
-            {UNOFFICIAL && <span className="unofficial-note">非公式・主催者とは無関係</span>}
+            {UNOFFICIAL && <span className="unofficial-note">非公式</span>}
             <h1>イベントの<br className="sp-only" />「今」が<br className="sp-only" />わかる。</h1>
             <p>混雑・待ち時間・駐車場を、<br />来場者がリアルタイムで投稿。</p>
           </div>

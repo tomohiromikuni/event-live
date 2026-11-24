@@ -162,7 +162,10 @@ const V3 = async (q: Q) => {
   for (const { id } of await q<{ id: number }>('SELECT id FROM events')) await convertEventToCanvas(q, id);
 };
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3];
+/** v4: 地図の種類。canvas = ガイドマップから描いた見取り図 ／ geo = 緯度経度（マイマップ等）＋国土地理院の地図を背景に表示 */
+const V4 = `ALTER TABLE events ADD COLUMN IF NOT EXISTS map_mode TEXT NOT NULL DEFAULT 'canvas'`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

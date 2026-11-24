@@ -128,7 +128,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
         <a href="#info">イベント情報</a>
       </nav>
 
-      <EventLive eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} categories={categories} spots={spots} shapes={shapes}
+      <EventLive eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
         initialReports={reports} serverNow={Date.now()} postable={postable} postBlockedReason={blocked} />
 
       <section className="section" id="info" style={{ scrollMarginTop: 130 }}>

@@ -23,6 +23,7 @@ export type EventRow = {
   source_url: string; source_checked_at: string;
   map_style: string;
   map_w: number; map_h: number;
+  map_mode: 'canvas' | 'geo';
   created_at: number; updated_at: number;
 };
 
