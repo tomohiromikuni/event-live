@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CardList, CardRow } from '@/components/EventCard';
+import EventCard, { CardRow, ItemList } from '@/components/EventCard';
 import { featuredEvents, listGenres, liveEvents, prefectureCounts, searchEvents } from '@/lib/queries';
 import { REGIONS } from '@/lib/prefectures';
 import { UNOFFICIAL } from '@/lib/site';
@@ -19,40 +19,42 @@ export default async function Home() {
 
   return (
     <>
-      <section className="hero">
-        <div className="container">
-          {UNOFFICIAL && <span className="unofficial-note">非公式・主催者とは無関係の情報共有サービス</span>}
-          <h1>イベントの「今」がわかる。</h1>
-          <p>全国のイベント情報と、来場者が投稿する混雑・待ち時間・駐車場のリアルタイム情報</p>
+      <div className="container hero-wrap">
+        <section className="hero">
+          {UNOFFICIAL && <span className="unofficial-note">非公式・主催者とは無関係</span>}
+          <h1>イベントの<br />「今」が<br />わかる。</h1>
+          <p>混雑・待ち時間・駐車場を、<br />来場者がリアルタイムで投稿。</p>
           <form action="/search" className="search-box">
-            <input name="q" type="search" placeholder="イベント名・地域・会場で検索" aria-label="キーワード" />
-            <button className="btn light" type="submit">検索</button>
+            <input name="q" type="search" placeholder="イベント名・地域・会場" aria-label="キーワード" />
+            <button className="btn pop" type="submit">検索</button>
           </form>
-          <div className="quick-links">
-            <Link href="/search?when=today">📅 今日</Link>
-            <Link href="/search?when=weekend">🗓️ 今週末</Link>
-            <Link href="/search?when=upcoming">⏭️ 今後の予定</Link>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <div className="container">
-        <nav className="chips" aria-label="ジャンル">
+        <nav className="when-links" aria-label="いつ">
+          <Link href="/search?when=today">今日</Link>
+          <Link href="/search?when=weekend">今週末</Link>
+          <Link href="/search?when=upcoming">今後</Link>
+        </nav>
+
+        <nav className="chips" aria-label="ジャンル" style={{ marginTop: 6 }}>
           {genres.map((g) => (
-            <Link key={g.id} href={`/search?genre=${g.slug}`} className="chip">{g.icon} {g.name}</Link>
+            <Link key={g.id} href={`/search?genre=${g.slug}`} className="chip">
+              <span className="chip-dot" style={{ background: g.color }} aria-hidden />{g.name}
+            </Link>
           ))}
         </nav>
 
         {live.length > 0 && (
-          <section className="section">
-            <div className="section-head"><h2><span className="live-dot" />いま現地情報が届いています</h2></div>
-            <CardRow events={live} empty="" />
+          <section className="section" style={{ marginTop: 18 }}>
+            <div className="section-head"><h2><span className="live-dot" />いま、現地が盛り上がり中</h2></div>
+            <EventCard e={live[0]} hero />
+            {live.length > 1 && <div style={{ marginTop: 14 }}><CardRow events={live.slice(1)} empty="" /></div>}
           </section>
         )}
 
         <section className="section">
           <div className="section-head"><h2>今日開催</h2><Link href="/search?when=today">すべて見る</Link></div>
-          <CardList events={today} empty="今日開催のイベントは登録されていません" />
+          <ItemList events={today} empty="今日開催のイベントは登録されていません" />
         </section>
 
         <section className="section">
@@ -67,7 +69,7 @@ export default async function Home() {
 
         <section className="section">
           <div className="section-head"><h2>今後の予定</h2><Link href="/search?when=upcoming">すべて見る</Link></div>
-          <CardList events={upcoming} empty="今後の予定はまだ登録されていません" />
+          <ItemList events={upcoming} empty="今後の予定はまだ登録されていません" />
         </section>
 
         <section className="section">
