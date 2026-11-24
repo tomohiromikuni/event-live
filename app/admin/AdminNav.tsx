@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 
 type Item = { href: string; label: string; count?: number; match: (path: string, flagged: boolean) => boolean };
 
-export default function AdminNav({ flags, inquiries, logout }: { flags: number; inquiries: number; logout: () => Promise<void> }) {
+export default function AdminNav({ flags, removals, inquiries, logout }: { flags: number; removals: number; inquiries: number; logout: () => Promise<void> }) {
   const path = usePathname();
   const flagged = useSearchParams().get('flagged') === '1';
   const groups: Item[][] = [
@@ -15,6 +15,7 @@ export default function AdminNav({ flags, inquiries, logout }: { flags: number; 
     [
       { href: '/admin/reports', label: '投稿', match: (p, f) => p.startsWith('/admin/reports') && !f },
       { href: '/admin/reports?flagged=1', label: '通報', count: flags, match: (p, f) => p.startsWith('/admin/reports') && f },
+      { href: '/admin/removals', label: '削除依頼', count: removals, match: (p) => p.startsWith('/admin/removals') },
       { href: '/admin/inquiries', label: '問い合わせ', count: inquiries, match: (p) => p.startsWith('/admin/inquiries') },
       { href: '/admin/sns', label: 'SNS・シェア', match: (p) => p.startsWith('/admin/sns') },
       { href: '/admin/searches', label: '検索ワード', match: (p) => p.startsWith('/admin/searches') },

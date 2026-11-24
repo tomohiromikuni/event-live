@@ -255,7 +255,16 @@ CREATE TABLE IF NOT EXISTS search_queries (
 );
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10];
+/**
+ * v11: 削除依頼（掲載停止の申請）の対応内容を残す。
+ * resolution: unpublished（掲載を停止した）/ kept（掲載を続けた）/ ''（未対応・問い合わせ）
+ */
+const V11 = `
+ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS resolution TEXT NOT NULL DEFAULT '';
+ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS resolved_at BIGINT;
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

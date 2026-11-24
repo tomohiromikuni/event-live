@@ -498,3 +498,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .ended-panel p { margin: 0 0 14px; }
 .ended-actions { display: grid; gap: 8px; }
 .ended-actions .btn { width: 100%; text-align: center; }
+
+/* 管理画面：削除依頼 */
+.admin .tag.danger { background: #fee2e2; color: #991b1b; }
+.admin .tag.ok { background: #dcfce7; color: #166534; }
+.removal-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 4px; margin-bottom: 6px; }
+.removal-head .tag:first-of-type { margin-left: 8px; }
+.removal-event { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 15px; }
+.removal-event .tag { margin-left: 0; }
+.removal-body { display: grid; grid-template-columns: 64px 1fr; gap: 4px 10px; margin: 10px 0; font-size: 13px; }
+.removal-body dt { color: var(--muted); }
+.removal-body dd { margin: 0; }
+.removal-actions { display: flex; flex-wrap: wrap; gap: 8px; }

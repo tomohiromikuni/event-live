@@ -45,7 +45,7 @@ export default async function AdminEvents({ searchParams }: { searchParams: Prom
   const total = rows.reduce((t, r) => ({ views: t.views + r.views, visitors: t.visitors + r.visitors, posts: t.posts + r.posts }), { views: 0, visitors: 0, posts: 0 });
   const pending = await pendingCounts();
   const todo = [
-    pending.removals ? { href: '/admin/inquiries', label: `掲載停止の申請 ${pending.removals}件` } : null,
+    pending.removals ? { href: '/admin/removals', label: `削除依頼 ${pending.removals}件` } : null,
     pending.flags ? { href: '/admin/reports?flagged=1', label: `通報 ${pending.flags}件` } : null,
     pending.inquiries ? { href: '/admin/inquiries', label: `問い合わせ ${pending.inquiries}件` } : null,
   ].filter((x): x is { href: string; label: string } => !!x);

@@ -16,18 +16,18 @@ async function setStatus(f: FormData) {
 
 export default async function Inquiries({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
   const { all } = await searchParams;
-  const rows = await q<Row>(`SELECT * FROM inquiries ${all ? '' : "WHERE status = 'new'"} ORDER BY created_at DESC LIMIT 200`);
+  const rows = await q<Row>(`SELECT * FROM inquiries WHERE kind <> 'removal' ${all ? '' : "AND status = 'new'"} ORDER BY created_at DESC LIMIT 200`);
   const mailOn = !!(process.env.CONTACT_EMAIL && process.env.RESEND_API_KEY);
   return (
     <>
       <div className="section-head">
-        <h2>{all ? '問い合わせ・掲載停止の申請（すべて）' : '未対応の問い合わせ・掲載停止の申請'}（{rows.length}件）</h2>
+        <h2>{all ? '問い合わせ（すべて）' : '未対応の問い合わせ'}（{rows.length}件）</h2>
         <Link href={all ? '/admin/inquiries' : '/admin/inquiries?all=1'}>{all ? '未対応だけ表示' : 'すべて表示'}</Link>
       </div>
       <p className="muted small">
         {mailOn ? '新しい申請・問い合わせは、設定したメールアドレスにも通知されます。'
           : '⚠️ メール通知が未設定です（環境変数 CONTACT_EMAIL と RESEND_API_KEY）。届いた内容はこの画面で確認できます。'}
-        掲載停止の申請は、内容を確認したうえでイベント編集画面の「公開する」を外すか、イベントを削除して対応してください。
+        掲載停止の申請（削除依頼）は、左メニューの<Link href="/admin/removals" style={{ textDecoration: 'underline' }}>削除依頼</Link>にまとめています。
       </p>
       <div style={{ display: 'grid', gap: 10 }}>
         {rows.length === 0 && <div className="empty">未対応のものはありません</div>}
