@@ -1,0 +1,40 @@
+import type { Metadata } from 'next';
+import { CONTACT_URL, SITE_NAME, UNOFFICIAL } from '@/lib/site';
+
+export const metadata: Metadata = { title: 'このサイトについて' };
+
+export default function About() {
+  return (
+    <div className="container" style={{ paddingTop: 16 }}>
+      <h1 style={{ fontSize: 20 }}>このサイトについて</h1>
+      {UNOFFICIAL && (
+        <div className="banner unofficial">
+          ℹ️ <span><strong>{SITE_NAME}は非公式のサービスです。</strong>掲載している各イベントの主催者・運営団体・会場・自治体とは一切関係がなく、承認や提携も受けていません。</span>
+        </div>
+      )}
+      <section className="section">
+        <h2 style={{ fontSize: 16 }}>サービスの内容</h2>
+        <p>全国のイベントの公開情報をまとめ、来場者が会場の混雑・待ち時間・駐車場などの状況を匿名で投稿・共有できるサービスです。</p>
+        <ul>
+          <li>イベントの基本情報は公開されている情報をもとに掲載しています。情報元と確認日は各ページに記載しています。</li>
+          <li>開催日時・中止・入場条件などは変更される場合があります。<strong>必ず公式サイトで最新情報をご確認ください。</strong></li>
+          <li>会場マップは独自に作成したもので、公式の案内図ではありません。施設の位置は目安です。</li>
+          <li>現地の状況は来場者の投稿で、正確性は保証されません。現地では係員・警備員の指示に従ってください。</li>
+          <li>公式マップ・写真・ロゴなどは、権利者の許諾なく掲載しません。</li>
+        </ul>
+      </section>
+      <section className="section">
+        <h2 style={{ fontSize: 16 }}>主催者・関係者の方へ</h2>
+        <p>掲載内容の誤り、掲載の停止をご希望の場合はご連絡ください。確認のうえ速やかに対応します。</p>
+        {CONTACT_URL
+          ? <p><a className="btn" href={CONTACT_URL}>訂正・削除のご依頼</a></p>
+          : <p className="muted small">お問い合わせ窓口は準備中です。</p>}
+      </section>
+      <section className="section">
+        <h2 style={{ fontSize: 16 }}>投稿について</h2>
+        <p>投稿はログイン不要・匿名です。連続投稿の制限や通報の仕組みを設けており、不適切な投稿は削除することがあります。
+          IPアドレスはそのまま保存せず、不正対策のために変換した値のみを保存しています。</p>
+      </section>
+    </div>
+  );
+}

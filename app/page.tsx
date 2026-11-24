@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { CardList, CardRow } from '@/components/EventCard';
 import { featuredEvents, listGenres, liveEvents, prefectureCounts, searchEvents } from '@/lib/queries';
 import { REGIONS } from '@/lib/prefectures';
+import { UNOFFICIAL } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,7 @@ export default async function Home() {
     <>
       <section className="hero">
         <div className="container">
+          {UNOFFICIAL && <span className="unofficial-note">非公式・主催者とは無関係の情報共有サービス</span>}
           <h1>イベントの「今」がわかる。</h1>
           <p>全国のイベント情報と、来場者が投稿する混雑・待ち時間・駐車場のリアルタイム情報</p>
           <form action="/search" className="search-box">

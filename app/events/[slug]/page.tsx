@@ -6,12 +6,13 @@ import { eventCategories, eventSpots, getEventBySlug, listGenres, recentReports 
 import { fmtRange, isOngoing } from '@/lib/dates';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
+import { UNOFFICIAL } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const e = await getEventBySlug((await params).slug);
-  return e ? { title: e.name, description: e.summary.slice(0, 120) } : {};
+  return e ? { title: UNOFFICIAL ? `${e.name}（非公式情報）` : e.name, description: e.summary.slice(0, 120) } : {};
 }
 
 const NONE = <span className="none">情報なし</span>;
@@ -53,6 +54,12 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
       {e.is_sample ? (
         <div className="banner sample">⚠️ <span>これは動作確認用の<strong>サンプルデータ</strong>です。実在のイベントではありません。</span></div>
       ) : null}
+      {UNOFFICIAL && (
+        <div className="banner unofficial">
+          ℹ️ <span>このページは<strong>非公式</strong>の情報ページです。{e.organizer ? `「${e.organizer}」` : '主催者'}とは関係ありません。
+            正確な情報は{e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">公式サイト</a> : '公式発表'}でご確認ください。</span>
+        </div>
+      )}
       {e.status === 'canceled' && <div className="banner canceled">🚫 <span><strong>開催中止</strong>　{e.status_note}</span></div>}
       {e.status === 'postponed' && <div className="banner postponed">⏸️ <span><strong>延期</strong>　{e.status_note}</span></div>}
 

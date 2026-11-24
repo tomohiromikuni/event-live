@@ -34,6 +34,8 @@ npm run build && npm start   # http://localhost:3000
 
 以後は `main` へ push するたびに自動でデプロイされます。URL は Settings → Domains で独自ドメインを追加・変更できます。
 
+- **非公式表示**: 既定でサイト全体（ヘッダー・トップ・各イベントページ・フッター・ページタイトル）に「非公式・主催者とは無関係」を表示します。
+  主催者と提携した場合などに外すときは `NEXT_PUBLIC_UNOFFICIAL=0`。訂正・削除依頼の受付先は `NEXT_PUBLIC_CONTACT_URL`（フォームURLや `mailto:`）で `/about` に表示されます。
 - サンプルの日程が古くなったら: 管理画面のイベント一覧下部「サンプルデータをリセット」。
 - 地図タイル: 既定は OpenStreetMap 公式タイル（試験運用向け）。本格公開時は商用利用可能なタイル提供元に切り替え、
   `NEXT_PUBLIC_TILE_URL` / `NEXT_PUBLIC_TILE_ATTRIBUTION` を設定してください。
