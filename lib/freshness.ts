@@ -34,7 +34,8 @@ export function clockTime(ts: number) {
   return new Date(ts).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
 }
 
-export const LEVEL_COLORS = ['#16a34a', '#d97706', '#ea580c', '#dc2626', '#374151'];
+// 白文字を載せても読めるよう（コントラスト 4.5:1 以上）やや濃いめの色にしている
+export const LEVEL_COLORS = ['#15803d', '#b45309', '#c2410c', '#dc2626', '#374151'];
 export const NO_INFO_COLOR = '#94a3b8';
 export function levelColor(level: number | null | undefined) {
   return level == null ? NO_INFO_COLOR : LEVEL_COLORS[Math.min(Math.max(level, 0), 4)];
