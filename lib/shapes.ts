@@ -23,11 +23,3 @@ export const SHAPE_STYLES: ShapeStyle[] = [
 export const shapeStyle = (key: string) => SHAPE_STYLES.find((s) => s.key === key) ?? SHAPE_STYLES[SHAPE_STYLES.length - 1];
 
 export type MapShape = { id: number; event_id: number; kind: ShapeKind; style: string; label: string; coords: [number, number][]; sort: number };
-
-/** 背景地図の表示方法 */
-export const MAP_STYLES = [
-  { key: 'light', name: '薄く表示（おすすめ）' },
-  { key: 'normal', name: '通常' },
-  { key: 'none', name: '非表示（簡易マップのみ）' },
-] as const;
-export type MapStyleKey = (typeof MAP_STYLES)[number]['key'];

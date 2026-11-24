@@ -7,7 +7,8 @@ import { adminPassword, endSession, requireAdmin, startSession } from '@/lib/adm
 import { PREFECTURES } from '@/lib/prefectures';
 import { seedSamples } from '@/lib/seed';
 import type { ReportOption } from '@/lib/types';
-import { MAP_STYLES, SHAPE_STYLES } from '@/lib/shapes';
+import { SHAPE_STYLES } from '@/lib/shapes';
+import { CANVAS_W } from '@/lib/canvas';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const n = (f: FormData, k: string) => Number(f.get(k));
@@ -35,7 +36,7 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
   const slug = s(f, 'slug') || `ev-${Date.now().toString(36)}`;
   const v = {
     name: s(f, 'name'), genre_id: n(f, 'genre_id'), prefecture: s(f, 'prefecture'), city: s(f, 'city'),
-    venue_name: s(f, 'venue_name'), address: s(f, 'address'), lat: n(f, 'lat'), lng: n(f, 'lng'), zoom: Math.round(n(f, 'zoom')) || 16,
+    venue_name: s(f, 'venue_name'), address: s(f, 'address'),
     start_date: s(f, 'start_date'), end_date: s(f, 'end_date') || s(f, 'start_date'), time_text: s(f, 'time_text'),
     summary: s(f, 'summary'), organizer: s(f, 'organizer'), official_url: s(f, 'official_url'), access: s(f, 'access'),
     nearest_station: s(f, 'nearest_station'), traffic_info: s(f, 'traffic_info'), parking_info: s(f, 'parking_info'),
@@ -43,13 +44,11 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
     image_url: s(f, 'image_url'), image_credit: s(f, 'image_credit'), is_sample: f.get('is_sample') ? 1 : 0,
     is_featured: f.get('is_featured') ? 1 : 0, published: f.get('published') ? 1 : 0,
     source_url: s(f, 'source_url'), source_checked_at: s(f, 'source_checked_at'),
-    map_style: MAP_STYLES.some((m) => m.key === s(f, 'map_style')) ? s(f, 'map_style') : 'light',
   };
   if (!v.name) return 'イベント名は必須です';
   if (!/^[a-z0-9-]+$/.test(slug)) return 'URL用ID（スラッグ）は半角英小文字・数字・ハイフンのみ使えます';
   if (!PREFECTURES.includes(v.prefecture)) return '都道府県を選択してください';
   if (!DATE_RE.test(v.start_date) || !DATE_RE.test(v.end_date) || v.end_date < v.start_date) return '開催日が不正です';
-  if (!Number.isFinite(v.lat) || !Number.isFinite(v.lng) || Math.abs(v.lat) > 90 || Math.abs(v.lng) > 180 || (!v.lat && !v.lng)) return '会場の緯度・経度を入力してください';
   if (!['scheduled', 'canceled', 'postponed'].includes(v.status)) return '開催状況が不正です';
   for (const u of [v.official_url, v.source_url, v.image_url]) if (u && !/^https?:\/\//.test(u)) return 'URLは http(s):// から入力してください';
   const cats = f.getAll('categories').map(Number).filter(Boolean);
@@ -105,7 +104,7 @@ export async function addSpot(f: FormData) {
   await requireAdmin();
   const eid = n(f, 'event_id');
   const lat = n(f, 'lat'), lng = n(f, 'lng');
-  if (!s(f, 'name') || !Number.isFinite(lat) || !Number.isFinite(lng) || !lat) return;
+  if (!s(f, 'name') || !Number.isFinite(lat) || !Number.isFinite(lng) || f.get('lat') === '') return;
   await q(`INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort)
     VALUES ($1, $2, $3, $4, $5, $6, (SELECT COALESCE(MAX(sort), 0) + 1 FROM spots WHERE event_id = $1))`,
     [eid, n(f, 'category_id'), s(f, 'name'), s(f, 'note'), lat, lng]);
@@ -131,14 +130,22 @@ export async function deleteSpot(f: FormData) {
 }
 
 // ---------- 簡易マップ（エリア・線） ----------
+/** 用紙（見取り図）の縦の長さをガイドマップの比率に合わせる。横幅は CANVAS_W で固定 */
+export async function setCanvasSize(eventId: number, h: number) {
+  await requireAdmin();
+  if (!Number.isInteger(eventId) || !Number.isFinite(h)) return;
+  await q('UPDATE events SET map_w = $1, map_h = $2 WHERE id = $3', [CANVAS_W, Math.round(Math.min(Math.max(h, 200), 5000)), eventId]);
+  revalidatePath(`/admin/events/${eventId}`);
+}
+
 function cleanCoords(coords: unknown): [number, number][] | null {
   if (!Array.isArray(coords) || coords.length < 2 || coords.length > 200) return null;
   const out: [number, number][] = [];
   for (const c of coords) {
     if (!Array.isArray(c) || c.length !== 2) return null;
     const [lat, lng] = c.map(Number);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-    out.push([+lat.toFixed(6), +lng.toFixed(6)]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 10000 || Math.abs(lng) > 10000) return null;
+    out.push([+lat.toFixed(1), +lng.toFixed(1)]);
   }
   return out;
 }

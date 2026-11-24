@@ -1,6 +1,7 @@
 import type { Q } from './db';
 import { addDays, todayJST, weekendRange } from './dates';
 import { shapeStyle } from './shapes';
+import { convertEventToCanvas } from './canvas';
 
 /**
  * マスタデータとサンプルイベントを投入する。
@@ -223,6 +224,8 @@ export async function seedSamples(q: Q) {
       await q('INSERT INTO map_shapes (event_id, kind, style, label, coords, sort) VALUES ($1, $2, $3, $4, $5, $6)',
         [eid, shapeStyle(style).kind, style, label, JSON.stringify(coords), i]);
     }
+    // サンプルは相対位置で定義しているので、見取り図の座標に変換する
+    await convertEventToCanvas(q, eid);
   }
 }
 

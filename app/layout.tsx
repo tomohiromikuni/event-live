@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   openGraph: { siteName: `${SITE_NAME}（${SITE_NAME_KANA}）`, type: 'website', locale: 'ja_JP' },
   twitter: { card: 'summary' },
+  // Google Search Console の所有権確認（HTMLタグ方式）。content の値を環境変数に入れる
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } } : {}),
 };
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0f766e' };
 
@@ -35,7 +37,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             )}
             <p>最新・正確な情報は必ず各イベントの公式サイトでご確認ください。現地の状況は来場者による投稿で、内容の正確性は保証されません。</p>
             <p><Link href="/about" style={{ textDecoration: 'underline' }}>このサイトについて・掲載内容の訂正/削除のご依頼</Link></p>
-            <p className="muted">地図データ © OpenStreetMap contributors</p>
           </div>
         </footer>
       </body>

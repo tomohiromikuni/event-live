@@ -44,7 +44,7 @@ function eventJsonLd(e: EventCard, url: string) {
       '@type': 'Place',
       name: e.venue_name || `${e.prefecture}${e.city}`,
       address: { '@type': 'PostalAddress', addressRegion: e.prefecture, addressLocality: e.city, ...(e.address ? { streetAddress: e.address } : {}), addressCountry: 'JP' },
-      geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lng },
+      ...(e.lat || e.lng ? { geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lng } } : {}),
     },
     ...(e.organizer ? { organizer: { '@type': 'Organization', name: e.organizer, ...(e.official_url ? { url: e.official_url } : {}) } } : {}),
   };
@@ -119,7 +119,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
         <a href="#info">📄 イベント情報</a>
       </nav>
 
-      <EventLive eventId={e.id} center={[e.lat, e.lng]} zoom={e.zoom} categories={categories} spots={spots} shapes={shapes} mapStyle={e.map_style}
+      <EventLive eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} categories={categories} spots={spots} shapes={shapes}
         initialReports={reports} serverNow={Date.now()} postable={postable} postBlockedReason={blocked} />
 
       <section className="section" id="info" style={{ scrollMarginTop: 110 }}>

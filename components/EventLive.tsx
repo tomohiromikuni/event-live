@@ -13,12 +13,10 @@ const LeafletMap = dynamic(() => import('./LeafletMap'), {
 
 type Props = {
   eventId: number;
-  center: [number, number];
-  zoom: number;
+  canvas: { w: number; h: number };
   categories: Category[];
   spots: Spot[];
   shapes: MapShape[];
-  mapStyle: string;
   initialReports: Report[];
   serverNow: number;
   postable: boolean;
@@ -140,7 +138,7 @@ export default function EventLive(p: Props) {
       {!p.postable && <div className="notice">ℹ️ {p.postBlockedReason}</div>}
       {p.postable && <div className="notice">📍 地図またはリストの地点をタップすると、状況をワンタップで投稿できます（登録不要）</div>}
 
-      <LeafletMap center={p.center} zoom={p.zoom} markers={markers} shapes={p.shapes} mapStyle={p.mapStyle} fitToMarkers
+      <LeafletMap canvas={p.canvas} markers={markers} shapes={p.shapes}
         onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
 
       <div className="legend">

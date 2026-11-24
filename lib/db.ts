@@ -1,6 +1,8 @@
 import 'server-only';
 import path from 'node:path';
+import { mkdirSync } from 'node:fs';
 import { seed } from './seed';
+import { convertEventToCanvas } from './canvas';
 
 /**
  * データベース接続（PostgreSQL）。
@@ -148,7 +150,19 @@ CREATE INDEX IF NOT EXISTS idx_shapes_event ON map_shapes(event_id);
 `;
 
 /** マイグレーション一覧（index 0 = v1）。追加するときは末尾に足す */
-const MIGRATIONS = [SCHEMA, V2];
+/**
+ * v3: 会場マップを「見取り図（キャンバス座標）」に変更。
+ * 既存の施設・エリアの緯度経度を、イベントごとに見取り図の座標へ変換する。
+ */
+const V3 = async (q: Q) => {
+  await q('ALTER TABLE events ADD COLUMN IF NOT EXISTS map_w INTEGER NOT NULL DEFAULT 1000');
+  await q('ALTER TABLE events ADD COLUMN IF NOT EXISTS map_h INTEGER NOT NULL DEFAULT 700');
+  await q('ALTER TABLE events ALTER COLUMN lat SET DEFAULT 0');
+  await q('ALTER TABLE events ALTER COLUMN lng SET DEFAULT 0');
+  for (const { id } of await q<{ id: number }>('SELECT id FROM events')) await convertEventToCanvas(q, id);
+};
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
@@ -184,6 +198,7 @@ async function createDriver(): Promise<Driver> {
   }
   const { PGlite, types } = await import('@electric-sql/pglite');
   const dir = path.join(process.cwd(), 'data', 'pgdata');
+  mkdirSync(path.dirname(dir), { recursive: true }); // 新しく clone した環境では data/ が無いため作る
   const db = new PGlite(dir, { parsers: { [types.INT8]: (v: string) => Number(v) } });
   const wrap = (c: { query: (s: string, p?: Param[]) => Promise<{ rows: unknown[] }> }): Q =>
     (async (sql: string, params: Param[] = []) => (await c.query(sql, params)).rows) as Q;
@@ -207,7 +222,9 @@ function driver(): Promise<Driver> {
         await q('INSERT INTO schema_meta (id, version) VALUES (1, $1)', [version]);
       }
       for (let v = version; v < MIGRATIONS.length; v++) {
-        for (const stmt of MIGRATIONS[v].split(';').map((s) => s.trim()).filter(Boolean)) await q(stmt);
+        const m = MIGRATIONS[v];
+        if (typeof m === 'function') await m(q);
+        else for (const stmt of m.split(';').map((s) => s.trim()).filter(Boolean)) await q(stmt);
         await q('UPDATE schema_meta SET version = $1 WHERE id = 1', [v + 1]);
       }
       const [{ n }] = await q<{ n: number }>('SELECT COUNT(*)::int AS n FROM genres');

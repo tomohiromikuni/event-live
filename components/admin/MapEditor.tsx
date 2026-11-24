@@ -1,30 +1,29 @@
 'use client';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import type * as L from 'leaflet';
-import { addShape, addSpot, deleteShape, deleteSpot, moveSpot, updateShape, updateSpot } from '@/app/admin/actions';
+import { addShape, addSpot, deleteShape, deleteSpot, moveSpot, setCanvasSize, updateShape, updateSpot } from '@/app/admin/actions';
+import { CANVAS_W } from '@/lib/canvas';
 import { SHAPE_STYLES, shapeStyle, type MapShape, type ShapeKind } from '@/lib/shapes';
 import type { Category, Spot } from '@/lib/types';
 
 const LeafletMap = dynamic(() => import('../LeafletMap'), { ssr: false, loading: () => <div className="admin-map" /> });
 
-type Props = { eventId: number; center: [number, number]; zoom: number; mapStyle: string; spots: Spot[]; shapes: MapShape[]; categories: Category[] };
-type Mode = 'spot' | 'area' | 'line' | 'align';
-type Pair = { img: [number, number]; geo?: [number, number] };
+type Props = { eventId: number; canvas: { w: number; h: number }; spots: Spot[]; shapes: MapShape[]; categories: Category[] };
+type Mode = 'spot' | 'area' | 'line';
 
 const HINTS: Record<Mode, string> = {
-  spot: '地図をタップして施設の位置を指定 → 下のフォームで登録。既存の施設はドラッグで移動できます。',
+  spot: 'ガイドマップでトイレなどがある場所をタップ → 下のフォームで登録。置いた施設はドラッグで動かせます。',
   area: 'エリアの角を順番にタップして囲み、「完成」を押します（3点以上）。',
   line: '通路やルートの曲がり角を順番にタップし、「完成」を押します（2点以上）。',
-  align: '① 下のガイドマップ上の目印（ゲートなど）をタップ → ② 地図上の同じ場所をタップ。これを2か所行うと重なります。',
 };
 
 /**
- * 簡易マップの作図画面。
+ * 簡易マップ（見取り図）の作図画面。
  * ガイドマップ画像は「下敷き」としてこのブラウザ内でだけ使い、サーバーには送信・保存しない（公開もされない）。
  */
-export default function MapEditor({ eventId, center, zoom, mapStyle, spots, shapes, categories }: Props) {
+export default function MapEditor({ eventId, canvas, spots, shapes, categories }: Props) {
   const router = useRouter();
   const [, start] = useTransition();
   const [mode, setMode] = useState<Mode>('spot');
@@ -36,73 +35,36 @@ export default function MapEditor({ eventId, center, zoom, mapStyle, spots, shap
 
   // 下敷き（ガイドマップ）
   const [guideUrl, setGuideUrl] = useState<string | null>(null);
-  const [pairs, setPairs] = useState<Pair[]>([]);
-  const [opacity, setOpacity] = useState(0.6);
+  const [guideRatio, setGuideRatio] = useState(1); // 画像の 高さ/幅
+  const [opacity, setOpacity] = useState(0.5);
   const [showGuide, setShowGuide] = useState(true);
-  const [guideSize, setGuideSize] = useState<[number, number] | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const libRef = useRef<typeof L | null>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const previewRef = useRef<L.LayerGroup | null>(null);
-  const aligned = pairs.length >= 2 && pairs.every((p) => p.geo);
+  const [mapInst, setMapInst] = useState<{ map: L.Map; lib: typeof L } | null>(null);
 
-  function onReady(map: L.Map, lib: typeof L) {
-    mapRef.current = map;
-    libRef.current = lib;
-    const pane = map.createPane('underlay');
-    pane.style.zIndex = '350'; // タイル(200)より上、図形(400)・マーカー(600)より下
-    previewRef.current = lib.layerGroup().addTo(map);
-    map.on('zoomend viewreset resize', placeUnderlay);
-    placeUnderlay();
-  }
-
-  /** 2組の対応点から相似変換（拡大・回転・移動）を求めて、画像を地図に重ねる */
-  function placeUnderlay() {
-    const map = mapRef.current, img = imgRef.current;
-    if (!map || !img) return;
-    const ps = pairsRef.current;
-    const ok = ps.length >= 2 && ps[0].geo && ps[1].geo;
-    img.style.display = ok && showRef.current ? 'block' : 'none';
-    if (!ok) return;
-    const L1 = map.latLngToLayerPoint(ps[0].geo!), L2 = map.latLngToLayerPoint(ps[1].geo!);
-    const [p1x, p1y] = ps[0].img, [p2x, p2y] = ps[1].img;
-    const dpx = p2x - p1x, dpy = p2y - p1y, dlx = L2.x - L1.x, dly = L2.y - L1.y;
-    const den = dpx * dpx + dpy * dpy || 1;
-    const ar = (dlx * dpx + dly * dpy) / den, ai = (dly * dpx - dlx * dpy) / den; // a = ΔL / ΔP（複素数の割り算）
-    const bx = L1.x - (ar * p1x - ai * p1y), by = L1.y - (ai * p1x + ar * p1y);
-    img.style.transform = `matrix(${ar}, ${ai}, ${-ai}, ${ar}, ${bx}, ${by})`;
-  }
-  const pairsRef = useRef(pairs); pairsRef.current = pairs;
-  const showRef = useRef(showGuide); showRef.current = showGuide;
-
+  // 下敷きを用紙いっぱいに表示（用紙の比率は画像に合わせてある）
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !guideUrl) return;
-    const img = document.createElement('img');
-    img.src = guideUrl;
-    img.className = 'underlay-img';
-    img.alt = '';
-    img.onload = placeUnderlay;
-    map.getPane('underlay')!.appendChild(img);
-    imgRef.current = img;
-    return () => { img.remove(); imgRef.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guideUrl]);
-
-  useEffect(() => { if (imgRef.current) imgRef.current.style.opacity = String(opacity); }, [opacity, guideUrl]);
-  useEffect(placeUnderlay, [pairs, showGuide]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!mapInst || !guideUrl || !showGuide) return;
+    const { map, lib } = mapInst;
+    if (!map.getPane('underlay')) map.createPane('underlay').style.zIndex = '350';
+    // 用紙の中に、画像の縦横比を保ったまま中央に収める
+    let w = canvas.w, h = canvas.w * guideRatio;
+    if (h > canvas.h) { h = canvas.h; w = canvas.h / guideRatio; }
+    const x0 = (canvas.w - w) / 2, y0 = (canvas.h - h) / 2;
+    const ov = lib.imageOverlay(guideUrl, [[y0, x0], [y0 + h, x0 + w]], { pane: 'underlay', opacity, interactive: false }).addTo(map);
+    return () => { ov.remove(); };
+  }, [mapInst, guideUrl, guideRatio, showGuide, opacity, canvas.h, canvas.w]);
 
   // 作図中のプレビュー
   useEffect(() => {
-    const lib = libRef.current, layer = previewRef.current;
-    if (!lib || !layer) return;
-    layer.clearLayers();
+    if (!mapInst) return;
+    const { map, lib } = mapInst;
+    const layer = lib.layerGroup().addTo(map);
     if (verts.length > 1) {
       const opt = { color: '#0f172a', weight: 3, dashArray: '6 6', interactive: false };
       (mode === 'area' && verts.length > 2 ? lib.polygon(verts, { ...opt, fillOpacity: 0.1 }) : lib.polyline(verts, opt)).addTo(layer);
     }
     verts.forEach((v) => lib.marker(v, { icon: lib.divIcon({ className: '', html: '<div class="vertex-dot"></div>', iconSize: [12, 12], iconAnchor: [6, 6] }), interactive: false }).addTo(layer));
-  }, [verts, mode]);
+    return () => { layer.remove(); };
+  }, [verts, mode, mapInst]);
 
   function switchMode(m: Mode) {
     setMode(m);
@@ -112,38 +74,28 @@ export default function MapEditor({ eventId, center, zoom, mapStyle, spots, shap
     setMsg('');
   }
 
-  function onMapClick(lat: number, lng: number) {
-    if (mode === 'spot') setPos({ lat, lng });
-    else if ((mode === 'area' || mode === 'line') && !finishing) setVerts((v) => [...v, [lat, lng]]);
-    else if (mode === 'align') {
-      const last = pairs[pairs.length - 1];
-      if (last && !last.geo) setPairs((ps) => ps.map((p, i) => (i === ps.length - 1 ? { ...p, geo: [lat, lng] } : p)));
-      else setMsg('先に下のガイドマップ上で目印をタップしてください');
-    }
-  }
-
-  function onGuideClick(e: React.MouseEvent<HTMLImageElement>) {
-    if (mode !== 'align') return;
-    const el = e.currentTarget;
-    const r = el.getBoundingClientRect();
-    const x = ((e.clientX - r.left) / r.width) * el.naturalWidth;
-    const y = ((e.clientY - r.top) / r.height) * el.naturalHeight;
-    setMsg('');
-    setPairs((ps) => {
-      const done = ps.filter((p) => p.geo);
-      const base = done.length >= 2 ? [] : done; // 3組目を始めたらやり直し
-      return [...base, { img: [x, y] }];
-    });
+  function onMapClick(y: number, x: number) {
+    if (y < 0 || x < 0 || y > canvas.h || x > canvas.w) return; // 用紙の外は無視
+    if (mode === 'spot') setPos({ lat: y, lng: x });
+    else if (!finishing) setVerts((v) => [...v, [+y.toFixed(1), +x.toFixed(1)]]);
   }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (guideUrl) URL.revokeObjectURL(guideUrl);
-    setGuideSize(null);
-    setGuideUrl(URL.createObjectURL(f)); // ブラウザ内だけで使う（アップロードしない）
-    setPairs([]);
-    switchMode('align');
+    const url = URL.createObjectURL(f); // ブラウザ内だけで使う（アップロードしない）
+    const img = new Image();
+    img.onload = () => {
+      if (guideUrl) URL.revokeObjectURL(guideUrl);
+      setGuideRatio(img.naturalHeight / img.naturalWidth);
+      setGuideUrl(url);
+      // まだ何も描いていなければ、用紙の縦横比をガイドマップに合わせる（描いた後は用紙を変えず、画像を用紙に収める）
+      const h = Math.round((CANVAS_W * img.naturalHeight) / img.naturalWidth);
+      if (!spots.length && !shapes.length && Math.abs(h - canvas.h) > 2) {
+        start(async () => { await setCanvasSize(eventId, h); router.refresh(); });
+      }
+    };
+    img.src = url;
   }
 
   const kind: ShapeKind | null = mode === 'area' ? 'area' : mode === 'line' ? 'line' : null;
@@ -156,59 +108,40 @@ export default function MapEditor({ eventId, center, zoom, mapStyle, spots, shap
   ], [spots, pos, catById, mode]);
 
   const refresh = (m: string) => { setMsg(m); router.refresh(); };
-  const pending = pairs.length > 0 && !pairs[pairs.length - 1].geo;
 
   return (
     <div className="panel">
       <h2>会場マップ（簡易マップ）</h2>
       <p className="muted small" style={{ marginTop: 0 }}>
-        公式ガイドマップは<strong>位置の参考</strong>として下敷きにだけ使い、画像はこのブラウザ内でのみ表示されます（保存・公開されません）。
+        運営のガイドマップを下敷きにして、トイレ・屋台などの位置を描き写します。ガイドマップ画像はこのブラウザ内でのみ表示され、保存・公開されません。
         絵や配色はなぞらず、エリア・線・施設の位置だけを描いてください。主催者が利用を禁止している場合は使わないでください。
       </p>
+
+      <div className="tool-guide">
+        <label className="btn ghost sm" style={{ cursor: 'pointer' }}>
+          🗺️ ガイドマップを読み込む
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onFile} hidden />
+        </label>
+        {guideUrl && (
+          <>
+            <label className="small"><input type="checkbox" checked={showGuide} onChange={(e) => setShowGuide(e.target.checked)} /> 下敷きを表示</label>
+            <label className="small">濃さ <input type="range" min={0.1} max={1} step={0.05} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} /></label>
+          </>
+        )}
+        {!guideUrl && <span className="muted small">PNG・JPG（PDFは該当ページを画像にしてから）</span>}
+      </div>
 
       <div className="tool-bar" role="toolbar">
         <button className={mode === 'spot' ? 'on' : ''} onClick={() => switchMode('spot')}>📍 施設を置く</button>
         <button className={mode === 'area' ? 'on' : ''} onClick={() => switchMode('area')}>⬛ エリアを描く</button>
         <button className={mode === 'line' ? 'on' : ''} onClick={() => switchMode('line')}>〰️ 線を描く</button>
-        <button className={mode === 'align' ? 'on' : ''} onClick={() => switchMode('align')} disabled={!guideUrl}>🧭 下敷きの位置合わせ</button>
       </div>
       <div className="tool-hint">{HINTS[mode]}</div>
 
-      <LeafletMap className="admin-map" center={center} zoom={zoom} mapStyle={mapStyle} markers={markers} shapes={shapes} fitToMarkers
-        onReady={onReady} onMapClick={onMapClick}
-        onMarkerDragEnd={(id, lat, lng) => { if (id > 0) start(async () => { await moveSpot(id, lat, lng); refresh('施設の位置を更新しました'); }); }} />
+      <LeafletMap key={`${canvas.w}x${canvas.h}`} className="admin-map" canvas={canvas} markers={markers} shapes={shapes}
+        onReady={(map, lib) => setMapInst({ map, lib })} onMapClick={onMapClick}
+        onMarkerDragEnd={(id, y, x) => { if (id > 0) start(async () => { await moveSpot(id, y, x); refresh('施設の位置を更新しました'); }); }} />
       {msg && <div className="flash">{msg}</div>}
-
-      {/* 下敷き */}
-      <div className="panel" style={{ background: '#f8fafc' }}>
-        <h2 style={{ fontSize: 14 }}>🗺️ ガイドマップを下敷きにする（任意）</h2>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onFile} aria-label="ガイドマップ画像" />
-          {guideUrl && (
-            <>
-              <label className="small"><input type="checkbox" checked={showGuide} onChange={(e) => setShowGuide(e.target.checked)} /> 地図に重ねる</label>
-              <label className="small">濃さ <input type="range" min={0.1} max={1} step={0.05} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} /></label>
-              <button className="btn ghost sm" onClick={() => { setPairs([]); switchMode('align'); }}>位置合わせをやり直す</button>
-            </>
-          )}
-        </div>
-        <p className="muted small">PDFの場合は、該当ページを画像（スクリーンショット）にしてから選んでください。</p>
-        {guideUrl && (
-          <>
-            <div className="small" style={{ fontWeight: 700, margin: '6px 0' }}>
-              {aligned ? '✅ 位置合わせ完了。地図に重なっています。' : pending ? `② 地図上で、目印${pairs.length}と同じ場所をタップ` : `① ガイドマップ上の目印${pairs.length + 1}をタップ（あと${2 - pairs.filter((p) => p.geo).length}か所）`}
-            </div>
-            <div className="guide-picker">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={guideUrl} alt="ガイドマップ（下敷き）" onClick={onGuideClick}
-                onLoad={(e) => setGuideSize([e.currentTarget.naturalWidth, e.currentTarget.naturalHeight])} />
-              {guideSize && pairs.map((p, i) => (
-                <span key={i} className="pin" style={{ left: `${(p.img[0] / guideSize[0]) * 100}%`, top: `${(p.img[1] / guideSize[1]) * 100}%` }}>{i + 1}</span>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
 
       {/* エリア・線の作図 */}
       {kind && (
@@ -250,7 +183,7 @@ export default function MapEditor({ eventId, center, zoom, mapStyle, spots, shap
             <div className="field"><label>施設名</label><input name="name" required placeholder="例: 仮設トイレ（北口）" /></div>
           </div>
           <div className="field"><label>メモ（任意）</label><input name="note" placeholder="例: 約200台" /></div>
-          <button className="btn" disabled={!pos}>{pos ? 'この位置に施設を追加' : '地図をタップして位置を指定'}</button>
+          <button className="btn" disabled={!pos}>{pos ? 'この位置に施設を追加' : 'マップをタップして位置を指定'}</button>
         </form>
       )}
 

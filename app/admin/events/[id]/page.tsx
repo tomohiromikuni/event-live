@@ -19,7 +19,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
         <Link href={`/events/${e.slug}`} target="_blank">公開ページ ↗</Link>
       </div>
       {saved && <div className="flash">保存しました</div>}
-      <MapEditor eventId={e.id} center={[e.lat, e.lng]} zoom={e.zoom} mapStyle={e.map_style} spots={spots} shapes={shapes} categories={cats} />
+      <MapEditor eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} spots={spots} shapes={shapes} categories={cats} />
       <h2 style={{ fontSize: 17, marginTop: 24 }}>イベント情報の編集</h2>
       <EventForm event={e} {...fd} />
       <form action={deleteEvent} className="panel">

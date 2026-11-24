@@ -3,7 +3,6 @@ import { useActionState, useState } from 'react';
 import { saveEvent } from '@/app/admin/actions';
 import { PREFECTURES } from '@/lib/prefectures';
 import type { Category, EventRow, Genre } from '@/lib/types';
-import { MAP_STYLES } from '@/lib/shapes';
 
 type Props = {
   event?: EventRow;
@@ -31,15 +30,6 @@ export default function EventForm({ event: e, genres, categories, genreDefaults,
   const [err, action, pending] = useActionState(saveEvent, null);
   const [genreId, setGenreId] = useState<number>(e?.genre_id ?? genres[0]?.id);
   const [custom, setCustom] = useState(customCategoryIds.length > 0);
-  const [lat, setLat] = useState(e?.lat != null ? String(e.lat) : '');
-  const [lng, setLng] = useState(e?.lng != null ? String(e.lng) : '');
-  const [pasteMsg, setPasteMsg] = useState('');
-  // Googleマップで右クリック→コピーした「35.6655, 139.8195」形式を貼り付けると緯度・経度に分けて入れる
-  function onPaste(v: string) {
-    const m = v.match(/(-?\d{1,3}\.\d+)\s*[,、，\s]\s*(-?\d{1,3}\.\d+)/);
-    if (m) { setLat(m[1]); setLng(m[2]); setPasteMsg(`✅ 緯度 ${m[1]} / 経度 ${m[2]} を入れました`); }
-    else setPasteMsg(v ? '「35.6655, 139.8195」の形で貼り付けてください' : '');
-  }
   const checked = custom ? customCategoryIds : genreDefaults[genreId] ?? [];
 
   return (
@@ -95,24 +85,6 @@ export default function EventForm({ event: e, genres, categories, genreDefaults,
           </div>
           <F label="会場名" name="venue_name" def={e?.venue_name} />
           <F label="住所" name="address" def={e?.address} />
-          <div className="field">
-            <label htmlFor="coord_paste">会場の位置 *（Googleマップで会場を右クリック → 表示される数字をクリックしてコピー → ここに貼り付け）</label>
-            <input id="coord_paste" placeholder="例: 35.6655, 139.8195" onChange={(ev) => onPaste(ev.target.value)} />
-            {pasteMsg && <div className="small" style={{ marginTop: 4 }}>{pasteMsg}</div>}
-          </div>
-          <div className="two">
-            <div className="field"><label htmlFor="lat">緯度</label><input id="lat" name="lat" type="number" step="any" required value={lat} onChange={(ev) => setLat(ev.target.value)} /></div>
-            <div className="field"><label htmlFor="lng">経度</label><input id="lng" name="lng" type="number" step="any" required value={lng} onChange={(ev) => setLng(ev.target.value)} /></div>
-          </div>
-          <div className="two">
-            <F label="地図の初期ズーム（13〜18）" name="zoom" type="number" def={e?.zoom ?? 16} />
-            <div className="field">
-              <label htmlFor="map_style">背景の地図</label>
-              <select id="map_style" name="map_style" defaultValue={e?.map_style ?? 'light'}>
-                {MAP_STYLES.map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
-              </select>
-            </div>
-          </div>
         </div>
       </div>
 
