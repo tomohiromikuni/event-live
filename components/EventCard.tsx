@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { fmtRange, isOngoing } from '@/lib/dates';
 import KindIcon from '@/components/Icon';
-import type { EventCard as EventCardT } from '@/lib/types';
+import { levelColor } from '@/lib/freshness';
+import type { EventCard as EventCardT, SpotStatus } from '@/lib/types';
 
 export function StatusBadges({ e }: { e: EventCardT }) {
   return (
@@ -21,7 +22,26 @@ function thumbStyle(e: EventCardT) {
     : { background: `linear-gradient(135deg, ${e.genre_color}33, ${e.genre_color}77)` };
 }
 
-export default function EventCard({ e, hero = false }: { e: EventCardT; hero?: boolean }) {
+/** 地点ごとのいまの状況（トップの大きなカード用） */
+function LiveStatusList({ items, now }: { items: SpotStatus[]; now: number }) {
+  return (
+    <ul className="live-status" aria-label="いまの状況">
+      {items.map((st) => {
+        const min = Math.max(0, Math.floor((now - Number(st.created_at)) / 60000));
+        return (
+          <li key={st.spot_id}>
+            <KindIcon kind="category" slug={st.cat_slug} emoji={st.cat_icon} size={16} strokeWidth={2.4} />
+            <span className="ls-name">{st.spot_name}</span>
+            <span className="ls-pill" style={{ background: levelColor(st.level) }}>{st.label}</span>
+            <span className="ls-ago">{min < 1 ? 'たった今' : `${min}分前`}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+export default function EventCard({ e, hero = false, statuses, now = 0 }: { e: EventCardT; hero?: boolean; statuses?: SpotStatus[]; now?: number }) {
   return (
     <Link href={`/events/${e.slug}`} className={`event-card${hero ? ' hero-card' : ''}`}>
       <div className="thumb" style={thumbStyle(e)}>
@@ -38,6 +58,7 @@ export default function EventCard({ e, hero = false }: { e: EventCardT; hero?: b
           <span>{e.prefecture} {e.city}・{e.venue_name || '会場情報なし'}</span>
           {e.live_count ? <span className="live-count">直近1時間で {e.live_count}件の投稿</span> : null}
         </div>
+        {statuses && statuses.length > 0 && <LiveStatusList items={statuses} now={now} />}
       </div>
     </Link>
   );
