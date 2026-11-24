@@ -1,6 +1,6 @@
 'use client';
 import { startTransition, useActionState, useState } from 'react';
-import { submitInquiry, type ContactResult } from '@/app/contact/actions';
+import { submitInquiry, type ContactResult } from '@/app/(site)/contact/actions';
 import { CONTACT_TOPICS, RELATIONS, REMOVAL_REASONS } from '@/lib/inquiry';
 
 type Props = { kind: 'removal' | 'contact'; event?: { slug: string; name: string } };

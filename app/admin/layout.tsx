@@ -1,26 +1,22 @@
-import Link from 'next/link';
+import { Suspense } from 'react';
 import { requireAdmin } from '@/lib/admin';
+import { pendingCounts } from '@/lib/admin-data';
 import { logout } from './actions';
+import AdminNav from './AdminNav';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: '管理画面', robots: { index: false } };
 
+/** 管理画面（自分用）。公開サイトのデザインとは別の、シンプルな見た目にしている */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
+  const counts = await pendingCounts();
   return (
-    <div className="container" style={{ maxWidth: 1000 }}>
-      <nav className="admin-nav">
-        <Link href="/admin">📋 イベント</Link>
-        <Link href="/admin/events/new">＋ 新規登録</Link>
-        <Link href="/admin/import">📥 下書きを貼り付け</Link>
-        <Link href="/admin/inquiries">✉️ 問い合わせ</Link>
-        <Link href="/admin/sns">📣 SNS・シェア</Link>
-        <Link href="/admin/reports">💬 投稿管理</Link>
-        <Link href="/admin/reports?flagged=1">🚩 通報</Link>
-        <Link href="/admin/settings">⚙️ ジャンル・カテゴリ設定</Link>
-        <form action={logout} className="inline-form"><button className="btn ghost sm">ログアウト</button></form>
-      </nav>
-      {children}
+    <div className="admin">
+      <Suspense fallback={<nav className="admin-nav" />}>
+        <AdminNav flags={counts.flags} inquiries={counts.removals + counts.inquiries} logout={logout} />
+      </Suspense>
+      <main className="admin-main">{children}</main>
     </div>
   );
 }
