@@ -1,4 +1,8 @@
-// DBファイルを削除する。次回起動時にスキーマ作成とサンプルデータ投入が自動で行われる。
+// ローカルの組込みDB（PGlite: data/pgdata）を削除する。次回起動時にスキーマ作成とサンプルデータ投入が自動で行われる。
+// 本番DB（DATABASE_URL）には影響しない。本番のサンプル日程の更新は管理画面の「サンプルデータをリセット」から。
 import { rmSync } from 'node:fs';
-for (const f of ['data/app.db', 'data/app.db-wal', 'data/app.db-shm']) rmSync(f, { force: true });
-console.log('Database removed. Sample data will be re-seeded on next start.');
+import path from 'node:path';
+
+const target = path.join(process.cwd(), 'data', 'pgdata');
+rmSync(target, { recursive: true, force: true });
+console.log(`Removed ${target}. Sample data will be re-seeded on next start.`);

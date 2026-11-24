@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { Q } from './db';
 import { addDays, todayJST, weekendRange } from './dates';
 
 /**
@@ -80,133 +80,142 @@ type EventSeed = {
   reports?: [spotIdx: number, value: string, minutesAgo: number][];
 };
 
-export function seed(db: DatabaseSync) {
+/** マスタ（ジャンル・カテゴリ・投稿選択肢）とサンプルイベントを投入する（初回のみ） */
+export async function seed(q: Q) {
+  const rtIds: Record<string, number> = {};
+  for (const r of REPORT_TYPES) {
+    rtIds[r.slug] = (await q<{ id: number }>('INSERT INTO report_types (slug, name, options) VALUES ($1, $2, $3) RETURNING id',
+      [r.slug, r.name, JSON.stringify(r.options)]))[0].id;
+  }
+  const catIds: Record<string, number> = {};
+  for (const [i, c] of CATEGORIES.entries()) {
+    catIds[c.slug] = (await q<{ id: number }>('INSERT INTO spot_categories (slug, name, icon, color, report_type_id, sort) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [c.slug, c.name, c.icon, c.color, c.rt ? rtIds[c.rt] : null, i]))[0].id;
+  }
+  for (const [i, gn] of GENRES.entries()) {
+    const id = (await q<{ id: number }>('INSERT INTO genres (slug, name, icon, color, info_fields, sort) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [gn.slug, gn.name, gn.icon, gn.color, gn.info, i]))[0].id;
+    for (const c of gn.cats) await q('INSERT INTO genre_categories (genre_id, category_id) VALUES ($1, $2)', [id, catIds[c]]);
+  }
+  await seedSamples(q);
+}
+
+/**
+ * サンプルイベントを（再）投入する。既存のサンプル（is_sample=1）は削除してから、今日を基準にした日程で作り直す。
+ * 管理画面の「サンプルデータをリセット」からも呼ばれる。
+ */
+export async function seedSamples(q: Q) {
   const now = Date.now();
   const today = todayJST(now);
   const [sat, sun] = weekendRange(today);
   // 今日が週末の場合でも「今後」のデモが成立するよう、来週末も用意
   const nextSat = addDays(sat, 7);
 
-  db.exec('BEGIN');
-  try {
-    const rtIds: Record<string, number> = {};
-    const insRT = db.prepare('INSERT INTO report_types (slug, name, options) VALUES (?, ?, ?)');
-    for (const r of REPORT_TYPES) rtIds[r.slug] = Number(insRT.run(r.slug, r.name, JSON.stringify(r.options)).lastInsertRowid);
+  await q('DELETE FROM events WHERE is_sample = 1');
+  const genreIds = Object.fromEntries((await q<{ id: number; slug: string }>('SELECT id, slug FROM genres')).map((r) => [r.slug, r.id]));
+  const catIds = Object.fromEntries((await q<{ id: number; slug: string }>('SELECT id, slug FROM spot_categories')).map((r) => [r.slug, r.id]));
 
-    const catIds: Record<string, number> = {};
-    const insCat = db.prepare('INSERT INTO spot_categories (slug, name, icon, color, report_type_id, sort) VALUES (?, ?, ?, ?, ?, ?)');
-    CATEGORIES.forEach((c, i) => {
-      catIds[c.slug] = Number(insCat.run(c.slug, c.name, c.icon, c.color, c.rt ? rtIds[c.rt] : null, i).lastInsertRowid);
-    });
+  const events: EventSeed[] = [
+    {
+      slug: 'sample-minatogawa-hanabi', name: '【サンプル】みなと川 冬花火大会', genre: 'fireworks',
+      pref: '東京都', city: '江東区', venue: 'みなと川河川敷（架空）', address: '東京都江東区（サンプル住所）',
+      lat: 35.6655, lng: 139.8195, zoom: 16, start: today, end: today, time: '18:30〜19:30（打ち上げ）',
+      summary: '冬の夜空に約3,000発の花火を打ち上げる、河川敷の花火大会です。※これは動作確認用の架空のイベントです。',
+      organizer: 'みなと川花火実行委員会（架空）', access: '各線「みなと川駅」から徒歩10分（架空）', station: 'みなと川駅（架空）',
+      traffic: '17:00〜21:00 河川敷沿いの道路で車両通行止め（架空）', parking: '会場周辺に臨時駐車場あり（台数限定）',
+      ticket: '観覧無料／有料観覧席 3,000円（架空）', extra: '打ち上げ数: 約3,000発\n雨天時: 翌日に順延', featured: 1,
+      spots: [
+        ['viewing', '河川敷 観覧エリアA', 0.0006, -0.0012], ['viewing', '河川敷 観覧エリアB', 0.0009, 0.0011],
+        ['gate', '北側 入場口', -0.0014, -0.0018], ['gate', '東側 入場口', -0.0008, 0.0024],
+        ['toilet', '仮設トイレ①（北口付近）', -0.001, -0.0009], ['toilet', '仮設トイレ②（東口付近）', -0.0004, 0.0019],
+        ['food', '屋台エリア', -0.0018, 0.0002, '約30店舗'], ['parking', '臨時駐車場（第1）', -0.0032, -0.0028, '約200台'],
+        ['traffic', '河川敷通り（交通規制区間）', -0.0024, 0.0008], ['first_aid', '救護所', -0.0015, 0.0012],
+        ['info', '総合案内所', -0.0012, -0.0003],
+      ],
+      reports: [[0, 'busy', 4], [1, 'some', 12], [2, 'packed', 6], [4, '10min', 3], [5, 'none', 41], [6, '5min', 9],
+        [7, 'few', 15], [8, 'jam', 22], [3, 'empty', 130]],
+    },
+    {
+      slug: 'sample-green-field-fes', name: '【サンプル】グリーンフィールド・ミュージックフェス', genre: 'music',
+      pref: '千葉県', city: '千葉市', venue: 'ベイサイド公園特設ステージ（架空）', address: '千葉県千葉市美浜区（サンプル住所）',
+      lat: 35.6425, lng: 140.0365, zoom: 16, start: today, end: addDays(today, 1), time: '開場 10:00／開演 11:00〜21:00',
+      summary: '2日間で約40組のアーティストが出演する野外音楽フェス。2つのステージと物販エリアがあります。※動作確認用の架空イベントです。',
+      organizer: 'グリーンフィールド実行委員会（架空）', access: 'ベイサイド駅から徒歩8分、シャトルバスあり（架空）', station: 'ベイサイド駅（架空）',
+      traffic: '', parking: '一般駐車場なし。公共交通機関をご利用ください（架空）',
+      ticket: '1日券 12,000円／2日通し券 22,000円（架空）', extra: '出演: 約40組（架空）\n再入場: リストバンド提示で可', featured: 1,
+      spots: [
+        ['gate', 'メインゲート', -0.0016, -0.0006], ['stage', 'SUNステージ', 0.0012, -0.0012], ['stage', 'SEAステージ', 0.0009, 0.0018],
+        ['merch', 'オフィシャルグッズ売り場', -0.0009, 0.0004], ['food', 'フードエリア', -0.0001, 0.0009],
+        ['toilet', 'トイレ（ゲート横）', -0.0013, 0.0002], ['toilet', 'トイレ（SEAステージ裏）', 0.0016, 0.0024],
+        ['rest', '休憩テント', 0.0003, -0.0016], ['first_aid', '救護テント', -0.0004, -0.0008], ['info', 'インフォメーション', -0.0011, -0.0011],
+      ],
+      reports: [[0, 'some', 7], [1, 'busy', 2], [3, '60min', 5], [3, '30min', 35], [4, '10min', 11], [5, '20min', 3], [6, '5min', 18]],
+    },
+    {
+      slug: 'sample-sakura-dori-aki-matsuri', name: '【サンプル】さくら通り 秋祭り', genre: 'festival',
+      pref: '京都府', city: '京都市', venue: 'さくら通り商店街周辺（架空）', address: '京都府京都市（サンプル住所）',
+      lat: 35.0045, lng: 135.7675, zoom: 17, start: sat, end: sun, time: '11:00〜20:00',
+      summary: '商店街を中心に神輿巡行や屋台が並ぶ地域のお祭りです。※動作確認用の架空イベントです。',
+      organizer: 'さくら通り商店街振興会（架空）', access: '最寄り駅から徒歩3分（架空）', station: 'さくら通り駅（架空）',
+      traffic: '期間中 11:00〜20:00 さくら通りは歩行者天国', parking: '', ticket: '入場無料', extra: '神輿巡行: 土曜 14:00〜（架空）',
+      spots: [
+        ['food', '屋台通り（北）', 0.0006, -0.0004], ['food', '屋台通り（南）', -0.0006, 0.0003], ['stage', '広場ステージ', 0.0001, 0.0009],
+        ['toilet', '公衆トイレ', -0.0003, -0.0008], ['rest', '休憩所（集会所）', 0.0009, 0.0006], ['first_aid', '救護所', -0.0009, -0.0003],
+        ['traffic', 'さくら通り（歩行者天国）', 0.0, -0.0001],
+      ],
+    },
+    {
+      slug: 'sample-weekend-farmers-marche', name: '【サンプル】ウィークエンド・ファーマーズマルシェ', genre: 'marche',
+      pref: '大阪府', city: '大阪市', venue: '中之島ひろば（架空）', address: '大阪府大阪市（サンプル住所）',
+      lat: 34.6925, lng: 135.5035, zoom: 17, start: nextSat, end: nextSat, time: '10:00〜15:00',
+      summary: '近郊農家の野菜や加工品、キッチンカーが集まるマルシェです。※動作確認用の架空イベントです。',
+      organizer: 'ファーマーズマルシェ事務局（架空）', access: '駅から徒歩5分（架空）', station: '', traffic: '',
+      parking: '近隣のコインパーキングをご利用ください', ticket: '入場無料', extra: '出店数: 約50店（架空）',
+      spots: [
+        ['food', 'キッチンカーエリア', 0.0004, 0.0006], ['food', '農産物ブース', -0.0003, -0.0002], ['toilet', 'トイレ', 0.0008, -0.0007],
+        ['parking', '提携コインパーキング', -0.0012, 0.0011], ['rest', '飲食スペース', 0.0, 0.0012], ['info', '本部テント', -0.0006, 0.0003],
+      ],
+    },
+    {
+      slug: 'sample-hakata-craft-food-fes', name: '【サンプル】クラフトフードフェス', genre: 'food',
+      pref: '福岡県', city: '福岡市', venue: '天神セントラル広場（架空）', address: '福岡県福岡市（サンプル住所）',
+      lat: 33.5905, lng: 130.3995, zoom: 17, start: sat, end: sun, time: '11:00〜21:00',
+      summary: '全国のご当地グルメとクラフトビールが集まるフードフェス。※動作確認用の架空イベントです。',
+      organizer: 'クラフトフードフェス実行委員会（架空）', access: '駅から徒歩2分（架空）', station: '', traffic: '',
+      parking: '', ticket: '入場無料（飲食代別）', extra: '',
+      status: 'canceled', statusNote: '荒天が予想されるため、今回の開催は中止となりました（架空の中止情報です）。',
+      spots: [
+        ['gate', '入場口', -0.0007, 0.0], ['food', 'グルメブース', 0.0003, -0.0004], ['toilet', 'トイレ', 0.0006, 0.0006],
+      ],
+    },
+  ];
 
-    const genreIds: Record<string, number> = {};
-    const insGenre = db.prepare('INSERT INTO genres (slug, name, icon, color, info_fields, sort) VALUES (?, ?, ?, ?, ?, ?)');
-    const insGC = db.prepare('INSERT INTO genre_categories (genre_id, category_id) VALUES (?, ?)');
-    GENRES.forEach((gn, i) => {
-      const id = Number(insGenre.run(gn.slug, gn.name, gn.icon, gn.color, gn.info, i).lastInsertRowid);
-      genreIds[gn.slug] = id;
-      for (const c of gn.cats) insGC.run(id, catIds[c]);
-    });
-
-    const events: EventSeed[] = [
-      {
-        slug: 'sample-minatogawa-hanabi', name: '【サンプル】みなと川 冬花火大会', genre: 'fireworks',
-        pref: '東京都', city: '江東区', venue: 'みなと川河川敷（架空）', address: '東京都江東区（サンプル住所）',
-        lat: 35.6655, lng: 139.8195, zoom: 16, start: today, end: today, time: '18:30〜19:30（打ち上げ）',
-        summary: '冬の夜空に約3,000発の花火を打ち上げる、河川敷の花火大会です。※これは動作確認用の架空のイベントです。',
-        organizer: 'みなと川花火実行委員会（架空）', access: '各線「みなと川駅」から徒歩10分（架空）', station: 'みなと川駅（架空）',
-        traffic: '17:00〜21:00 河川敷沿いの道路で車両通行止め（架空）', parking: '会場周辺に臨時駐車場あり（台数限定）',
-        ticket: '観覧無料／有料観覧席 3,000円（架空）', extra: '打ち上げ数: 約3,000発\n雨天時: 翌日に順延', featured: 1,
-        spots: [
-          ['viewing', '河川敷 観覧エリアA', 0.0006, -0.0012], ['viewing', '河川敷 観覧エリアB', 0.0009, 0.0011],
-          ['gate', '北側 入場口', -0.0014, -0.0018], ['gate', '東側 入場口', -0.0008, 0.0024],
-          ['toilet', '仮設トイレ①（北口付近）', -0.001, -0.0009], ['toilet', '仮設トイレ②（東口付近）', -0.0004, 0.0019],
-          ['food', '屋台エリア', -0.0018, 0.0002, '約30店舗'], ['parking', '臨時駐車場（第1）', -0.0032, -0.0028, '約200台'],
-          ['traffic', '河川敷通り（交通規制区間）', -0.0024, 0.0008], ['first_aid', '救護所', -0.0015, 0.0012],
-          ['info', '総合案内所', -0.0012, -0.0003],
-        ],
-        reports: [[0, 'busy', 4], [1, 'some', 12], [2, 'packed', 6], [4, '10min', 3], [5, 'none', 41], [6, '5min', 9],
-          [7, 'few', 15], [8, 'jam', 22], [3, 'empty', 130]],
-      },
-      {
-        slug: 'sample-green-field-fes', name: '【サンプル】グリーンフィールド・ミュージックフェス', genre: 'music',
-        pref: '千葉県', city: '千葉市', venue: 'ベイサイド公園特設ステージ（架空）', address: '千葉県千葉市美浜区（サンプル住所）',
-        lat: 35.6425, lng: 140.0365, zoom: 16, start: today, end: addDays(today, 1), time: '開場 10:00／開演 11:00〜21:00',
-        summary: '2日間で約40組のアーティストが出演する野外音楽フェス。2つのステージと物販エリアがあります。※動作確認用の架空イベントです。',
-        organizer: 'グリーンフィールド実行委員会（架空）', access: 'ベイサイド駅から徒歩8分、シャトルバスあり（架空）', station: 'ベイサイド駅（架空）',
-        traffic: '', parking: '一般駐車場なし。公共交通機関をご利用ください（架空）',
-        ticket: '1日券 12,000円／2日通し券 22,000円（架空）', extra: '出演: 約40組（架空）\n再入場: リストバンド提示で可', featured: 1,
-        spots: [
-          ['gate', 'メインゲート', -0.0016, -0.0006], ['stage', 'SUNステージ', 0.0012, -0.0012], ['stage', 'SEAステージ', 0.0009, 0.0018],
-          ['merch', 'オフィシャルグッズ売り場', -0.0009, 0.0004], ['food', 'フードエリア', -0.0001, 0.0009],
-          ['toilet', 'トイレ（ゲート横）', -0.0013, 0.0002], ['toilet', 'トイレ（SEAステージ裏）', 0.0016, 0.0024],
-          ['rest', '休憩テント', 0.0003, -0.0016], ['first_aid', '救護テント', -0.0004, -0.0008], ['info', 'インフォメーション', -0.0011, -0.0011],
-        ],
-        reports: [[0, 'some', 7], [1, 'busy', 2], [3, '60min', 5], [3, '30min', 35], [4, '10min', 11], [5, '20min', 3], [6, '5min', 18]],
-      },
-      {
-        slug: 'sample-sakura-dori-aki-matsuri', name: '【サンプル】さくら通り 秋祭り', genre: 'festival',
-        pref: '京都府', city: '京都市', venue: 'さくら通り商店街周辺（架空）', address: '京都府京都市（サンプル住所）',
-        lat: 35.0045, lng: 135.7675, zoom: 17, start: sat, end: sun, time: '11:00〜20:00',
-        summary: '商店街を中心に神輿巡行や屋台が並ぶ地域のお祭りです。※動作確認用の架空イベントです。',
-        organizer: 'さくら通り商店街振興会（架空）', access: '最寄り駅から徒歩3分（架空）', station: 'さくら通り駅（架空）',
-        traffic: '期間中 11:00〜20:00 さくら通りは歩行者天国', parking: '', ticket: '入場無料', extra: '神輿巡行: 土曜 14:00〜（架空）',
-        spots: [
-          ['food', '屋台通り（北）', 0.0006, -0.0004], ['food', '屋台通り（南）', -0.0006, 0.0003], ['stage', '広場ステージ', 0.0001, 0.0009],
-          ['toilet', '公衆トイレ', -0.0003, -0.0008], ['rest', '休憩所（集会所）', 0.0009, 0.0006], ['first_aid', '救護所', -0.0009, -0.0003],
-          ['traffic', 'さくら通り（歩行者天国）', 0.0, -0.0001],
-        ],
-      },
-      {
-        slug: 'sample-weekend-farmers-marche', name: '【サンプル】ウィークエンド・ファーマーズマルシェ', genre: 'marche',
-        pref: '大阪府', city: '大阪市', venue: '中之島ひろば（架空）', address: '大阪府大阪市（サンプル住所）',
-        lat: 34.6925, lng: 135.5035, zoom: 17, start: nextSat, end: nextSat, time: '10:00〜15:00',
-        summary: '近郊農家の野菜や加工品、キッチンカーが集まるマルシェです。※動作確認用の架空イベントです。',
-        organizer: 'ファーマーズマルシェ事務局（架空）', access: '駅から徒歩5分（架空）', station: '', traffic: '',
-        parking: '近隣のコインパーキングをご利用ください', ticket: '入場無料', extra: '出店数: 約50店（架空）',
-        spots: [
-          ['food', 'キッチンカーエリア', 0.0004, 0.0006], ['food', '農産物ブース', -0.0003, -0.0002], ['toilet', 'トイレ', 0.0008, -0.0007],
-          ['parking', '提携コインパーキング', -0.0012, 0.0011], ['rest', '飲食スペース', 0.0, 0.0012], ['info', '本部テント', -0.0006, 0.0003],
-        ],
-      },
-      {
-        slug: 'sample-hakata-craft-food-fes', name: '【サンプル】クラフトフードフェス', genre: 'food',
-        pref: '福岡県', city: '福岡市', venue: '天神セントラル広場（架空）', address: '福岡県福岡市（サンプル住所）',
-        lat: 33.5905, lng: 130.3995, zoom: 17, start: sat, end: sun, time: '11:00〜21:00',
-        summary: '全国のご当地グルメとクラフトビールが集まるフードフェス。※動作確認用の架空イベントです。',
-        organizer: 'クラフトフードフェス実行委員会（架空）', access: '駅から徒歩2分（架空）', station: '', traffic: '',
-        parking: '', ticket: '入場無料（飲食代別）', extra: '',
-        status: 'canceled', statusNote: '荒天が予想されるため、今回の開催は中止となりました（架空の中止情報です）。',
-        spots: [
-          ['gate', '入場口', -0.0007, 0.0], ['food', 'グルメブース', 0.0003, -0.0004], ['toilet', 'トイレ', 0.0006, 0.0006],
-        ],
-      },
-    ];
-
-    const insEvent = db.prepare(`INSERT INTO events (slug, name, genre_id, prefecture, city, venue_name, address, lat, lng, zoom,
+  for (const e of events) {
+    const genreId = genreIds[e.genre] ?? genreIds.other;
+    if (!genreId) continue;
+    const [{ id: eid }] = await q<{ id: number }>(`INSERT INTO events (slug, name, genre_id, prefecture, city, venue_name, address, lat, lng, zoom,
       start_date, end_date, time_text, summary, organizer, official_url, access, nearest_station, traffic_info, parking_info,
       ticket_info, extra_info, status, status_note, is_sample, is_featured, source_url, source_checked_at, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '', ?, ?, ?)`);
-    const insSpot = db.prepare('INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    const insReport = db.prepare(`INSERT INTO reports (event_id, spot_id, value, label, level, client_id, ip_hash, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'seed', ?)`);
-
-    for (const e of events) {
-      const eid = Number(insEvent.run(e.slug, e.name, genreIds[e.genre], e.pref, e.city, e.venue, e.address, e.lat, e.lng, e.zoom,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, '', $16, $17, $18, $19, $20, $21, $22, $23, 1, $24, '', $25, $26, $26)
+      ON CONFLICT (slug) DO NOTHING RETURNING id`,
+      [e.slug, e.name, genreId, e.pref, e.city, e.venue, e.address, e.lat, e.lng, e.zoom,
         e.start, e.end, e.time, e.summary, e.organizer, e.access, e.station, e.traffic, e.parking, e.ticket, e.extra,
-        e.status ?? 'scheduled', e.statusNote ?? '', e.featured ?? 0, today, now, now).lastInsertRowid);
-      const spotIds = e.spots.map(([cat, name, dy, dx, note], i) =>
-        ({ id: Number(insSpot.run(eid, catIds[cat], name, note ?? '', e.lat + dy, e.lng + dx, i).lastInsertRowid), cat }));
-      e.reports?.forEach(([idx, value, ago], i) => {
-        const sp = spotIds[idx];
-        const rtSlug = CATEGORIES.find((c) => c.slug === sp.cat)!.rt!;
-        const opt = REPORT_TYPES.find((r) => r.slug === rtSlug)!.options.find((o) => o.value === value)!;
-        insReport.run(eid, sp.id, opt.value, opt.label, opt.level, `seed-${i}`, now - ago * 60000);
-      });
+        e.status ?? 'scheduled', e.statusNote ?? '', e.featured ?? 0, today, now]).then((r) => (r.length ? r : [{ id: 0 }]));
+    if (!eid) continue; // 同じスラッグの実イベントがある場合は作らない
+    const spotIds: ({ id: number; cat: string } | null)[] = [];
+    for (const [i, [cat, name, dy, dx, note]] of e.spots.entries()) {
+      if (!catIds[cat]) { spotIds.push(null); continue; }
+      const [{ id }] = await q<{ id: number }>('INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+        [eid, catIds[cat], name, note ?? '', e.lat + dy, e.lng + dx, i]);
+      spotIds.push({ id, cat });
     }
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
+    for (const [i, [idx, value, ago]] of (e.reports ?? []).entries()) {
+      const sp = spotIds[idx];
+      if (!sp) continue;
+      const rtSlug = CATEGORIES.find((c) => c.slug === sp.cat)!.rt!;
+      const opt = REPORT_TYPES.find((r) => r.slug === rtSlug)!.options.find((o) => o.value === value)!;
+      await q(`INSERT INTO reports (event_id, spot_id, value, label, level, client_id, ip_hash, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'seed', $7)`,
+        [eid, sp.id, opt.value, opt.label, opt.level, `seed-${i}`, now - ago * 60000]);
+    }
   }
 }

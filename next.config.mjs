@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack(config, { isServer }) {
-    if (isServer) {
-      config.externals = [...(config.externals || []), { 'node:sqlite': 'commonjs node:sqlite' }];
-    }
-    return config;
-  },
+  // DBドライバはバンドルせず node_modules から読み込む（PGlite は wasm ファイルを使うため）
+  serverExternalPackages: ['@electric-sql/pglite', 'pg'],
 };
 export default nextConfig;

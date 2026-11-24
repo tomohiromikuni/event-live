@@ -19,8 +19,8 @@ function href(base: SP, patch: Partial<SP>) {
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const params: SP = { q: sp.q?.slice(0, 100), genre: sp.genre, pref: sp.pref, when: sp.date ? undefined : sp.when, date: sp.date };
-  const genres = listGenres();
-  const results = searchEvents({ ...params, limit: 100 });
+  if (params.date && !/^\d{4}-\d{2}-\d{2}$/.test(params.date)) params.date = undefined;
+  const [genres, results] = await Promise.all([listGenres(), searchEvents({ ...params, limit: 100 })]);
   const genre = genres.find((g) => g.slug === params.genre);
   const conds = [params.q && `「${params.q}」`, genre?.name, params.pref, params.when && WHEN_LABEL[params.when], params.date].filter(Boolean);
 

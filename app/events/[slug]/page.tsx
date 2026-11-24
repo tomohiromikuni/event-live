@@ -10,7 +10,7 @@ import type { EventCard } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const e = getEventBySlug((await params).slug);
+  const e = await getEventBySlug((await params).slug);
   return e ? { title: e.name, description: e.summary.slice(0, 120) } : {};
 }
 
@@ -32,12 +32,12 @@ function fieldValue(e: EventCard, key: string): React.ReactNode {
 }
 
 export default async function EventPage({ params }: { params: Promise<{ slug: string }> }) {
-  const e = getEventBySlug((await params).slug);
+  const e = await getEventBySlug((await params).slug);
   if (!e || !e.published) notFound();
-  const genre = listGenres().find((g) => g.id === e.genre_id)!;
-  const categories = eventCategories(e.id, e.genre_id);
-  const spots = eventSpots(e.id);
-  const reports = recentReports(e.id);
+  const [genres, categories, spots, reports] = await Promise.all([
+    listGenres(), eventCategories(e.id, e.genre_id), eventSpots(e.id), recentReports(e.id),
+  ]);
+  const genre = genres.find((g) => g.id === e.genre_id)!;
   const ongoing = isOngoing(e.start_date, e.end_date);
   const postable = e.status === 'scheduled' && ongoing;
   const blocked = e.status === 'canceled' ? 'このイベントは中止のため、投稿を受け付けていません。'

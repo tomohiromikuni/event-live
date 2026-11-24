@@ -1,4 +1,4 @@
-import { db } from '@/lib/db';
+import { q } from '@/lib/db';
 import { listCategories, listGenres } from '@/lib/queries';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import { saveCategory, saveGenre, saveReportType } from '../actions';
@@ -7,11 +7,13 @@ import type { ReportOption } from '@/lib/types';
 type RT = { id: number; slug: string; name: string; options: string };
 const inp = { height: 34, fontSize: 13 };
 
-export default function Settings() {
-  const genres = listGenres();
-  const cats = listCategories();
-  const rts = db().prepare('SELECT * FROM report_types ORDER BY id').all() as RT[];
-  const gc = db().prepare('SELECT genre_id, category_id FROM genre_categories').all() as { genre_id: number; category_id: number }[];
+export default async function Settings() {
+  const [genres, cats, rts, gc] = await Promise.all([
+    listGenres(),
+    listCategories(),
+    q<RT>('SELECT * FROM report_types ORDER BY id'),
+    q<{ genre_id: number; category_id: number }>('SELECT genre_id, category_id FROM genre_categories'),
+  ]);
   const has = (g: number, c: number) => gc.some((r) => r.genre_id === g && r.category_id === c);
   const rtText = (o: string) => (JSON.parse(o) as ReportOption[]).map((x) => `${x.value}|${x.label}|${x.level}`).join('\n');
 

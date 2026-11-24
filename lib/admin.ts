@@ -10,17 +10,20 @@ import { redirect } from 'next/navigation';
 const COOKIE = 'evl_admin';
 const TTL_MS = 12 * 3600_000;
 
-export function adminPassword() {
-  return process.env.ADMIN_PASSWORD || 'admin';
+/** 本番環境では ADMIN_PASSWORD が未設定だと管理画面にログインできない（初期パスワードでの公開を防ぐ） */
+export function adminPassword(): string | null {
+  if (process.env.ADMIN_PASSWORD) return process.env.ADMIN_PASSWORD;
+  return process.env.NODE_ENV === 'production' && process.env.VERCEL ? null : 'admin';
 }
 function secret() {
-  return process.env.ADMIN_SECRET || 'dev-secret:' + adminPassword();
+  return process.env.ADMIN_SECRET || 'dev-secret:' + (adminPassword() ?? '');
 }
 function sign(exp: number) {
   return createHmac('sha256', secret()).update(`admin:${exp}`).digest('hex');
 }
 
 export async function isAdmin(): Promise<boolean> {
+  if (adminPassword() === null) return false;
   const v = (await cookies()).get(COOKIE)?.value;
   if (!v) return false;
   const [expStr, sig] = v.split('.');

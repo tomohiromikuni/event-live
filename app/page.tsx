@@ -5,14 +5,16 @@ import { REGIONS } from '@/lib/prefectures';
 
 export const dynamic = 'force-dynamic';
 
-export default function Home() {
-  const genres = listGenres();
-  const live = liveEvents();
-  const today = searchEvents({ when: 'today', limit: 20 });
-  const weekend = searchEvents({ when: 'weekend', limit: 20 });
-  const featured = featuredEvents();
-  const upcoming = searchEvents({ when: 'upcoming', limit: 12 });
-  const prefCounts = prefectureCounts();
+export default async function Home() {
+  const [genres, live, today, weekend, featured, upcoming, prefCounts] = await Promise.all([
+    listGenres(),
+    liveEvents(),
+    searchEvents({ when: 'today', limit: 20 }),
+    searchEvents({ when: 'weekend', limit: 20 }),
+    featuredEvents(),
+    searchEvents({ when: 'upcoming', limit: 12 }),
+    prefectureCounts(),
+  ]);
 
   return (
     <>

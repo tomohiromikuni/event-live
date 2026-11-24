@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { db } from '@/lib/db';
+import { q, type Param } from '@/lib/db';
 import { moderateReport } from '../actions';
 
 type Row = { id: number; label: string; level: number; created_at: number; hidden: number; flag_count: number; client_id: string;
@@ -8,14 +8,14 @@ type Row = { id: number; label: string; level: number; created_at: number; hidde
 export default async function AdminReports({ searchParams }: { searchParams: Promise<{ event?: string; flagged?: string }> }) {
   const sp = await searchParams;
   const where = ['1 = 1'];
-  const args: number[] = [];
-  if (sp.event) { where.push('r.event_id = ?'); args.push(Number(sp.event)); }
+  const args: Param[] = [];
+  if (sp.event && /^\d+$/.test(sp.event)) { args.push(Number(sp.event)); where.push(`r.event_id = $${args.length}`); }
   if (sp.flagged) where.push('EXISTS (SELECT 1 FROM report_flags f WHERE f.report_id = r.id AND f.resolved = 0)');
-  const rows = db().prepare(`SELECT r.id, r.label, r.level, r.created_at, r.hidden, r.flag_count, r.client_id, s.name AS spot, e.name AS event, e.id AS event_id,
-      (SELECT COUNT(*) FROM report_flags f WHERE f.report_id = r.id AND f.resolved = 0) AS open_flags,
-      (SELECT GROUP_CONCAT(NULLIF(f.reason, ''), ' / ') FROM report_flags f WHERE f.report_id = r.id) AS reasons
+  const rows = await q<Row>(`SELECT r.id, r.label, r.level, r.created_at, r.hidden, r.flag_count, r.client_id, s.name AS spot, e.name AS event, e.id AS event_id,
+      (SELECT COUNT(*)::int FROM report_flags f WHERE f.report_id = r.id AND f.resolved = 0) AS open_flags,
+      (SELECT string_agg(NULLIF(f.reason, ''), ' / ') FROM report_flags f WHERE f.report_id = r.id) AS reasons
     FROM reports r JOIN spots s ON s.id = r.spot_id JOIN events e ON e.id = r.event_id
-    WHERE ${where.join(' AND ')} ORDER BY r.created_at DESC LIMIT 300`).all(...args) as Row[];
+    WHERE ${where.join(' AND ')} ORDER BY r.created_at DESC LIMIT 300`, args);
 
   return (
     <>

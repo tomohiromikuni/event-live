@@ -9,8 +9,9 @@ import { deleteEvent } from '../../actions';
 export default async function EditEvent({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
   const id = Number((await params).id);
   const { saved } = await searchParams;
-  const e = getEventById(id);
+  const e = await getEventById(id);
   if (!e) notFound();
+  const [spots, cats, fd] = await Promise.all([eventSpots(e.id), eventCategories(e.id, e.genre_id), formData(e.id)]);
   return (
     <>
       <div className="section-head">
@@ -18,9 +19,9 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
         <Link href={`/events/${e.slug}`} target="_blank">公開ページ ↗</Link>
       </div>
       {saved && <div className="flash">保存しました</div>}
-      <SpotEditor eventId={e.id} center={[e.lat, e.lng]} zoom={e.zoom} spots={eventSpots(e.id)} categories={eventCategories(e.id, e.genre_id)} />
+      <SpotEditor eventId={e.id} center={[e.lat, e.lng]} zoom={e.zoom} spots={spots} categories={cats} />
       <h2 style={{ fontSize: 17, marginTop: 24 }}>イベント情報の編集</h2>
-      <EventForm event={e} {...formData(e.id)} />
+      <EventForm event={e} {...fd} />
       <form action={deleteEvent} className="panel">
         <input type="hidden" name="id" value={e.id} />
         <h2>イベントの削除</h2>

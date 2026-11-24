@@ -2,9 +2,10 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { timingSafeEqual } from 'node:crypto';
-import { db, tx } from '@/lib/db';
+import { q, tx, type Param } from '@/lib/db';
 import { adminPassword, endSession, requireAdmin, startSession } from '@/lib/admin';
 import { PREFECTURES } from '@/lib/prefectures';
+import { seedSamples } from '@/lib/seed';
 import type { ReportOption } from '@/lib/types';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
@@ -12,8 +13,10 @@ const n = (f: FormData, k: string) => Number(f.get(k));
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function login(_prev: string | null, f: FormData): Promise<string | null> {
+  const pw = adminPassword();
+  if (pw === null) return '管理者パスワード（環境変数 ADMIN_PASSWORD）が未設定のため、ログインできません';
   const a = Buffer.from(s(f, 'password'));
-  const b = Buffer.from(adminPassword());
+  const b = Buffer.from(pw);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return 'パスワードが違います';
   await startSession();
   redirect('/admin');
@@ -31,7 +34,7 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
   const slug = s(f, 'slug') || `ev-${Date.now().toString(36)}`;
   const v = {
     name: s(f, 'name'), genre_id: n(f, 'genre_id'), prefecture: s(f, 'prefecture'), city: s(f, 'city'),
-    venue_name: s(f, 'venue_name'), address: s(f, 'address'), lat: n(f, 'lat'), lng: n(f, 'lng'), zoom: n(f, 'zoom') || 16,
+    venue_name: s(f, 'venue_name'), address: s(f, 'address'), lat: n(f, 'lat'), lng: n(f, 'lng'), zoom: Math.round(n(f, 'zoom')) || 16,
     start_date: s(f, 'start_date'), end_date: s(f, 'end_date') || s(f, 'start_date'), time_text: s(f, 'time_text'),
     summary: s(f, 'summary'), organizer: s(f, 'organizer'), official_url: s(f, 'official_url'), access: s(f, 'access'),
     nearest_station: s(f, 'nearest_station'), traffic_info: s(f, 'traffic_info'), parking_info: s(f, 'parking_info'),
@@ -51,27 +54,29 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
 
   let eventId: number;
   try {
-    eventId = tx((d) => {
+    eventId = await tx(async (tq) => {
       const cols = Object.keys(v);
+      const vals = Object.values(v) as Param[];
       const now = Date.now();
       let eid: number;
       if (id) {
-        d.prepare(`UPDATE events SET slug = ?, ${cols.map((c) => `${c} = ?`).join(', ')}, updated_at = ? WHERE id = ?`)
-          .run(slug, ...Object.values(v), now, id);
+        // $1 = slug, $2.. = 各カラム, 続いて updated_at, id
+        await tq(`UPDATE events SET slug = $1, ${cols.map((c, i) => `${c} = $${i + 2}`).join(', ')},
+          updated_at = $${cols.length + 2} WHERE id = $${cols.length + 3}`, [slug, ...vals, now, id]);
         eid = id;
       } else {
-        eid = Number(d.prepare(`INSERT INTO events (slug, ${cols.join(', ')}, created_at, updated_at) VALUES (?, ${cols.map(() => '?').join(', ')}, ?, ?)`)
-          .run(slug, ...Object.values(v), now, now).lastInsertRowid);
+        const ph = cols.map((_, i) => `$${i + 2}`).join(', ');
+        eid = (await tq<{ id: number }>(`INSERT INTO events (slug, ${cols.join(', ')}, created_at, updated_at)
+          VALUES ($1, ${ph}, $${cols.length + 2}, $${cols.length + 2}) RETURNING id`, [slug, ...vals, now]))[0].id;
       }
-      d.prepare('DELETE FROM event_categories WHERE event_id = ?').run(eid);
+      await tq('DELETE FROM event_categories WHERE event_id = $1', [eid]);
       if (f.get('custom_categories')) {
-        const ins = d.prepare('INSERT INTO event_categories (event_id, category_id) VALUES (?, ?)');
-        for (const c of cats) ins.run(eid, c);
+        for (const c of cats) await tq('INSERT INTO event_categories (event_id, category_id) VALUES ($1, $2)', [eid, c]);
       }
       return eid;
     });
   } catch (e) {
-    if (String(e).includes('UNIQUE')) return 'このURL用IDはすでに使われています';
+    if (String(e).includes('unique') || String(e).includes('duplicate')) return 'このURL用IDはすでに使われています';
     throw e;
   }
   revalidatePath('/', 'layout');
@@ -80,9 +85,17 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
 
 export async function deleteEvent(f: FormData) {
   await requireAdmin();
-  db().prepare('DELETE FROM events WHERE id = ?').run(n(f, 'id'));
+  await q('DELETE FROM events WHERE id = $1', [n(f, 'id')]);
   revalidatePath('/', 'layout');
   redirect('/admin');
+}
+
+/** サンプルイベントを削除して、今日を基準にした日程で作り直す（デモ用） */
+export async function resetSamples() {
+  await requireAdmin();
+  await tx((tq) => seedSamples(tq));
+  revalidatePath('/', 'layout');
+  redirect('/admin?reset=1');
 }
 
 // ---------- 地点 ----------
@@ -91,26 +104,27 @@ export async function addSpot(f: FormData) {
   const eid = n(f, 'event_id');
   const lat = n(f, 'lat'), lng = n(f, 'lng');
   if (!s(f, 'name') || !Number.isFinite(lat) || !Number.isFinite(lng) || !lat) return;
-  db().prepare('INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort) VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort), 0) + 1 FROM spots WHERE event_id = ?))')
-    .run(eid, n(f, 'category_id'), s(f, 'name'), s(f, 'note'), lat, lng, eid);
+  await q(`INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort)
+    VALUES ($1, $2, $3, $4, $5, $6, (SELECT COALESCE(MAX(sort), 0) + 1 FROM spots WHERE event_id = $1))`,
+    [eid, n(f, 'category_id'), s(f, 'name'), s(f, 'note'), lat, lng]);
   revalidatePath(`/admin/events/${eid}`);
 }
 
 export async function updateSpot(f: FormData) {
   await requireAdmin();
-  db().prepare('UPDATE spots SET category_id = ?, name = ?, note = ? WHERE id = ?').run(n(f, 'category_id'), s(f, 'name'), s(f, 'note'), n(f, 'id'));
+  await q('UPDATE spots SET category_id = $1, name = $2, note = $3 WHERE id = $4', [n(f, 'category_id'), s(f, 'name'), s(f, 'note'), n(f, 'id')]);
   revalidatePath(`/admin/events/${n(f, 'event_id')}`);
 }
 
 export async function moveSpot(id: number, lat: number, lng: number) {
   await requireAdmin();
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-  db().prepare('UPDATE spots SET lat = ?, lng = ? WHERE id = ?').run(lat, lng, id);
+  if (!Number.isInteger(id) || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  await q('UPDATE spots SET lat = $1, lng = $2 WHERE id = $3', [lat, lng, id]);
 }
 
 export async function deleteSpot(f: FormData) {
   await requireAdmin();
-  db().prepare('DELETE FROM spots WHERE id = ?').run(n(f, 'id'));
+  await q('DELETE FROM spots WHERE id = $1', [n(f, 'id')]);
   revalidatePath(`/admin/events/${n(f, 'event_id')}`);
 }
 
@@ -119,11 +133,10 @@ export async function moderateReport(f: FormData) {
   await requireAdmin();
   const id = n(f, 'id');
   const op = s(f, 'op');
-  const d = db();
-  if (op === 'hide') d.prepare('UPDATE reports SET hidden = 1 WHERE id = ?').run(id);
-  if (op === 'show') d.prepare('UPDATE reports SET hidden = 0 WHERE id = ?').run(id);
-  if (op === 'delete') d.prepare('DELETE FROM reports WHERE id = ?').run(id);
-  if (op === 'resolve' || op === 'hide' || op === 'show') d.prepare('UPDATE report_flags SET resolved = 1 WHERE report_id = ?').run(id);
+  if (op === 'hide') await q('UPDATE reports SET hidden = 1 WHERE id = $1', [id]);
+  if (op === 'show') await q('UPDATE reports SET hidden = 0 WHERE id = $1', [id]);
+  if (op === 'delete') await q('DELETE FROM reports WHERE id = $1', [id]);
+  if (op === 'resolve' || op === 'hide' || op === 'show') await q('UPDATE report_flags SET resolved = 1 WHERE report_id = $1', [id]);
   revalidatePath('/admin/reports');
 }
 
@@ -132,15 +145,15 @@ export async function saveGenre(f: FormData) {
   await requireAdmin();
   const id = n(f, 'id') || null;
   const slug = s(f, 'slug');
-  const vals = [s(f, 'name'), s(f, 'icon') || '🎉', s(f, 'color') || '#64748b', s(f, 'info_fields'), n(f, 'sort') || 0];
+  const vals: Param[] = [s(f, 'name'), s(f, 'icon') || '🎉', s(f, 'color') || '#64748b', s(f, 'info_fields'), n(f, 'sort') || 0];
   if (!vals[0] || (!id && !/^[a-z0-9_-]+$/.test(slug))) return;
-  tx((d) => {
+  await tx(async (tq) => {
     const gid = id
-      ? (d.prepare('UPDATE genres SET name = ?, icon = ?, color = ?, info_fields = ?, sort = ? WHERE id = ?').run(...vals, id), id)
-      : Number(d.prepare('INSERT INTO genres (slug, name, icon, color, info_fields, sort) VALUES (?, ?, ?, ?, ?, ?)').run(slug, ...vals).lastInsertRowid);
-    d.prepare('DELETE FROM genre_categories WHERE genre_id = ?').run(gid);
-    const ins = d.prepare('INSERT INTO genre_categories (genre_id, category_id) VALUES (?, ?)');
-    for (const c of f.getAll('categories').map(Number)) ins.run(gid, c);
+      ? (await tq('UPDATE genres SET name = $1, icon = $2, color = $3, info_fields = $4, sort = $5 WHERE id = $6', [...vals, id]), id)
+      : (await tq<{ id: number }>('INSERT INTO genres (slug, name, icon, color, info_fields, sort) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (slug) DO NOTHING RETURNING id', [slug, ...vals]))[0]?.id;
+    if (!gid) return;
+    await tq('DELETE FROM genre_categories WHERE genre_id = $1', [gid]);
+    for (const c of f.getAll('categories').map(Number)) await tq('INSERT INTO genre_categories (genre_id, category_id) VALUES ($1, $2)', [gid, c]);
   });
   revalidatePath('/', 'layout');
 }
@@ -149,10 +162,12 @@ export async function saveCategory(f: FormData) {
   await requireAdmin();
   const id = n(f, 'id') || null;
   const rt = n(f, 'report_type_id') || null;
-  const vals = [s(f, 'name'), s(f, 'icon') || '📍', s(f, 'color') || '#64748b', rt, n(f, 'sort') || 0];
+  const vals: Param[] = [s(f, 'name'), s(f, 'icon') || '📍', s(f, 'color') || '#64748b', rt, n(f, 'sort') || 0];
   if (!vals[0]) return;
-  if (id) db().prepare('UPDATE spot_categories SET name = ?, icon = ?, color = ?, report_type_id = ?, sort = ? WHERE id = ?').run(...vals, id);
-  else if (/^[a-z0-9_-]+$/.test(s(f, 'slug'))) db().prepare('INSERT INTO spot_categories (slug, name, icon, color, report_type_id, sort) VALUES (?, ?, ?, ?, ?, ?)').run(s(f, 'slug'), ...vals);
+  if (id) await q('UPDATE spot_categories SET name = $1, icon = $2, color = $3, report_type_id = $4, sort = $5 WHERE id = $6', [...vals, id]);
+  else if (/^[a-z0-9_-]+$/.test(s(f, 'slug'))) {
+    await q('INSERT INTO spot_categories (slug, name, icon, color, report_type_id, sort) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (slug) DO NOTHING', [s(f, 'slug'), ...vals]);
+  }
   revalidatePath('/', 'layout');
 }
 
@@ -164,7 +179,9 @@ export async function saveReportType(f: FormData) {
     .filter((p) => p.length === 3 && /^[a-z0-9_-]+$/i.test(p[0]) && p[1])
     .map(([value, label, level]) => ({ value, label, level: Math.min(4, Math.max(0, Number(level) || 0)) }));
   if (!s(f, 'name') || options.length === 0) return;
-  if (id) db().prepare('UPDATE report_types SET name = ?, options = ? WHERE id = ?').run(s(f, 'name'), JSON.stringify(options), id);
-  else if (/^[a-z0-9_-]+$/.test(s(f, 'slug'))) db().prepare('INSERT INTO report_types (slug, name, options) VALUES (?, ?, ?)').run(s(f, 'slug'), s(f, 'name'), JSON.stringify(options));
+  if (id) await q('UPDATE report_types SET name = $1, options = $2 WHERE id = $3', [s(f, 'name'), JSON.stringify(options), id]);
+  else if (/^[a-z0-9_-]+$/.test(s(f, 'slug'))) {
+    await q('INSERT INTO report_types (slug, name, options) VALUES ($1, $2, $3) ON CONFLICT (slug) DO NOTHING', [s(f, 'slug'), s(f, 'name'), JSON.stringify(options)]);
+  }
   revalidatePath('/', 'layout');
 }

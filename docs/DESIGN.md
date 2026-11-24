@@ -26,10 +26,10 @@
 | レイヤ | プロトタイプ | 本番想定 | 理由 |
 |---|---|---|---|
 | フレームワーク | Next.js 15 (App Router, TypeScript) | 同じ | SSRでSEO（イベントページ数万件）＋APIを1つに集約、保守者が多い |
-| DB | SQLite（Node 組込み `node:sqlite`） | PostgreSQL（Supabase / Neon 等） | スキーマは標準SQLのみで移行容易。PostGIS・pg_trgm で地理/全文検索 |
+| DB | PostgreSQL（ローカルは組込みの PGlite、`DATABASE_URL` 指定時は Neon / Supabase 等） | 同じ（Vercel + Neon） | サーバーレスでもデータが永続。将来 PostGIS・pg_trgm で地理/全文検索 |
 | 地図 | Leaflet + OSM タイル | Leaflet + 商用利用可タイル（MapTiler 等）or 自前ベクタタイル | 軽量・無料。OSM公式タイルは大量アクセス不可のため本番は差し替え（`NEXT_PUBLIC_TILE_URL`） |
 | リアルタイム | 20秒ポーリング | ポーリング＋CDN短期キャッシュ → 必要に応じ SSE / Supabase Realtime | 来場者数のピークでも安定・安価 |
-| ホスティング | ローカル | Vercel / Cloud Run ＋ マネージドPostgres | 初期は月数千円規模 |
+| ホスティング | Vercel（GitHub 連携で自動デプロイ） | 同じ | 無料枠から開始、規模に応じて有料プラン |
 | 管理認証 | 共有パスワード＋署名Cookie | Supabase Auth / Auth.js ＋ロール | |
 
 ## 4. データベース設計

@@ -1,16 +1,16 @@
 import 'server-only';
-import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { seed } from './seed';
 
 /**
- * データベース接続（プロトタイプは SQLite）。
- * スキーマは PostgreSQL へ移行しやすいよう、標準的な型とリレーションのみを使う。
+ * データベース接続（PostgreSQL）。
+ *  - DATABASE_URL（または POSTGRES_URL）があれば実際の PostgreSQL（Neon / Supabase 等）に接続
+ *  - 無ければ組込み PostgreSQL（PGlite）を ./data/pgdata に作成して使う（ローカル開発用・設定不要）
+ * 初回接続時にスキーマ作成とサンプルデータ投入を自動で行う。
  */
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS genres (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   icon TEXT NOT NULL DEFAULT '🎉',
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS genres (
 
 -- 投稿の選択肢セット（待ち時間、駐車場、混雑度…）
 CREATE TABLE IF NOT EXISTS report_types (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   options TEXT NOT NULL                   -- JSON: [{value,label,level}] level 0=良好〜3=非常に悪い, 4=利用不可
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS report_types (
 
 -- マップ地点のカテゴリ（トイレ、屋台、駐車場…）
 CREATE TABLE IF NOT EXISTS spot_categories (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   icon TEXT NOT NULL DEFAULT '📍',
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS genre_categories (
 );
 
 CREATE TABLE IF NOT EXISTS events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   genre_id INTEGER NOT NULL REFERENCES genres(id),
@@ -54,8 +54,8 @@ CREATE TABLE IF NOT EXISTS events (
   city TEXT NOT NULL DEFAULT '',
   venue_name TEXT NOT NULL DEFAULT '',
   address TEXT NOT NULL DEFAULT '',
-  lat REAL NOT NULL,
-  lng REAL NOT NULL,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
   zoom INTEGER NOT NULL DEFAULT 16,
   start_date TEXT NOT NULL,               -- YYYY-MM-DD（日本時間）
   end_date TEXT NOT NULL,
@@ -78,8 +78,8 @@ CREATE TABLE IF NOT EXISTS events (
   published INTEGER NOT NULL DEFAULT 1,
   source_url TEXT NOT NULL DEFAULT '',
   source_checked_at TEXT NOT NULL DEFAULT '',
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_dates ON events(start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_events_pref ON events(prefecture);
@@ -93,19 +93,19 @@ CREATE TABLE IF NOT EXISTS event_categories (
 );
 
 CREATE TABLE IF NOT EXISTS spots (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   category_id INTEGER NOT NULL REFERENCES spot_categories(id),
   name TEXT NOT NULL,
   note TEXT NOT NULL DEFAULT '',
-  lat REAL NOT NULL,
-  lng REAL NOT NULL,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
   sort INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_spots_event ON spots(event_id);
 
 CREATE TABLE IF NOT EXISTS reports (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
   spot_id INTEGER NOT NULL REFERENCES spots(id) ON DELETE CASCADE,
   value TEXT NOT NULL,
@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS reports (
   level INTEGER NOT NULL,
   client_id TEXT NOT NULL,                -- ブラウザ単位の匿名ID
   ip_hash TEXT NOT NULL DEFAULT '',
-  created_at INTEGER NOT NULL,            -- 投稿時刻（UNIXミリ秒）
+  created_at BIGINT NOT NULL,             -- 投稿時刻（UNIXミリ秒）
   hidden INTEGER NOT NULL DEFAULT 0,
   flag_count INTEGER NOT NULL DEFAULT 0
 );
@@ -122,49 +122,85 @@ CREATE INDEX IF NOT EXISTS idx_reports_spot_time ON reports(spot_id, created_at)
 CREATE INDEX IF NOT EXISTS idx_reports_client_time ON reports(client_id, created_at);
 
 CREATE TABLE IF NOT EXISTS report_flags (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   report_id INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
   client_id TEXT NOT NULL,
   reason TEXT NOT NULL DEFAULT '',
-  created_at INTEGER NOT NULL,
+  created_at BIGINT NOT NULL,
   resolved INTEGER NOT NULL DEFAULT 0,
   UNIQUE (report_id, client_id)
 );
 `;
 
-const g = globalThis as unknown as { __db?: DatabaseSync };
+export type Param = string | number | null;
+/** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
+export type Q = <T = Record<string, unknown>>(sql: string, params?: Param[]) => Promise<T[]>;
 
-export function db(): DatabaseSync {
-  if (g.__db) return g.__db;
-  const dir = path.join(process.cwd(), 'data');
-  mkdirSync(dir, { recursive: true });
-  const conn = new DatabaseSync(path.join(dir, 'app.db'));
-  // node:sqlite は null プロトタイプのオブジェクトを返すため、React のシリアライズ用に通常のオブジェクトへ変換する
-  const rawPrepare = conn.prepare.bind(conn);
-  conn.prepare = ((sql: string) => {
-    const st = rawPrepare(sql);
-    const all = st.all.bind(st), get = st.get.bind(st);
-    st.all = ((...a: never[]) => all(...a).map((r) => ({ ...r }))) as typeof st.all;
-    st.get = ((...a: never[]) => { const r = get(...a); return r ? { ...r } : r; }) as typeof st.get;
-    return st;
-  }) as typeof conn.prepare;
-  conn.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 3000;');
-  conn.exec(SCHEMA);
-  const { n } = conn.prepare('SELECT COUNT(*) AS n FROM genres').get() as { n: number };
-  if (n === 0) seed(conn);
-  g.__db = conn;
-  return conn;
+type Driver = { q: Q; tx: <T>(fn: (q: Q) => Promise<T>) => Promise<T> };
+
+async function createDriver(): Promise<Driver> {
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (url) {
+    const pg = (await import('pg')).default;
+    pg.types.setTypeParser(20, (v: string) => Number(v)); // BIGINT（ミリ秒時刻・COUNT）を number で扱う
+    const pool = new pg.Pool({ connectionString: url, max: 3, idleTimeoutMillis: 10_000 });
+    const wrap = (c: { query: (s: string, p?: Param[]) => Promise<{ rows: unknown[] }> }): Q =>
+      (async (sql: string, params: Param[] = []) => (await c.query(sql, params)).rows) as Q;
+    return {
+      q: wrap(pool),
+      async tx(fn) {
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          const r = await fn(wrap(client));
+          await client.query('COMMIT');
+          return r;
+        } catch (e) {
+          await client.query('ROLLBACK');
+          throw e;
+        } finally {
+          client.release();
+        }
+      },
+    };
+  }
+  const { PGlite, types } = await import('@electric-sql/pglite');
+  const dir = path.join(process.cwd(), 'data', 'pgdata');
+  const db = new PGlite(dir, { parsers: { [types.INT8]: (v: string) => Number(v) } });
+  const wrap = (c: { query: (s: string, p?: Param[]) => Promise<{ rows: unknown[] }> }): Q =>
+    (async (sql: string, params: Param[] = []) => (await c.query(sql, params)).rows) as Q;
+  return { q: wrap(db), tx: (fn) => db.transaction((t) => fn(wrap(t))) };
 }
 
-export function tx<T>(fn: (d: DatabaseSync) => T): T {
-  const d = db();
-  d.exec('BEGIN');
-  try {
-    const r = fn(d);
-    d.exec('COMMIT');
-    return r;
-  } catch (e) {
-    d.exec('ROLLBACK');
+const g = globalThis as unknown as { __driver?: Promise<Driver> };
+
+function driver(): Promise<Driver> {
+  g.__driver ??= (async () => {
+    const d = await createDriver();
+    // 複数インスタンスが同時に起動しても初期化が1回になるようロックを取る
+    await d.tx(async (q) => {
+      await q('SELECT pg_advisory_xact_lock(727274)');
+      const exists = await q<{ t: string | null }>("SELECT to_regclass('public.genres')::text AS t");
+      if (!exists[0].t) {
+        for (const stmt of SCHEMA.split(';').map((s) => s.trim()).filter(Boolean)) await q(stmt);
+      }
+      const [{ n }] = await q<{ n: number }>('SELECT COUNT(*)::int AS n FROM genres');
+      if (n === 0) await seed(q);
+    });
+    return d;
+  })().catch((e) => {
+    g.__driver = undefined;
     throw e;
-  }
+  });
+  return g.__driver;
+}
+
+export const q: Q = async (sql, params) => (await driver()).q(sql, params);
+
+export async function one<T = Record<string, unknown>>(sql: string, params?: Param[]): Promise<T | undefined> {
+  return (await q<T>(sql, params))[0];
+}
+
+export async function tx<T>(fn: (q: Q) => Promise<T>): Promise<T> {
+  return (await driver()).tx(fn);
 }
