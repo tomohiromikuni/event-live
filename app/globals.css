@@ -36,11 +36,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .site-header { position: sticky; top: 0; z-index: 1000; background: rgba(255,246,230,.94); backdrop-filter: blur(8px); }
 .header-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; }
 .logo { font-weight: 900; font-size: 22px; letter-spacing: .01em; display: flex; align-items: center; gap: 8px; }
-.logo-mark { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: var(--brand); border: var(--pop-border); box-shadow: 2px 2px 0 var(--ink); }
 .header-link { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; border-radius: 14px; border: var(--pop-border); background: #fff; box-shadow: 2px 2px 0 var(--ink); font-size: 14px; font-weight: 800; }
 .header-link:active { transform: translate(2px, 2px); box-shadow: none; }
 .site-footer { margin-top: 48px; padding: 24px 0 40px; border-top: 2.5px solid var(--ink); font-size: 12px; color: var(--muted); }
 .site-footer p { margin: 4px 0; }
+.footer-logo { margin-bottom: 14px; }
 
 /* search hero */
 .hero-wrap { padding-top: 4px; }
