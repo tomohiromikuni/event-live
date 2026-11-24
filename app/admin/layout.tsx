@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="admin">
       <Suspense fallback={<nav className="admin-nav" />}>
-        <AdminNav flags={counts.flags} inquiries={counts.removals + counts.inquiries} logout={logout} />
+        <AdminNav flags={counts.flags} removals={counts.removals} inquiries={counts.inquiries} logout={logout} />
       </Suspense>
       <main className="admin-main">{children}</main>
     </div>
