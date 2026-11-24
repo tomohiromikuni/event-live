@@ -13,7 +13,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="container" style={{ maxWidth: 640, paddingTop: 16 }}>
-      <h1 style={{ fontSize: 20 }}>{kind === 'removal' ? '掲載停止の申請' : '運営へのお問い合わせ'}</h1>
+      <h1 className="page-title" style={{ fontSize: 24 }}>{kind === 'removal' ? '掲載停止の申請' : '運営へのお問い合わせ'}</h1>
       {kind === 'removal' ? (
         <p className="muted small">
           このイベントの掲載（イベント情報・会場マップ・現地の投稿）の停止を申請できます。内容を確認のうえ、速やかに対応します。
