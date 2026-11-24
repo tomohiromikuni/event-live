@@ -133,10 +133,10 @@ export default function EventLive(p: Props) {
     <div className="live-card" id="live">
       <div className="live-head">
         <strong><span className="live-dot" />現地のリアルタイム情報</strong>
-        <span className="muted">自動更新中</span>
+        <span className="live-tag">自動更新中</span>
       </div>
-      {!p.postable && <div className="notice">ℹ️ {p.postBlockedReason}</div>}
-      {p.postable && <div className="notice">📍 地図またはリストの地点をタップすると、状況をワンタップで投稿できます（登録不要）</div>}
+      {!p.postable && <div className="notice">{p.postBlockedReason}</div>}
+      {p.postable && <div className="notice">地図やリストの地点をタップすると、いまの状況をワンタップで投稿できます（登録不要）</div>}
 
       <LeafletMap canvas={p.canvas} markers={markers} shapes={p.shapes}
         onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
@@ -147,7 +147,7 @@ export default function EventLive(p: Props) {
         <span>点線＝{FRESH_MIN}分以上前</span>
       </div>
 
-      <nav className="chips" style={{ padding: '10px 14px', margin: 0, borderTop: '1px solid var(--border)' }} aria-label="カテゴリ">
+      <nav className="chips" style={{ padding: '10px 14px', margin: 0, borderTop: '1.5px solid var(--border)' }} aria-label="カテゴリ">
         <button className={`chip ${filter === null ? 'active' : ''}`} onClick={() => setFilter(null)}>すべて</button>
         {usedCats.map((c) => (
           <button key={c.id} className={`chip ${filter === c.id ? 'active' : ''}`} onClick={() => setFilter(filter === c.id ? null : c.id)}>
@@ -185,7 +185,7 @@ export default function EventLive(p: Props) {
         })}
       </div>
 
-      <div className="live-head" style={{ borderTop: '1px solid var(--border)' }}>
+      <div className="live-head" style={{ borderTop: '2.5px solid var(--ink)' }}>
         <strong>最新の投稿</strong>
         <span className="muted small">{EXPIRE_MIN}分以上前の情報は現在の状況に反映されません</span>
       </div>
@@ -227,12 +227,13 @@ export default function EventLive(p: Props) {
                 </div>
                 {p.postable ? (
                   <>
-                    <div style={{ fontWeight: 700, marginBottom: 8 }}>いまの状況を教えてください</div>
+                    <div className="sheet-ask">いまの状況を教えてください</div>
                     <div className="option-grid">
                       {selCat.options.map((o) => (
                         <button key={o.value} className="option-btn" disabled={posting}
-                          style={{ borderColor: levelColor(o.level), color: levelColor(o.level) }}
-                          onClick={() => post(sel.id, o.value)}>{o.label}</button>
+                          onClick={() => post(sel.id, o.value)}>
+                          <span className="lv" style={{ background: levelColor(o.level) }} aria-hidden />{o.label}
+                        </button>
                       ))}
                     </div>
                     <p className="muted small" style={{ marginBottom: 0 }}>投稿は匿名で、投稿時刻とともに公開されます。</p>

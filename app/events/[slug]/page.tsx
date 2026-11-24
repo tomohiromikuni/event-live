@@ -91,16 +91,16 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
           dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(e, `${siteUrl()}/events/${e.slug}`)).replace(/</g, '\\u003c') }} />
       )}
       {e.is_sample ? (
-        <div className="banner sample">⚠️ <span>これは動作確認用の<strong>サンプルデータ</strong>です。実在のイベントではありません。</span></div>
+        <div className="banner sample"><span className="banner-label">サンプル</span><span>これは動作確認用の<strong>サンプルデータ</strong>です。実在のイベントではありません。</span></div>
       ) : null}
       {UNOFFICIAL && (
         <div className="banner unofficial">
-          ℹ️ <span>このページは<strong>非公式</strong>の情報ページです。{e.organizer ? `「${e.organizer}」` : '主催者'}とは関係ありません。
+          <span className="banner-label">非公式</span><span>このページは<strong>非公式</strong>の情報ページです。{e.organizer ? `「${e.organizer}」` : '主催者'}とは関係ありません。
             正確な情報は{e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">公式サイト</a> : '公式発表'}でご確認ください。</span>
         </div>
       )}
-      {e.status === 'canceled' && <div className="banner canceled">🚫 <span><strong>開催中止</strong>　{e.status_note}</span></div>}
-      {e.status === 'postponed' && <div className="banner postponed">⏸️ <span><strong>延期</strong>　{e.status_note}</span></div>}
+      {e.status === 'canceled' && <div className="banner canceled"><span className="banner-label">中止</span><span><strong>開催中止</strong>　{e.status_note}</span></div>}
+      {e.status === 'postponed' && <div className="banner postponed"><span className="banner-label">延期</span><span><strong>延期</strong>　{e.status_note}</span></div>}
 
       <div className="event-head">
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -109,20 +109,26 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
         </div>
         <h1>{e.name}</h1>
         <div className="meta">
-          <span>📅 {fmtRange(e.start_date, e.end_date)}{e.time_text && `　${e.time_text}`}</span>
-          <span>📍 {e.prefecture}{e.city}・{e.venue_name || '会場情報なし'}</span>
+          <span>
+            <svg aria-label="日時" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+            <span>{fmtRange(e.start_date, e.end_date)}{e.time_text && `　${e.time_text}`}</span>
+          </span>
+          <span>
+            <svg aria-label="場所" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
+            <span>{e.prefecture}{e.city}・{e.venue_name || '会場情報なし'}</span>
+          </span>
         </div>
       </div>
 
       <nav className="tabs">
-        <a href="#live" className="primary">📡 現地の状況</a>
-        <a href="#info">📄 イベント情報</a>
+        <a href="#live" className="primary">現地の状況</a>
+        <a href="#info">イベント情報</a>
       </nav>
 
       <EventLive eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} categories={categories} spots={spots} shapes={shapes}
         initialReports={reports} serverNow={Date.now()} postable={postable} postBlockedReason={blocked} />
 
-      <section className="section" id="info" style={{ scrollMarginTop: 110 }}>
+      <section className="section" id="info" style={{ scrollMarginTop: 130 }}>
         <div className="section-head"><h2>イベント情報</h2></div>
         <p style={{ marginTop: 0, whiteSpace: 'pre-wrap' }}>{e.summary || '概要の情報はありません'}</p>
         <dl className="info-table" style={{ margin: 0 }}>
