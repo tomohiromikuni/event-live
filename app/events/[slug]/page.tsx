@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import KindIcon from '@/components/Icon';
 import EventLive from '@/components/EventLive';
 import { StatusBadges } from '@/components/EventCard';
 import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports } from '@/lib/queries';
@@ -106,7 +107,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
 
       <div className="event-head">
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <span className="badge genre" style={{ background: genre.color }}>{genre.icon} {genre.name}</span>
+          <span className="badge genre" style={{ background: genre.color }}><KindIcon kind="genre" slug={genre.slug} emoji={genre.icon} size={13} strokeWidth={2.6} />{genre.name}</span>
           <StatusBadges e={e} />
         </div>
         <h1>{e.name}</h1>

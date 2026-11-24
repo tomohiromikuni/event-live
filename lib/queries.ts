@@ -5,7 +5,7 @@ import { FEED_HOURS } from './freshness';
 import type { MapShape } from './shapes';
 import type { Category, EventCard, EventRow, Genre, Report, ReportOption, Spot } from './types';
 
-const CARD_SELECT = `SELECT e.*, g.name AS genre_name, g.icon AS genre_icon, g.color AS genre_color
+const CARD_SELECT = `SELECT e.*, g.name AS genre_name, g.icon AS genre_icon, g.slug AS genre_slug, g.color AS genre_color
   FROM events e JOIN genres g ON g.id = e.genre_id`;
 
 export function listGenres(): Promise<Genre[]> {
@@ -47,7 +47,7 @@ export function featuredEvents(): Promise<EventCard[]> {
 
 /** 直近1時間の投稿が多いイベント（＝今盛り上がっている） */
 export function liveEvents(): Promise<EventCard[]> {
-  return q<EventCard>(`SELECT e.*, g.name AS genre_name, g.icon AS genre_icon, g.color AS genre_color, COUNT(r.id)::int AS live_count
+  return q<EventCard>(`SELECT e.*, g.name AS genre_name, g.icon AS genre_icon, g.slug AS genre_slug, g.color AS genre_color, COUNT(r.id)::int AS live_count
     FROM events e JOIN genres g ON g.id = e.genre_id JOIN reports r ON r.event_id = e.id AND r.hidden = 0 AND r.created_at >= $1
     WHERE e.published = 1 GROUP BY e.id, g.id ORDER BY live_count DESC LIMIT 10`, [Date.now() - 3600_000]);
 }
