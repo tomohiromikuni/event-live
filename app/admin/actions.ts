@@ -45,7 +45,7 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
     // ハッシュタグ（空欄なら自動）。記号を除いて重複をなくし、#イベナウ以外で最大3個まで保存
     hashtags: cleanHashtags(s(f, 'hashtags')), status: s(f, 'status') || 'scheduled', status_note: s(f, 'status_note'),
     image_url: s(f, 'image_url'), image_credit: s(f, 'image_credit'), is_sample: f.get('is_sample') ? 1 : 0,
-    is_featured: f.get('is_featured') ? 1 : 0, published: f.get('published') ? 1 : 0,
+    is_featured: f.get('is_featured') ? 1 : 0, published: f.get('published') ? 1 : 0, recurring: f.get('recurring') ? 1 : 0,
     source_url: s(f, 'source_url'), source_checked_at: s(f, 'source_checked_at'),
   };
   if (!v.name) return 'イベント名は必須です';

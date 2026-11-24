@@ -238,7 +238,10 @@ CREATE TABLE IF NOT EXISTS event_view_seen (
 );
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8];
+/** v9: 毎年開催のイベントか（終了後もページを検索エンジンに残し、翌年は同じURLで復活させる） */
+const V9 = `ALTER TABLE events ADD COLUMN IF NOT EXISTS recurring INTEGER NOT NULL DEFAULT 0`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

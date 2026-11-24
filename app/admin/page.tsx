@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { q } from '@/lib/db';
 import { resetSamples } from './actions';
-import { addDays, fmtRange, todayJST } from '@/lib/dates';
+import { addDays, fmtRange, isEnded, todayJST } from '@/lib/dates';
 import { pendingCounts } from '@/lib/admin-data';
 
 type Row = { id: number; slug: string; name: string; start_date: string; end_date: string; prefecture: string; status: string;
@@ -117,6 +117,7 @@ export default async function AdminEvents({ searchParams }: { searchParams: Prom
                 <td>
                   <Link href={`/admin/events/${r.id}`} className="admin-name">{r.name}</Link>
                   {r.is_sample ? <span className="tag sample">サンプル</span> : null}
+                  {isEnded(r.end_date) ? <span className="tag" title="公開ページでは「終了しました」の案内だけを表示しています">終了</span> : null}
                   {!r.published && <span className="tag">非公開</span>}
                   <div className="muted small">{r.genre}</div>
                 </td>

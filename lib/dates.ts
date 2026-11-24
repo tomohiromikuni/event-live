@@ -28,6 +28,11 @@ export function fmtRange(start: string, end: string) {
   return start === end ? head : `${head}〜${fmtDate(end)}`;
 }
 
+/** 終了したイベントか（最終日の翌日・日本時間0時から） */
+export function isEnded(end: string, today = todayJST()) {
+  return end < today;
+}
+
 export function isOngoing(start: string, end: string, today = todayJST()) {
   return start <= today && today <= end;
 }

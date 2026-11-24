@@ -491,3 +491,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .admin .seg a.on { background: #111827; color: #fff !important; font-weight: 700; }
 .admin .sort-link { color: inherit !important; text-decoration: underline dotted; text-underline-offset: 3px; }
 .admin .sort-link.on { color: var(--text) !important; font-weight: 700; text-decoration: none; }
+
+/* 終了したイベント */
+.badge.ended { background: #6b7280; color: #fff; }
+.ended-panel h2 { font-size: 19px; margin: 0 0 8px; }
+.ended-panel p { margin: 0 0 14px; }
+.ended-actions { display: grid; gap: 8px; }
+.ended-actions .btn { width: 100%; text-align: center; }

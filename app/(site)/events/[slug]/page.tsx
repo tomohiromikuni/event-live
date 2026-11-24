@@ -4,7 +4,8 @@ import KindIcon from '@/components/Icon';
 import EventLive from '@/components/EventLive';
 import { StatusBadges } from '@/components/EventCard';
 import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports } from '@/lib/queries';
-import { fmtRange, isOngoing } from '@/lib/dates';
+import { fmtRange, isEnded, isOngoing } from '@/lib/dates';
+import EndedEvent from '@/components/EndedEvent';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
@@ -22,6 +23,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const e = await getEventBySlug((await params).slug);
   if (!e) return {};
   const title = UNOFFICIAL ? `${e.name}（非公式情報）` : e.name;
+  if (isEnded(e.end_date)) {
+    // 終了したイベント：一度きりのものは検索エンジンから外す。毎年開催のものは翌年に備えてURLの評価を残す
+    return {
+      title, description: `${e.name}（${fmtRange(e.start_date, e.end_date)}）は終了しました。`,
+      alternates: { canonical: `/events/${e.slug}` },
+      robots: e.is_sample || !e.published || !e.recurring ? { index: false, follow: true } : undefined,
+    };
+  }
   const description = `${fmtRange(e.start_date, e.end_date)}・${e.prefecture}${e.city}${e.venue_name ? `「${e.venue_name}」` : ''}で開催。`
     + `会場マップ、トイレ・駐車場・屋台の混雑や待ち時間を来場者がリアルタイムで共有。${e.summary}`.slice(0, 110);
   return {
@@ -80,6 +89,8 @@ function fieldValue(e: EventCard, key: string): React.ReactNode {
 export default async function EventPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ ref?: string }> }) {
   const e = await getEventBySlug((await params).slug);
   if (!e || !e.published) notFound();
+  // 終了したイベントは「終了しました」の案内だけ（マップ・投稿・混雑状況は見せない。データは管理画面に残る）
+  if (isEnded(e.end_date)) return <EndedEvent e={e} />;
   const cid = await currentClientId();
   if (e.published) await recordViews(e.id).catch(() => {}); // 閲覧数の記録（貢献実績用）
   const [genres, categories, spots, reports, shapes] = await Promise.all([

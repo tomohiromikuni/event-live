@@ -69,6 +69,7 @@ export default function EventForm({ event: e, genres, categories, genreDefaults,
           <div className="check-grid">
             <label title="会場マップ（施設3件以上、うちトイレか駐車場1件以上）ができてから公開できます"><input type="checkbox" name="published" defaultChecked={e ? !!e.published : false} /> 公開する（会場マップ作成後）</label>
             <label><input type="checkbox" name="is_featured" defaultChecked={!!e?.is_featured} /> 注目イベント</label>
+            <label title="終了後もページを検索エンジンに残し、翌年の日程を登録すると同じURLで復活します"><input type="checkbox" name="recurring" defaultChecked={!!e?.recurring} /> 毎年開催</label>
             <label><input type="checkbox" name="is_sample" defaultChecked={e ? !!e.is_sample : false} /> サンプルデータ</label>
           </div>
         </div>
