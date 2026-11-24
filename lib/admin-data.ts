@@ -15,3 +15,12 @@ export async function formData(eventId?: number) {
     : [];
   return { genres, categories, genreDefaults, customCategoryIds };
 }
+
+/** 未対応の件数（管理メニューのバッジ・一覧上部の帯で使う） */
+export async function pendingCounts() {
+  const [row] = await q<{ flags: number; removals: number; inquiries: number }>(`SELECT
+      (SELECT COUNT(DISTINCT report_id)::int FROM report_flags WHERE resolved = 0) AS flags,
+      (SELECT COUNT(*)::int FROM inquiries WHERE status = 'new' AND kind = 'removal') AS removals,
+      (SELECT COUNT(*)::int FROM inquiries WHERE status = 'new' AND kind <> 'removal') AS inquiries`);
+  return row ?? { flags: 0, removals: 0, inquiries: 0 };
+}
