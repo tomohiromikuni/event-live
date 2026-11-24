@@ -1,0 +1,39 @@
+import { NextResponse, type NextRequest } from 'next/server';
+
+/**
+ * 管理画面の入り口を、推測されにくい URL に分ける。
+ * - 環境変数 ADMIN_ENTRY_PATH（例: "k3f9-x2q7-..."）を設定すると、/<ADMIN_ENTRY_PATH> でだけログイン画面を開ける。
+ * - そのとき /admin-login を直接開くと「ページが見つかりません」になる。
+ * - 未設定のとき（ローカル開発など）は従来どおり /admin-login でログインできる。
+ * 値はリポジトリに書かず、Vercel の環境変数にだけ置く。
+ */
+function entryPath() {
+  return (process.env.ADMIN_ENTRY_PATH || '').trim().replace(/^\/+|\/+$/g, '');
+}
+
+export function middleware(req: NextRequest) {
+  const entry = entryPath();
+  if (!entry) return NextResponse.next();
+  const { pathname } = req.nextUrl;
+
+  if (pathname === `/${entry}`) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/admin-login';
+    const res = NextResponse.rewrite(url);
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    res.headers.set('Cache-Control', 'no-store');
+    return res;
+  }
+  if (pathname === '/admin-login') {
+    // 存在しないページと同じ表示（404）にする
+    const url = req.nextUrl.clone();
+    url.pathname = '/__not-found';
+    return NextResponse.rewrite(url);
+  }
+  return NextResponse.next();
+}
+
+export const config = {
+  // 画像・JS などの静的ファイルと API 以外の全ページで判定する（入り口の URL はどんな文字列でもよいため）
+  matcher: ['/((?!_next/|api/|og/|icon|apple-icon|og\\.png|robots\\.txt|sitemap\\.xml).*)'],
+};

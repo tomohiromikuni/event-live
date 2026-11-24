@@ -27,7 +27,7 @@ export async function login(_prev: string | null, f: FormData): Promise<string |
 
 export async function logout() {
   await endSession();
-  redirect('/admin-login');
+  redirect('/');
 }
 
 // ---------- イベント ----------

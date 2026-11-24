@@ -14,7 +14,7 @@ npm run build && npm start   # http://localhost:3000
 
 - 初回起動時にテーブル作成とサンプルデータ投入が自動で行われます（開催日は起動日を基準に設定）。
 - ローカルのサンプルを入れ直す: `npm run seed` → サーバーを再起動。
-- 管理画面: `/admin`（ローカルの初期パスワードは `admin`）
+- 管理画面: `/admin-login` でログイン →`/admin`（ローカルの初期パスワードは `admin`）。本番では `ADMIN_ENTRY_PATH` で決めた URL が入り口になります。
 
 ## Vercel へのデプロイ
 
@@ -27,6 +27,7 @@ npm run build && npm start   # http://localhost:3000
    |---|---|
    | `ADMIN_PASSWORD` | 管理画面のパスワード（**必須**。未設定だと本番では管理画面にログインできません） |
    | `ADMIN_SECRET` | ログインCookie署名用のランダムな長い文字列（推奨） |
+   | `ADMIN_ENTRY_PATH` | 管理画面の入り口のURL（推奨）。例 `k3f9x2q7...` にすると `https://<ドメイン>/k3f9x2q7...` でだけログイン画面が開き、`/admin-login` や未ログインの `/admin` は「ページが見つかりません」になります。リポジトリが公開のため、値はコードに書かずここにだけ設定 |
    | `IP_HASH_SALT` | IPアドレスのハッシュ用のランダムな文字列（推奨） |
 
 4. **Settings → Functions → Function Region** をDBと同じリージョン（例: Singapore `sin1`）に設定。

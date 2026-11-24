@@ -1,11 +1,14 @@
 import { Suspense } from 'react';
-import { requireAdmin } from '@/lib/admin';
+import { isAdmin, requireAdmin } from '@/lib/admin';
 import { pendingCounts } from '@/lib/admin-data';
 import { logout } from './actions';
 import AdminNav from './AdminNav';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: '管理画面', robots: { index: false } };
+// 未ログインのときはタイトルにも管理画面と出さない（「ページが見つかりません」と同じ表示にする）
+export async function generateMetadata() {
+  return { title: (await isAdmin()) ? '管理画面' : 'ページが見つかりません', robots: { index: false, follow: false } };
+}
 
 /** 管理画面（自分用）。公開サイトのデザインとは別の、シンプルな見た目にしている */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
