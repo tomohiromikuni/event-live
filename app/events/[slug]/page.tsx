@@ -20,9 +20,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title, description,
     alternates: { canonical: `/events/${e.slug}` },
-    // イベント画像が無い場合はサイト共通の OGP 画像を使う（openGraph は上書きされるため明示する）
-    openGraph: { title, description, type: 'article', url: `/events/${e.slug}`, images: [e.image_url || '/og.png'] },
-    twitter: { card: 'summary_large_image', title, description, images: [e.image_url || '/og.png'] },
+    // イベント画像が無い場合は、イベント名・日付・会場入りの共有画像（app/og/[slug]）を使う
+    openGraph: { title, description, type: 'article', url: `/events/${e.slug}`, images: [e.image_url || { url: `/og/${e.slug}`, width: 1200, height: 630, alt: title }] },
+    twitter: { card: 'summary_large_image', title, description, images: [e.image_url || `/og/${e.slug}`] },
     // サンプル（架空）・非公開のイベントは検索エンジンに登録させない
     robots: e.is_sample || !e.published ? { index: false, follow: false } : undefined,
   };
