@@ -60,7 +60,12 @@ export default function EventLive(p: Props) {
       const res = await fetch(`/api/events/${p.eventId}/live`, { cache: 'no-store' });
       if (!res.ok) return;
       const data = (await res.json()) as { reports: Report[] };
-      setReports(data.reports);
+      // サーバー側の短いキャッシュ（10秒）で直前の自分の投稿がまだ含まれない場合も、画面からは消さない
+      setReports((prev) => {
+        const ids = new Set(data.reports.map((r) => r.id));
+        const keep = prev.filter((r) => r.mine && !ids.has(r.id) && Date.now() + skew - r.created_at < 60_000);
+        return [...keep, ...data.reports];
+      });
     } catch { /* オフライン時は前回の表示を維持 */ }
   }, [p.eventId]);
 

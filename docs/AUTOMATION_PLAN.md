@@ -1,5 +1,9 @@
 # 自動収集・ページ生成・SNS自動投稿 設計提案
 
+> **第1段階は実装済み（2026-11-25）**：情報源の登録（`/admin/sources`）→ 毎日の収集（`/api/cron/collect`・GitHub Actions）→
+> AIで整理（`lib/collect/extract.ts`）→ 重複チェック（`lib/collect/dedupe.ts`）→ 候補の確認（`/admin/candidates`）→ 承認で非公開イベントを作成。
+> 実行状況は `/admin/collect`。必要な設定は README の「自動収集の設定」。
+
 作成: 2026-11-24 ／ 対象: EVENOW（Next.js on Vercel + Neon PostgreSQL）
 
 ## 0. 前提と方針

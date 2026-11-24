@@ -264,7 +264,80 @@ ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS resolution TEXT NOT NULL DEFAULT 
 ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS resolved_at BIGINT;
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11];
+
+/**
+ * v12: 自動収集（第1段階）。情報源 → 取得したページ → AIで抽出した候補 → 管理者が確認して非公開イベントを作成。
+ * docs/AUTOMATION_PLAN.md 参照。
+ */
+const V12 = `
+CREATE TABLE IF NOT EXISTS sources (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,                     -- rss（RSS/Atom）/ page（1ページ）
+  url TEXT NOT NULL UNIQUE,
+  prefecture TEXT NOT NULL DEFAULT '',
+  trust TEXT NOT NULL DEFAULT 'other',    -- official（公式）/ public（自治体・観光協会）/ other
+  terms_checked_at TEXT NOT NULL DEFAULT '', -- 利用規約を確認した日（未確認なら巡回しない）
+  enabled INTEGER NOT NULL DEFAULT 0,
+  interval_hours INTEGER NOT NULL DEFAULT 24,
+  note TEXT NOT NULL DEFAULT '',
+  last_fetched_at BIGINT NOT NULL DEFAULT 0,
+  last_status TEXT NOT NULL DEFAULT '',
+  created_at BIGINT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS crawl_pages (
+  id SERIAL PRIMARY KEY,
+  source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+  url TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL DEFAULT '',
+  text_hash TEXT NOT NULL DEFAULT '',     -- 前回と内容が同じならAIに送らない
+  text TEXT NOT NULL DEFAULT '',
+  links TEXT NOT NULL DEFAULT '[]',       -- ページ内の Google マイマップ等のリンク（JSON）
+  status TEXT NOT NULL DEFAULT 'pending', -- pending（抽出待ち）/ done / failed / skipped
+  attempts INTEGER NOT NULL DEFAULT 0,
+  error TEXT NOT NULL DEFAULT '',
+  fetched_at BIGINT NOT NULL DEFAULT 0,
+  extracted_at BIGINT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_crawl_pages_status ON crawl_pages(status);
+CREATE TABLE IF NOT EXISTS crawl_runs (
+  id SERIAL PRIMARY KEY,
+  trigger TEXT NOT NULL,                  -- cron / manual
+  started_at BIGINT NOT NULL,
+  finished_at BIGINT NOT NULL DEFAULT 0,
+  fetched INTEGER NOT NULL DEFAULT 0,
+  changed INTEGER NOT NULL DEFAULT 0,
+  extracted INTEGER NOT NULL DEFAULT 0,
+  new_candidates INTEGER NOT NULL DEFAULT 0,
+  duplicates INTEGER NOT NULL DEFAULT 0,
+  errors INTEGER NOT NULL DEFAULT 0,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  log TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS event_candidates (
+  id SERIAL PRIMARY KEY,
+  page_id INTEGER REFERENCES crawl_pages(id) ON DELETE SET NULL,
+  source_id INTEGER REFERENCES sources(id) ON DELETE SET NULL,
+  source_url TEXT NOT NULL,
+  fingerprint TEXT NOT NULL,              -- 正規化した名前＋都道府県＋開始日（重複判定用）
+  data TEXT NOT NULL,                     -- 抽出結果（JSON）
+  confidence INTEGER NOT NULL DEFAULT 0,  -- 0〜100
+  status TEXT NOT NULL DEFAULT 'pending', -- pending（確認待ち）/ approved / rejected / merged
+  match_event_id INTEGER REFERENCES events(id) ON DELETE SET NULL, -- 同じと思われる既存イベント
+  event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,       -- 承認して作成・更新したイベント
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_candidates_status ON event_candidates(status);
+CREATE INDEX IF NOT EXISTS idx_candidates_fp ON event_candidates(fingerprint);
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

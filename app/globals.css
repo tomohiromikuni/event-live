@@ -510,3 +510,24 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .removal-body dt { color: var(--muted); }
 .removal-body dd { margin: 0; }
 .removal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* 管理画面：自動収集 */
+.admin .source-form { display: grid; gap: 6px; }
+.admin .source-form .row, .admin .approve-form .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.admin .source-form input:not([type=checkbox]):not([type=date]), .admin .source-form select { flex: 1; min-width: 140px; }
+.admin .error-text { color: #b91c1c; font-size: 13px; font-weight: 700; }
+.admin .collect-status { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.admin .collect-status > div { display: grid; gap: 2px; font-size: 12px; }
+.admin .collect-status span:first-child { color: var(--muted); }
+.admin .collect-status strong { font-size: 18px; }
+.admin .cand-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.admin .cand-name { font-size: 16px; }
+.admin .cand-conf { font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 10px; }
+.admin .cand-conf.hi { background: #dcfce7; color: #166534; }
+.admin .cand-conf.mid { background: #fef9c3; color: #854d0e; }
+.admin .cand-conf.lo { background: #fee2e2; color: #991b1b; }
+.admin .cand-match { margin: 6px 0; padding: 6px 10px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; font-size: 13px; }
+.admin .cand-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+.admin .cand-table th { text-align: left; width: 90px; color: var(--muted); font-weight: 600; padding: 3px 6px 3px 0; vertical-align: top; }
+.admin .cand-table td { padding: 3px 0; word-break: break-all; }
+.admin .cand-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; margin-top: 10px; }

@@ -34,7 +34,7 @@ export async function ipHash(): Promise<string> {
   return createHash('sha256').update((process.env.IP_HASH_SALT || process.env.ADMIN_SECRET || 'dev-salt') + ip).digest('hex').slice(0, 32);
 }
 
-export type PostResult = { ok: true; report: { id: number; spot_id: number; value: string; label: string; level: number; created_at: number; flag_count: number } } | { ok: false; error: string };
+export type PostResult = { ok: true; report: { id: number; event_id: number; spot_id: number; value: string; label: string; level: number; created_at: number; flag_count: number } } | { ok: false; error: string };
 
 export async function createReport(spotId: number, value: string): Promise<PostResult> {
   if (!Number.isInteger(spotId)) return { ok: false, error: '地点が見つかりません' };
@@ -64,7 +64,7 @@ export async function createReport(spotId: number, value: string): Promise<PostR
 
   const r = (await one<{ id: number }>(`INSERT INTO reports (event_id, spot_id, value, label, level, client_id, ip_hash, created_at)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`, [spot.event_id, spotId, opt.value, opt.label, opt.level, cid, iph, now]))!;
-  return { ok: true, report: { id: r.id, spot_id: spotId, value: opt.value, label: opt.label, level: opt.level, created_at: now, flag_count: 0 } };
+  return { ok: true, report: { id: r.id, event_id: spot.event_id, spot_id: spotId, value: opt.value, label: opt.label, level: opt.level, created_at: now, flag_count: 0 } };
 }
 
 export async function flagReport(reportId: number, reason: string): Promise<{ ok: boolean; error?: string }> {

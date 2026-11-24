@@ -9,6 +9,7 @@
     "seed": "node scripts/reset-db.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
     "@electric-sql/pglite": "^0.6.0",
     "leaflet": "^1.9.4",
     "next": "^15.5.29",

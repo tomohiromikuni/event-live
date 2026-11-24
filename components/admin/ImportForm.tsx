@@ -2,13 +2,13 @@
 import { useActionState, useState } from 'react';
 import { draftFromMyMap, importDraft, type ImportResult, type MyMapResult } from '@/app/admin/import-actions';
 
-type Props = { events: { id: number; name: string }[]; defaultMode?: string };
+type Props = { events: { id: number; name: string }[]; defaultMode?: string; defaultMapUrl?: string };
 
-export default function ImportForm({ events, defaultMode = 'new' }: Props) {
+export default function ImportForm({ events, defaultMode = 'new', defaultMapUrl = '' }: Props) {
   const [res, action, pending] = useActionState<ImportResult | null, FormData>(importDraft, null);
   const [mode, setMode] = useState(defaultMode);
   const [json, setJson] = useState(''); // 送信後もフォームが空にならないよう、内容を自分で保持する
-  const [mapUrl, setMapUrl] = useState('');
+  const [mapUrl, setMapUrl] = useState(defaultMapUrl); // 自動収集の候補から来たときは公式マイマップのURLが入る
   const [mm, setMm] = useState<MyMapResult | null>(null);
   const [loadingMap, setLoadingMap] = useState(false);
   return (

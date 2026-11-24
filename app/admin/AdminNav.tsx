@@ -4,13 +4,18 @@ import { usePathname, useSearchParams } from 'next/navigation';
 
 type Item = { href: string; label: string; count?: number; match: (path: string, flagged: boolean) => boolean };
 
-export default function AdminNav({ flags, removals, inquiries, logout }: { flags: number; removals: number; inquiries: number; logout: () => Promise<void> }) {
+export default function AdminNav({ flags, removals, inquiries, candidates = 0, logout }: { flags: number; removals: number; inquiries: number; candidates?: number; logout: () => Promise<void> }) {
   const path = usePathname();
   const flagged = useSearchParams().get('flagged') === '1';
   const groups: Item[][] = [
     [
       { href: '/admin', label: 'イベント', match: (p) => p === '/admin' || p.startsWith('/admin/events') },
       { href: '/admin/import', label: '下書きを貼り付け', match: (p) => p.startsWith('/admin/import') },
+    ],
+    [
+      { href: '/admin/candidates', label: '収集した候補', count: candidates, match: (p) => p.startsWith('/admin/candidates') },
+      { href: '/admin/collect', label: '自動収集', match: (p) => p.startsWith('/admin/collect') },
+      { href: '/admin/sources', label: '情報源', match: (p) => p.startsWith('/admin/sources') },
     ],
     [
       { href: '/admin/reports', label: '投稿', match: (p, f) => p.startsWith('/admin/reports') && !f },
