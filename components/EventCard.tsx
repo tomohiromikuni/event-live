@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { fmtRange, isOngoing } from '@/lib/dates';
+import KindIcon from '@/components/Icon';
 import type { EventCard as EventCardT } from '@/lib/types';
 
 export function StatusBadges({ e }: { e: EventCardT }) {
@@ -25,10 +26,10 @@ export default function EventCard({ e, hero = false }: { e: EventCardT; hero?: b
     <Link href={`/events/${e.slug}`} className={`event-card${hero ? ' hero-card' : ''}`}>
       <div className="thumb" style={thumbStyle(e)}>
         <div className="badges">
-          <span className="badge genre" style={{ background: e.genre_color }}>{e.genre_icon} {e.genre_name}</span>
+          <span className="badge genre" style={{ background: e.genre_color }}><KindIcon kind="genre" slug={e.genre_slug} emoji={e.genre_icon} size={13} strokeWidth={2.6} />{e.genre_name}</span>
           <StatusBadges e={e} />
         </div>
-        {!e.image_url && <span aria-hidden>{e.genre_icon}</span>}
+        {!e.image_url && <span className="thumb-icon"><KindIcon kind="genre" slug={e.genre_slug} emoji={e.genre_icon} size={hero ? 64 : 44} strokeWidth={2} /></span>}
       </div>
       <div className="body">
         <h3>{e.name}</h3>
@@ -46,7 +47,7 @@ export default function EventCard({ e, hero = false }: { e: EventCardT; hero?: b
 export function EventItem({ e }: { e: EventCardT }) {
   return (
     <Link href={`/events/${e.slug}`} className="event-item">
-      <span className="ico" style={thumbStyle(e)} aria-hidden>{!e.image_url && e.genre_icon}</span>
+      <span className="ico" style={thumbStyle(e)} aria-hidden>{!e.image_url && <KindIcon kind="genre" slug={e.genre_slug} emoji={e.genre_icon} size={34} strokeWidth={2.1} />}</span>
       <span className="txt">
         <span className="kicker" style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
           {e.genre_name}<StatusBadges e={e} />

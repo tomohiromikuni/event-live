@@ -27,6 +27,7 @@ export default async function Settings() {
 
       <section className="panel">
         <h2>ジャンル</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>アイコン：標準のジャンル・カテゴリ（slug が既定のもの）は公開ページで線画アイコンを表示します。新しく追加した種類は、ここで入力した絵文字を表示します。</p>
         <p className="muted small" style={{ marginTop: 0 }}>基本情報項目のキー: {INFO_FIELDS.map((f) => `${f.key}(${f.label})`).join(', ')}</p>
         {[...genres, null].map((g) => (
           <form key={g?.id ?? 'new'} action={saveGenre} style={{ borderTop: '1px solid var(--border)', padding: '10px 0', display: 'grid', gap: 6 }}>

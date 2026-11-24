@@ -26,7 +26,7 @@ export type EventRow = {
   created_at: number; updated_at: number;
 };
 
-export type EventCard = EventRow & { genre_name: string; genre_icon: string; genre_color: string; live_count?: number };
+export type EventCard = EventRow & { genre_name: string; genre_icon: string; genre_slug: string; genre_color: string; live_count?: number };
 
 export type Spot = { id: number; event_id: number; category_id: number; name: string; note: string; lat: number; lng: number; sort: number };
 

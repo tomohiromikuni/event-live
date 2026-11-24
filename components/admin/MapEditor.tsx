@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState, useTransition } from 'react';
+import { iconHtml } from '@/lib/icons';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import type * as L from 'leaflet';
@@ -102,7 +103,7 @@ export default function MapEditor({ eventId, canvas, spots, shapes, categories }
   const markers = useMemo(() => [
     ...spots.map((s) => ({
       id: s.id, lat: s.lat, lng: s.lng, title: s.name, draggable: mode === 'spot',
-      html: `<div class="mk" style="border-color:${catById.get(s.category_id)?.color ?? '#94a3b8'}">${catById.get(s.category_id)?.icon ?? '❓'}</div>`,
+      html: `<div class="mk" style="border-color:${catById.get(s.category_id)?.color ?? '#94a3b8'}">${catById.get(s.category_id) ? iconHtml('category', catById.get(s.category_id)!.slug, catById.get(s.category_id)!.icon, 18) : '❓'}</div>`,
     })),
     ...(pos ? [{ id: -1, lat: pos.lat, lng: pos.lng, title: '新しい施設', html: '<div class="mk" style="border-color:#0f766e;background:#ccfbf1">＋</div>' }] : []),
   ], [spots, pos, catById, mode]);

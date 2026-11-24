@@ -1,6 +1,8 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import KindIcon from '@/components/Icon';
+import { iconHtml } from '@/lib/icons';
 import { clockTime, EXPIRE_MIN, FRESH_MIN, freshness, LEVEL_COLORS, levelColor, relTime } from '@/lib/freshness';
 import type { Category, Report, Spot } from '@/lib/types';
 import type { MapMarker } from './LeafletMap';
@@ -90,7 +92,7 @@ export default function EventLive(p: Props) {
       const badge = latest && !stale ? `<span class="mk-badge" style="background:${levelColor(latest.level)}">${escapeHtml(latest.label)}</span>` : '';
       return {
         id: s.id, lat: s.lat, lng: s.lng, title: s.name,
-        html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}" style="border-color:${border}">${c.icon}${badge}</div>`,
+        html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge}</div>`,
       };
     }), [visibleSpots, filter, catById, latestBySpot, selected, now]);
 
@@ -155,7 +157,7 @@ export default function EventLive(p: Props) {
         <button className={`chip ${filter === null ? 'active' : ''}`} onClick={() => setFilter(null)}>すべて</button>
         {usedCats.map((c) => (
           <button key={c.id} className={`chip ${filter === c.id ? 'active' : ''}`} onClick={() => setFilter(filter === c.id ? null : c.id)}>
-            {c.icon} {c.name}
+            <KindIcon kind="category" slug={c.slug} emoji={c.icon} size={15} strokeWidth={2.4} />{c.name}
           </button>
         ))}
       </nav>
@@ -168,7 +170,7 @@ export default function EventLive(p: Props) {
           const n = recentCount(s.id);
           return (
             <button key={s.id} className="spot-item" onClick={() => setSelected(s.id)}>
-              <span className="spot-icon" style={{ borderColor: c.options.length ? levelColor(latest?.level) : c.color }}>{c.icon}</span>
+              <span className="spot-icon" style={{ borderColor: c.options.length ? levelColor(latest?.level) : c.color }}><KindIcon kind="category" slug={c.slug} emoji={c.icon} size={20} /></span>
               <span className="spot-main">
                 <span className="spot-name">{s.name}</span>
                 <span className="spot-sub">
@@ -202,7 +204,7 @@ export default function EventLive(p: Props) {
           return (
             <div key={r.id} className={`feed-item ${fr !== 'fresh' ? 'stale' : ''}`}>
               <span className="time">{clockTime(r.created_at)}<br />{relTime(r.created_at, now)}</span>
-              <span className="what">{c.icon} {s.name}　<strong style={{ color: levelColor(r.level) }}>{r.label}</strong></span>
+              <span className="what"><KindIcon kind="category" slug={c.slug} emoji={c.icon} size={15} strokeWidth={2.4} /> {s.name}　<strong style={{ color: levelColor(r.level) }}>{r.label}</strong></span>
               {!flagged.has(r.id) && <button className="flag-btn" onClick={() => flag(r.id)} aria-label="通報">通報</button>}
             </div>
           );
@@ -216,7 +218,7 @@ export default function EventLive(p: Props) {
           <div className="sheet-backdrop" onClick={() => setSelected(null)} />
           <div className="sheet" role="dialog" aria-label={`${sel.name}の状況`}>
             <div className="sheet-grip" />
-            <div className="muted small">{selCat.icon} {selCat.name}</div>
+            <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{selCat.name}</div>
             <h3>{sel.name}</h3>
             {sel.note && <div className="muted small">{sel.note}</div>}
             {selCat.options.length > 0 ? (
