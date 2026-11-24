@@ -37,14 +37,20 @@ export default async function AdminReports({ searchParams }: { searchParams: Pro
                 <td><Link href={`/admin/reports?event=${r.event_id}`} className="muted" title={r.client_id}>{r.client_id.slice(0, 8)}</Link></td>
                 <td style={{ color: r.open_flags ? 'var(--danger)' : undefined }}>{r.flag_count}{r.open_flags ? `（未対応${r.open_flags}）` : ''}{r.reasons && <><br /><span className="small">{r.reasons}</span></>}</td>
                 <td>
-                  <form action={moderateReport} style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    <input type="hidden" name="id" value={r.id} />
-                    {r.hidden
-                      ? <button className="btn ghost sm" name="op" value="show">再表示</button>
-                      : <button className="btn ghost sm" name="op" value="hide">非表示</button>}
-                    {r.open_flags > 0 && <button className="btn ghost sm" name="op" value="resolve">問題なし</button>}
-                    <button className="btn danger sm" name="op" value="delete">削除</button>
-                  </form>
+                  {/* ボタンごとに小さなフォームにして、操作の種類を hidden で送る（押したボタンの値はサーバーに届かないため） */}
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {([
+                      r.hidden ? ['show', '再表示', 'ghost'] : ['hide', '非表示', 'ghost'],
+                      ...(r.open_flags > 0 ? [['resolve', '問題なし', 'ghost']] : []),
+                      ['delete', '削除', 'danger'],
+                    ] as [string, string, string][]).map(([op, label, cls]) => (
+                      <form key={op} action={moderateReport}>
+                        <input type="hidden" name="id" value={r.id} />
+                        <input type="hidden" name="op" value={op} />
+                        <button className={`btn ${cls} sm`}>{label}</button>
+                      </form>
+                    ))}
+                  </div>
                 </td>
               </tr>
             ))}

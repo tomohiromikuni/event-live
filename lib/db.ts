@@ -165,7 +165,27 @@ const V3 = async (q: Q) => {
 /** v4: 地図の種類。canvas = ガイドマップから描いた見取り図 ／ geo = 緯度経度（マイマップ等）＋国土地理院の地図を背景に表示 */
 const V4 = `ALTER TABLE events ADD COLUMN IF NOT EXISTS map_mode TEXT NOT NULL DEFAULT 'canvas'`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4];
+/** v5: 掲載停止の申請・運営への問い合わせ（メール通知に加えて保存し、管理画面で確認できるようにする） */
+const V5 = `
+CREATE TABLE IF NOT EXISTS inquiries (
+  id SERIAL PRIMARY KEY,
+  kind TEXT NOT NULL,                     -- removal（掲載停止の申請）/ contact（問い合わせ）
+  event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+  event_name TEXT NOT NULL DEFAULT '',
+  reason TEXT NOT NULL DEFAULT '',        -- 掲載停止の理由（選択肢）
+  relation TEXT NOT NULL DEFAULT '',      -- 申請者の立場（主催者など）
+  message TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  ip_hash TEXT NOT NULL DEFAULT '',
+  mail_sent INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'new',     -- new / done
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_inquiries_created ON inquiries(created_at);
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

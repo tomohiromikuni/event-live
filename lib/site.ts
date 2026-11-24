@@ -6,8 +6,6 @@
 export const SITE_NAME = 'EVENOW';
 export const SITE_NAME_KANA = 'イベナウ';
 export const UNOFFICIAL = process.env.NEXT_PUBLIC_UNOFFICIAL !== '0';
-/** 掲載内容の訂正・削除依頼の受付先（URL または mailto:）。未設定なら案内文のみ表示 */
-export const CONTACT_URL = process.env.NEXT_PUBLIC_CONTACT_URL || '';
 
 /**
  * 公開URL（検索エンジン向けの絶対URL・サイトマップに使用）。

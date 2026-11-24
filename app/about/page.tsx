@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { CONTACT_URL, SITE_NAME, UNOFFICIAL } from '@/lib/site';
+import Link from 'next/link';
+import { SITE_NAME, UNOFFICIAL } from '@/lib/site';
 
 export const metadata: Metadata = { title: 'このサイトについて' };
 
@@ -26,9 +27,11 @@ export default function About() {
       <section className="section">
         <h2 style={{ fontSize: 16 }}>主催者・関係者の方へ</h2>
         <p>掲載内容の誤り、掲載の停止をご希望の場合はご連絡ください。確認のうえ速やかに対応します。</p>
-        {CONTACT_URL
-          ? <p><a className="btn" href={CONTACT_URL}>訂正・削除のご依頼</a></p>
-          : <p className="muted small">お問い合わせ窓口は準備中です。</p>}
+        <p className="small">
+          掲載の停止は、各イベントのページ下部にある<strong>「掲載停止を申請する」</strong>からお手続きください。
+          訂正やそのほかのご連絡は、お問い合わせフォームからお送りください。
+        </p>
+        <p><Link className="btn" href="/contact">運営に問い合わせる</Link></p>
       </section>
       <section className="section">
         <h2 style={{ fontSize: 16 }}>投稿について</h2>

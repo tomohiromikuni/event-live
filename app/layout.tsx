@@ -49,7 +49,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <p><strong>{SITE_NAME}（{SITE_NAME_KANA}）は非公式のサービスです。</strong>掲載している各イベントの主催者・運営団体・会場とは一切関係がなく、承認や提携も受けていません。</p>
             )}
             <p>最新・正確な情報は必ず各イベントの公式サイトでご確認ください。現地の状況は来場者による投稿で、内容の正確性は保証されません。</p>
-            <p><Link href="/about" style={{ textDecoration: 'underline' }}>このサイトについて・掲載内容の訂正/削除のご依頼</Link></p>
+            <p>
+              <Link href="/about" style={{ textDecoration: 'underline' }}>このサイトについて</Link>
+              {'　'}<Link href="/contact" style={{ textDecoration: 'underline' }}>お問い合わせ</Link>
+            </p>
           </div>
         </footer>
       </body>

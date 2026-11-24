@@ -152,6 +152,10 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
           {e.source_checked_at && `（${e.source_checked_at} 確認）`}<br />
           掲載情報は変更される場合があります。最新情報は必ず公式サイトでご確認ください。
         </p>
+        <p className="small">
+          主催者・関係者の方へ：<a href={`/contact?type=removal&event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">このイベントの掲載停止を申請する</a>
+          {'　'}<a href="/contact" style={{ textDecoration: 'underline' }} rel="nofollow">内容の訂正・お問い合わせ</a>
+        </p>
       </section>
     </div>
   );
