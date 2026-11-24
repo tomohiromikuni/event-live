@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
 /**
  * 簡易管理者認証（プロトタイプ用）。
@@ -34,8 +34,9 @@ export async function isAdmin(): Promise<boolean> {
   return expected.length === got.length && timingSafeEqual(expected, got);
 }
 
+/** ログインしていなければ「ページが見つかりません」を返す（管理画面の存在を知らせない） */
 export async function requireAdmin() {
-  if (!(await isAdmin())) redirect('/admin-login');
+  if (!(await isAdmin())) notFound();
 }
 
 export async function startSession() {
