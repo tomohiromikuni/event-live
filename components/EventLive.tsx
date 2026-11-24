@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { clockTime, EXPIRE_MIN, FRESH_MIN, freshness, LEVEL_COLORS, levelColor, relTime } from '@/lib/freshness';
 import type { Category, Report, Spot } from '@/lib/types';
 import type { MapMarker } from './LeafletMap';
+import type { MapShape } from '@/lib/shapes';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
@@ -16,6 +17,8 @@ type Props = {
   zoom: number;
   categories: Category[];
   spots: Spot[];
+  shapes: MapShape[];
+  mapStyle: string;
   initialReports: Report[];
   serverNow: number;
   postable: boolean;
@@ -137,7 +140,7 @@ export default function EventLive(p: Props) {
       {!p.postable && <div className="notice">ℹ️ {p.postBlockedReason}</div>}
       {p.postable && <div className="notice">📍 地図またはリストの地点をタップすると、状況をワンタップで投稿できます（登録不要）</div>}
 
-      <LeafletMap center={p.center} zoom={p.zoom} markers={markers} fitToMarkers
+      <LeafletMap center={p.center} zoom={p.zoom} markers={markers} shapes={p.shapes} mapStyle={p.mapStyle} fitToMarkers
         onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
 
       <div className="legend">

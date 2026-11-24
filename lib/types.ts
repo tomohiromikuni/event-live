@@ -21,6 +21,7 @@ export type EventRow = {
   image_url: string; image_credit: string;
   is_sample: number; is_featured: number; published: number;
   source_url: string; source_checked_at: string;
+  map_style: string;
   created_at: number; updated_at: number;
 };
 

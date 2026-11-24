@@ -1,5 +1,6 @@
 import type { Q } from './db';
 import { addDays, todayJST, weekendRange } from './dates';
+import { shapeStyle } from './shapes';
 
 /**
  * マスタデータとサンプルイベントを投入する。
@@ -119,7 +120,7 @@ export async function seedSamples(q: Q) {
     {
       slug: 'sample-minatogawa-hanabi', name: '【サンプル】みなと川 冬花火大会', genre: 'fireworks',
       pref: '東京都', city: '江東区', venue: 'みなと川河川敷（架空）', address: '東京都江東区（サンプル住所）',
-      lat: 35.6655, lng: 139.8195, zoom: 16, start: today, end: today, time: '18:30〜19:30（打ち上げ）',
+      lat: 35.6655, lng: 139.8195, zoom: 15, start: today, end: today, time: '18:30〜19:30（打ち上げ）',
       summary: '冬の夜空に約3,000発の花火を打ち上げる、河川敷の花火大会です。※これは動作確認用の架空のイベントです。',
       organizer: 'みなと川花火実行委員会（架空）', access: '各線「みなと川駅」から徒歩10分（架空）', station: 'みなと川駅（架空）',
       traffic: '17:00〜21:00 河川敷沿いの道路で車両通行止め（架空）', parking: '会場周辺に臨時駐車場あり（台数限定）',
@@ -206,7 +207,7 @@ export async function seedSamples(q: Q) {
     for (const [i, [cat, name, dy, dx, note]] of e.spots.entries()) {
       if (!catIds[cat]) { spotIds.push(null); continue; }
       const [{ id }] = await q<{ id: number }>('INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-        [eid, catIds[cat], name, note ?? '', e.lat + dy, e.lng + dx, i]);
+        [eid, catIds[cat], name, note ?? '', e.lat + dy * K, e.lng + dx * K, i]);
       spotIds.push({ id, cat });
     }
     for (const [i, [idx, value, ago]] of (e.reports ?? []).entries()) {
@@ -217,5 +218,40 @@ export async function seedSamples(q: Q) {
       await q(`INSERT INTO reports (event_id, spot_id, value, label, level, client_id, ip_hash, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'seed', $7)`,
         [eid, sp.id, opt.value, opt.label, opt.level, `seed-${i}`, now - ago * 60000]);
     }
+    for (const [i, [style, label, pts]] of (SAMPLE_SHAPES[e.slug] ?? []).entries()) {
+      const coords = pts.map(([dy, dx]) => [+(e.lat + dy * K).toFixed(6), +(e.lng + dx * K).toFixed(6)]);
+      await q('INSERT INTO map_shapes (event_id, kind, style, label, coords, sort) VALUES ($1, $2, $3, $4, $5, $6)',
+        [eid, shapeStyle(style).kind, style, label, JSON.stringify(coords), i]);
+    }
   }
 }
+
+/** サンプル会場の広さの倍率（相対座標に掛ける） */
+const K = 2;
+
+/** サンプルの簡易マップ（会場中心からの相対座標 [dy, dx]） */
+type R = [number, number];
+const rect = (n: number, w: number, s: number, e: number): R[] => [[n, w], [n, e], [s, e], [s, w]];
+const SAMPLE_SHAPES: Record<string, [style: string, label: string, pts: R[]][]> = {
+  'sample-minatogawa-hanabi': [
+    ['closed', '打ち上げ場所（立入禁止）', rect(0.0026, -0.0025, 0.0019, 0.0023)],
+    ['viewing', '観覧エリアA', rect(0.0012, -0.0024, 0.0001, -0.0002)],
+    ['viewing', '観覧エリアB', rect(0.0015, 0.0001, 0.0003, 0.0022)],
+    ['food', '屋台エリア', rect(-0.0015, -0.0008, -0.0021, 0.0012)],
+    ['parking', '臨時駐車場', rect(-0.0028, -0.0034, -0.0036, -0.0022)],
+    ['restriction', '車両通行止め 17:00〜21:00', [[-0.0024, -0.0036], [-0.0024, 0.003]]],
+    ['route', '帰りの推奨ルート', [[-0.0014, -0.0018], [-0.0022, -0.0016], [-0.0032, -0.0012]]],
+  ],
+  'sample-green-field-fes': [
+    ['stage', 'SUNステージ前', rect(0.0018, -0.002, 0.0006, -0.0004)],
+    ['stage', 'SEAステージ前', rect(0.0015, 0.001, 0.0003, 0.0026)],
+    ['shop', '物販エリア', rect(-0.0006, 0.0, -0.0012, 0.0008)],
+    ['food', 'フードエリア', rect(0.0002, 0.0004, -0.0004, 0.0013)],
+    ['path', 'メイン通路', [[-0.0016, -0.0006], [-0.0005, -0.0004], [0.0004, 0.0002], [0.0006, 0.0012]]],
+  ],
+  'sample-sakura-dori-aki-matsuri': [
+    ['food', '屋台通り', rect(0.0009, -0.0006, -0.0009, -0.0002)],
+    ['stage', '広場', rect(0.0004, 0.0005, -0.0002, 0.0013)],
+    ['restriction', '歩行者天国（11:00〜20:00）', [[0.0012, -0.0001], [-0.0012, -0.0001]]],
+  ],
+};

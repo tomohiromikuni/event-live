@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import EventLive from '@/components/EventLive';
 import { StatusBadges } from '@/components/EventCard';
-import { eventCategories, eventSpots, getEventBySlug, listGenres, recentReports } from '@/lib/queries';
+import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports } from '@/lib/queries';
 import { fmtRange, isOngoing } from '@/lib/dates';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
@@ -70,8 +70,8 @@ function fieldValue(e: EventCard, key: string): React.ReactNode {
 export default async function EventPage({ params }: { params: Promise<{ slug: string }> }) {
   const e = await getEventBySlug((await params).slug);
   if (!e || !e.published) notFound();
-  const [genres, categories, spots, reports] = await Promise.all([
-    listGenres(), eventCategories(e.id, e.genre_id), eventSpots(e.id), recentReports(e.id),
+  const [genres, categories, spots, reports, shapes] = await Promise.all([
+    listGenres(), eventCategories(e.id, e.genre_id), eventSpots(e.id), recentReports(e.id), eventShapes(e.id),
   ]);
   const genre = genres.find((g) => g.id === e.genre_id)!;
   const ongoing = isOngoing(e.start_date, e.end_date);
@@ -119,7 +119,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
         <a href="#info">📄 イベント情報</a>
       </nav>
 
-      <EventLive eventId={e.id} center={[e.lat, e.lng]} zoom={e.zoom} categories={categories} spots={spots}
+      <EventLive eventId={e.id} center={[e.lat, e.lng]} zoom={e.zoom} categories={categories} spots={spots} shapes={shapes} mapStyle={e.map_style}
         initialReports={reports} serverNow={Date.now()} postable={postable} postBlockedReason={blocked} />
 
       <section className="section" id="info" style={{ scrollMarginTop: 110 }}>

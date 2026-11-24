@@ -2,6 +2,7 @@ import 'server-only';
 import { one, q, type Param } from './db';
 import { todayJST, weekendRange } from './dates';
 import { FEED_HOURS } from './freshness';
+import type { MapShape } from './shapes';
 import type { Category, EventCard, EventRow, Genre, Report, ReportOption, Spot } from './types';
 
 const CARD_SELECT = `SELECT e.*, g.name AS genre_name, g.icon AS genre_icon, g.color AS genre_color
@@ -96,4 +97,10 @@ export function recentReports(eventId: number): Promise<Report[]> {
   return q<Report>(`SELECT id, event_id, spot_id, value, label, level, created_at, flag_count FROM reports
     WHERE event_id = $1 AND hidden = 0 AND created_at >= $2 ORDER BY created_at DESC LIMIT 300`,
     [eventId, Date.now() - FEED_HOURS * 3600_000]);
+}
+
+/** 簡易マップの図形（エリア・線） */
+export async function eventShapes(eventId: number): Promise<MapShape[]> {
+  const rows = await q<Omit<MapShape, 'coords'> & { coords: string }>('SELECT * FROM map_shapes WHERE event_id = $1 ORDER BY sort, id', [eventId]);
+  return rows.map((r) => ({ ...r, coords: JSON.parse(r.coords) as [number, number][] }));
 }

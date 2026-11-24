@@ -191,3 +191,22 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .banner.unofficial a { text-decoration: underline; font-weight: 700; }
 .hero .unofficial-note { display: inline-block; font-size: 11px; font-weight: 700; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 1px 8px; margin-bottom: 6px; }
 .logo-kana { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: -4px; letter-spacing: 0; }
+
+/* 簡易マップ */
+.map-style-light .leaflet-tile-pane { opacity: .45; filter: grayscale(1); }
+.map-style-none { background: #f4f6f5 !important; }
+.leaflet-tooltip.shape-label { background: rgba(255,255,255,.85); border: 0; box-shadow: none; color: #1e293b; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; white-space: nowrap; }
+.leaflet-tooltip.shape-label::before { display: none; }
+.leaflet-tooltip.shape-label.line { background: rgba(255,255,255,.95); }
+
+/* 作図ツール（管理画面） */
+.tool-bar { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.tool-bar button { height: 36px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--border); background: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+.tool-bar button.on { background: var(--text); color: #fff; border-color: var(--text); }
+.tool-hint { font-size: 13px; background: #ecfeff; color: #155e75; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+.underlay-img { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; max-width: none !important; }
+.guide-picker { position: relative; display: inline-block; max-width: 100%; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; cursor: crosshair; }
+.guide-picker img { display: block; max-width: 100%; max-height: 360px; }
+.guide-picker .pin { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: #dc2626; color: #fff; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.vertex-dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 3px solid #0f172a; }
+.labels-hidden .leaflet-tooltip.shape-label { display: none; }

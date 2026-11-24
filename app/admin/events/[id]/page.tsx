@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import EventForm from '@/components/admin/EventForm';
-import SpotEditor from '@/components/admin/SpotEditor';
+import MapEditor from '@/components/admin/MapEditor';
 import { formData } from '@/lib/admin-data';
-import { eventCategories, eventSpots, getEventById } from '@/lib/queries';
+import { eventCategories, eventShapes, eventSpots, getEventById } from '@/lib/queries';
 import { deleteEvent } from '../../actions';
 
 export default async function EditEvent({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
@@ -11,7 +11,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
   const { saved } = await searchParams;
   const e = await getEventById(id);
   if (!e) notFound();
-  const [spots, cats, fd] = await Promise.all([eventSpots(e.id), eventCategories(e.id, e.genre_id), formData(e.id)]);
+  const [spots, cats, fd, shapes] = await Promise.all([eventSpots(e.id), eventCategories(e.id, e.genre_id), formData(e.id), eventShapes(e.id)]);
   return (
     <>
       <div className="section-head">
@@ -19,7 +19,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
         <Link href={`/events/${e.slug}`} target="_blank">公開ページ ↗</Link>
       </div>
       {saved && <div className="flash">保存しました</div>}
-      <SpotEditor eventId={e.id} center={[e.lat, e.lng]} zoom={e.zoom} spots={spots} categories={cats} />
+      <MapEditor eventId={e.id} center={[e.lat, e.lng]} zoom={e.zoom} mapStyle={e.map_style} spots={spots} shapes={shapes} categories={cats} />
       <h2 style={{ fontSize: 17, marginTop: 24 }}>イベント情報の編集</h2>
       <EventForm event={e} {...fd} />
       <form action={deleteEvent} className="panel">

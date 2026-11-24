@@ -132,6 +132,24 @@ CREATE TABLE IF NOT EXISTS report_flags (
 );
 `;
 
+/** v2: 簡易マップ（エリア・線の作図）と背景地図の表示方法 */
+const V2 = `
+ALTER TABLE events ADD COLUMN IF NOT EXISTS map_style TEXT NOT NULL DEFAULT 'light';
+CREATE TABLE IF NOT EXISTS map_shapes (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,                     -- area（エリア）/ line（線）
+  style TEXT NOT NULL,                    -- lib/shapes.ts の種類（観覧エリア・通路など）
+  label TEXT NOT NULL DEFAULT '',
+  coords TEXT NOT NULL,                   -- JSON: [[lat, lng], ...]
+  sort INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_shapes_event ON map_shapes(event_id);
+`;
+
+/** マイグレーション一覧（index 0 = v1）。追加するときは末尾に足す */
+const MIGRATIONS = [SCHEMA, V2];
+
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
 export type Q = <T = Record<string, unknown>>(sql: string, params?: Param[]) => Promise<T[]>;
@@ -180,9 +198,17 @@ function driver(): Promise<Driver> {
     // 複数インスタンスが同時に起動しても初期化が1回になるようロックを取る
     await d.tx(async (q) => {
       await q('SELECT pg_advisory_xact_lock(727274)');
-      const exists = await q<{ t: string | null }>("SELECT to_regclass('public.genres')::text AS t");
-      if (!exists[0].t) {
-        for (const stmt of SCHEMA.split(';').map((s) => s.trim()).filter(Boolean)) await q(stmt);
+      // スキーマのバージョン管理：未適用のマイグレーションだけを順に実行する（既存の本番DBも自動で更新される）
+      await q('CREATE TABLE IF NOT EXISTS schema_meta (id INTEGER PRIMARY KEY, version INTEGER NOT NULL)');
+      let version = (await q<{ version: number }>('SELECT version FROM schema_meta WHERE id = 1'))[0]?.version;
+      if (version === undefined) {
+        const exists = await q<{ t: string | null }>("SELECT to_regclass('public.genres')::text AS t");
+        version = exists[0].t ? 1 : 0; // バージョン管理導入前に作られたDBは v1 とみなす
+        await q('INSERT INTO schema_meta (id, version) VALUES (1, $1)', [version]);
+      }
+      for (let v = version; v < MIGRATIONS.length; v++) {
+        for (const stmt of MIGRATIONS[v].split(';').map((s) => s.trim()).filter(Boolean)) await q(stmt);
+        await q('UPDATE schema_meta SET version = $1 WHERE id = 1', [v + 1]);
       }
       const [{ n }] = await q<{ n: number }>('SELECT COUNT(*)::int AS n FROM genres');
       if (n === 0) await seed(q);

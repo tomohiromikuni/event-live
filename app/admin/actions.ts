@@ -7,6 +7,7 @@ import { adminPassword, endSession, requireAdmin, startSession } from '@/lib/adm
 import { PREFECTURES } from '@/lib/prefectures';
 import { seedSamples } from '@/lib/seed';
 import type { ReportOption } from '@/lib/types';
+import { MAP_STYLES, SHAPE_STYLES } from '@/lib/shapes';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const n = (f: FormData, k: string) => Number(f.get(k));
@@ -42,6 +43,7 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
     image_url: s(f, 'image_url'), image_credit: s(f, 'image_credit'), is_sample: f.get('is_sample') ? 1 : 0,
     is_featured: f.get('is_featured') ? 1 : 0, published: f.get('published') ? 1 : 0,
     source_url: s(f, 'source_url'), source_checked_at: s(f, 'source_checked_at'),
+    map_style: MAP_STYLES.some((m) => m.key === s(f, 'map_style')) ? s(f, 'map_style') : 'light',
   };
   if (!v.name) return 'イベント名は必須です';
   if (!/^[a-z0-9-]+$/.test(slug)) return 'URL用ID（スラッグ）は半角英小文字・数字・ハイフンのみ使えます';
@@ -125,6 +127,46 @@ export async function moveSpot(id: number, lat: number, lng: number) {
 export async function deleteSpot(f: FormData) {
   await requireAdmin();
   await q('DELETE FROM spots WHERE id = $1', [n(f, 'id')]);
+  revalidatePath(`/admin/events/${n(f, 'event_id')}`);
+}
+
+// ---------- 簡易マップ（エリア・線） ----------
+function cleanCoords(coords: unknown): [number, number][] | null {
+  if (!Array.isArray(coords) || coords.length < 2 || coords.length > 200) return null;
+  const out: [number, number][] = [];
+  for (const c of coords) {
+    if (!Array.isArray(c) || c.length !== 2) return null;
+    const [lat, lng] = c.map(Number);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+    out.push([+lat.toFixed(6), +lng.toFixed(6)]);
+  }
+  return out;
+}
+
+export async function addShape(eventId: number, style: string, label: string, coords: [number, number][]): Promise<string | null> {
+  await requireAdmin();
+  const st = SHAPE_STYLES.find((x) => x.key === style);
+  const c = cleanCoords(coords);
+  if (!st || !c || !Number.isInteger(eventId)) return '図形のデータが不正です';
+  if (st.kind === 'area' && c.length < 3) return 'エリアは3点以上で囲んでください';
+  await q(`INSERT INTO map_shapes (event_id, kind, style, label, coords, sort)
+    VALUES ($1, $2, $3, $4, $5, (SELECT COALESCE(MAX(sort), 0) + 1 FROM map_shapes WHERE event_id = $1))`,
+    [eventId, st.kind, st.key, label.trim().slice(0, 40), JSON.stringify(c)]);
+  return null;
+}
+
+export async function updateShape(f: FormData) {
+  await requireAdmin();
+  const st = SHAPE_STYLES.find((x) => x.key === s(f, 'style'));
+  if (!st) return;
+  // 種類はエリア同士・線同士でのみ変更可能
+  await q('UPDATE map_shapes SET style = $1, label = $2 WHERE id = $3 AND kind = $4', [st.key, s(f, 'label').slice(0, 40), n(f, 'id'), st.kind]);
+  revalidatePath(`/admin/events/${n(f, 'event_id')}`);
+}
+
+export async function deleteShape(f: FormData) {
+  await requireAdmin();
+  await q('DELETE FROM map_shapes WHERE id = $1', [n(f, 'id')]);
   revalidatePath(`/admin/events/${n(f, 'event_id')}`);
 }
 
