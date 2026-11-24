@@ -481,3 +481,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .header-actions { gap: 6px; }
   .header-link { height: 40px; padding: 0 10px; font-size: 13px; }
 }
+
+/* 管理画面：閲覧・投稿の集計 */
+.admin-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-bottom: 12px; font-size: 13px; }
+.admin-stats strong { font-size: 16px; margin-left: 2px; }
+.admin .seg { display: inline-flex; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; background: #fff; }
+.admin .seg a { padding: 5px 12px; color: #374151 !important; font-size: 13px; border-left: 1px solid #e5e7eb; text-decoration: none !important; }
+.admin .seg a:first-child { border-left: 0; }
+.admin .seg a.on { background: #111827; color: #fff !important; font-weight: 700; }
+.admin .sort-link { color: inherit !important; text-decoration: underline dotted; text-underline-offset: 3px; }
+.admin .sort-link.on { color: var(--text) !important; font-weight: 700; text-decoration: none; }

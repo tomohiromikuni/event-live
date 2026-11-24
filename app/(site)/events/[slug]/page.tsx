@@ -9,6 +9,7 @@ import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
 import ShareButtons from '@/components/ShareButtons';
+import ViewBeacon from '@/components/ViewBeacon';
 import { hashtagsFor, type TagContext } from '@/lib/hashtags';
 import { composePost, shareUrl } from '@/lib/share';
 import { q } from '@/lib/db';
@@ -115,6 +116,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
 
   return (
     <div className="container">
+      {e.published ? <ViewBeacon eventId={e.id} /> : null}
       {!e.is_sample && (
         <script type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(e, `${siteUrl()}/events/${e.slug}`)).replace(/</g, '\\u003c') }} />
