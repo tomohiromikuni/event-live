@@ -1,5 +1,5 @@
 'use client';
-import { useActionState, useState } from 'react';
+import { startTransition, useActionState, useState } from 'react';
 import { saveEvent } from '@/app/admin/actions';
 import { PREFECTURES } from '@/lib/prefectures';
 import type { Category, EventRow, Genre } from '@/lib/types';
@@ -33,7 +33,8 @@ export default function EventForm({ event: e, genres, categories, genreDefaults,
   const checked = custom ? customCategoryIds : genreDefaults[genreId] ?? [];
 
   return (
-    <form action={action} className="form-grid">
+    // action={...} だと送信後に入力欄が初期値に戻るため、onSubmit で送信して入力内容を保つ（保存エラー時に書いた内容が消えないように）
+    <form className="form-grid" onSubmit={(ev) => { ev.preventDefault(); const fd = new FormData(ev.currentTarget); startTransition(() => action(fd)); }}>
       {e && <input type="hidden" name="id" value={e.id} />}
       <div className="panel" style={{ marginTop: 0 }}>
         <h2>基本情報</h2>

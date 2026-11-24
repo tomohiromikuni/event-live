@@ -37,6 +37,7 @@ npm run build && npm start   # http://localhost:3000
 - **非公式表示**: 既定でサイト全体（ヘッダー・トップ・各イベントページ・フッター・ページタイトル）に「非公式・主催者とは無関係」を表示します。
   主催者と提携した場合などに外すときは `NEXT_PUBLIC_UNOFFICIAL=0`。訂正・削除依頼の受付先は `NEXT_PUBLIC_CONTACT_URL`（フォームURLや `mailto:`）で `/about` に表示されます。
 - サンプルの日程が古くなったら: 管理画面のイベント一覧下部「サンプルデータをリセット」。
+- イベントの一括登録: 管理画面「📥 下書きを貼り付け」に下書きJSON（形式は [docs/DRAFT_FORMAT.md](docs/DRAFT_FORMAT.md)）を貼ると、イベント情報と簡易マップをまとめて登録できます（非公開で作成→確認後に公開）。
 - 会場マップは外部の地図データを使わない「簡易マップ（見取り図）」です。管理画面のイベント編集で、
   運営のガイドマップを下敷き（ブラウザ内のみ・保存しない）にしてエリア・線・施設を描きます。
 - Search Console（HTMLタグ方式）: タグの content の値を `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` に設定。
