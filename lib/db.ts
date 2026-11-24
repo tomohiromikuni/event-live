@@ -217,7 +217,28 @@ CREATE TABLE IF NOT EXISTS report_views (
 CREATE INDEX IF NOT EXISTS idx_reports_client ON reports(client_id);
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7];
+/**
+ * v8: イベントページの閲覧数（管理画面のアナリティクス用）。
+ * 1回の閲覧ごとに行を増やさず「イベント×日（日本時間）」の合計だけを持つ。
+ * 見た人の数は、匿名ID（なければIPのハッシュ）で1日1回だけ数える。見分け用の行は数日で削除する。
+ */
+const V8 = `
+CREATE TABLE IF NOT EXISTS event_views (
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  day TEXT NOT NULL,                      -- YYYY-MM-DD（日本時間）
+  views INTEGER NOT NULL DEFAULT 0,       -- 閲覧数
+  visitors INTEGER NOT NULL DEFAULT 0,    -- 見た人の数（1日1回）
+  PRIMARY KEY (event_id, day)
+);
+CREATE TABLE IF NOT EXISTS event_view_seen (
+  event_id INTEGER NOT NULL,
+  day TEXT NOT NULL,
+  viewer TEXT NOT NULL,
+  PRIMARY KEY (event_id, day, viewer)
+);
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
