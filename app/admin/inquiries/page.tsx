@@ -22,7 +22,10 @@ export default async function Inquiries({ searchParams }: { searchParams: Promis
     <>
       <div className="section-head">
         <h2>{all ? '問い合わせ（すべて）' : '未対応の問い合わせ'}（{rows.length}件）</h2>
-        <Link href={all ? '/admin/inquiries' : '/admin/inquiries?all=1'}>{all ? '未対応だけ表示' : 'すべて表示'}</Link>
+        <span className="small" style={{ display: 'flex', gap: 12 }}>
+          <Link href="/admin/removals">削除依頼へ →</Link>
+          <Link href={all ? '/admin/inquiries' : '/admin/inquiries?all=1'}>{all ? '未対応だけ表示' : 'すべて表示'}</Link>
+        </span>
       </div>
       <p className="muted small">
         {mailOn ? '新しい申請・問い合わせは、設定したメールアドレスにも通知されます。'
@@ -41,6 +44,7 @@ export default async function Inquiries({ searchParams }: { searchParams: Promis
             {r.event_name && (
               <div style={{ fontWeight: 700 }}>
                 {r.event_id ? <Link href={`/admin/events/${r.event_id}`} style={{ color: 'var(--brand)' }}>{r.event_name}</Link> : r.event_name}
+                {r.event_id && <span className="small" style={{ fontWeight: 400 }}>　（このイベントのページから送信）</span>}
               </div>
             )}
             <div className="small"><strong>{r.kind === 'removal' ? '理由' : '種類'}：</strong>{r.reason}{r.relation && `　／　ご関係：${r.relation}`}</div>

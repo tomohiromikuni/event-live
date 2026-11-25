@@ -63,7 +63,7 @@ export default async function Removals({ searchParams }: { searchParams: Promise
   return (
     <>
       <div className="admin-head">
-        <h1>削除依頼 <span className="muted">{rows.length}件</span></h1>
+        <h1>削除依頼 <span className="muted">{rows.length}件</span> <Link href="/admin/inquiries" className="small" style={{ fontWeight: 600, marginLeft: 8 }}>問い合わせへ →</Link></h1>
         <nav className="seg" aria-label="表示する依頼">
           {TABS.map((x) => (
             <Link key={x.key} href={x.key === 'new' ? '/admin/removals' : `/admin/removals?t=${x.key}`} className={x.key === tab.key ? 'on' : undefined}

@@ -2,6 +2,7 @@
 import 'server-only';
 import { one, q } from '@/lib/db';
 import { ipHash } from '@/lib/posting';
+import { redirectedSlug } from '@/lib/queries';
 import { CONTACT_TOPICS, KIND_LABEL, RELATIONS, REMOVAL_REASONS } from '@/lib/inquiry';
 import { SITE_NAME, siteUrl } from '@/lib/site';
 
@@ -24,7 +25,9 @@ export async function submitInquiry(_prev: ContactResult | null, f: FormData): P
   const message = s(f, 'message', 3000);
   const name = s(f, 'name', 60);
   const email = s(f, 'email', 120);
-  const slug = s(f, 'event', 120);
+  // イベントは ?event=（ページから来た場合）か、入力されたページのURL（/events/○○）から特定する
+  const urlSlug = s(f, 'event_url', 300).match(/\/events\/([a-z0-9-]+)/i)?.[1] ?? '';
+  const slug = s(f, 'event', 120) || urlSlug;
 
   if (kind === 'removal' && !(REMOVAL_REASONS as readonly string[]).includes(reason)) return { ok: false, message: '理由を選択してください' };
   if (kind === 'contact' && !(CONTACT_TOPICS as readonly string[]).includes(reason)) return { ok: false, message: 'お問い合わせの種類を選択してください' };
@@ -33,8 +36,9 @@ export async function submitInquiry(_prev: ContactResult | null, f: FormData): P
   if (kind === 'removal' && reason === 'その他' && !message) return { ok: false, message: '「その他」の場合は理由を入力してください' };
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, message: '返信先のメールアドレスを正しく入力してください' };
 
-  const ev = slug ? await one<{ id: number; name: string }>('SELECT id, name FROM events WHERE slug = $1', [slug]) : undefined;
-  if (kind === 'removal' && !ev) return { ok: false, message: '対象のイベントが見つかりません。イベントページの「掲載停止を申請する」から開き直してください' };
+  const to = slug ? await redirectedSlug(slug) : null; // URLを変えたイベントの古いURLでも分かるように
+  const ev = slug ? await one<{ id: number; name: string }>('SELECT id, name FROM events WHERE slug = $1', [to ?? slug]) : undefined;
+  if (kind === 'removal' && !ev) return { ok: false, message: '対象のイベントが見つかりません。イベントのページのURLを確認するか、イベントページの「掲載停止を申請する」から開き直してください' };
 
   const iph = await ipHash();
   const since = Date.now() - 3600_000;

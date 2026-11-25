@@ -254,7 +254,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         )}
         <p className="small">
           主催者・関係者の方へ：<a href={`/contact?type=removal&event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">このイベントの掲載停止を申請する</a>
-          {'　'}<a href="/contact" style={{ textDecoration: 'underline' }} rel="nofollow">内容の訂正・お問い合わせ</a>
+          {'　'}<a href={`/contact?event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">内容の訂正・お問い合わせ</a>
         </p>
       </section>
 

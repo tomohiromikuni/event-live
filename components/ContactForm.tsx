@@ -20,12 +20,18 @@ export default function ContactForm({ kind, event }: Props) {
       {/* 迷惑投稿対策（人には見えない欄） */}
       <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden style={{ position: 'absolute', left: -9999, width: 1, height: 1 }} />
 
-      {event && (
+      {event ? (
         <div className="field">
           <label>対象のイベント</label>
           <div style={{ fontWeight: 700 }}>{event.name}</div>
         </div>
-      )}
+      ) : kind === 'removal' ? (
+        <div className="field">
+          <label htmlFor="event_url">対象のイベントのページのURL *</label>
+          <input id="event_url" name="event_url" type="url" required maxLength={300} placeholder="https://www.evenow.jp/events/…" />
+          <div className="muted small" style={{ marginTop: 4 }}>イベントのページを開き、アドレス欄のURLをコピーして貼り付けてください</div>
+        </div>
+      ) : null}
 
       <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
         <legend style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, marginBottom: 6 }}>
