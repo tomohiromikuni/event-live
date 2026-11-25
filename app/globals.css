@@ -647,3 +647,5 @@ button, input, select, textarea { font: inherit; color: inherit; }
   100% { opacity: 0; transform: translate(calc(var(--x) * 1.1), calc(var(--y) + 320px)) rotate(var(--r)) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) { .confetti { display: none; } .thanks-timer::after, .sheet.thanks h3 .pop { animation: none; } }
+
+.current-ref { margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed var(--border); }

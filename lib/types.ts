@@ -42,6 +42,8 @@ export type Report = {
   created_at: number; flag_count: number;
   /** この端末（閲覧者）自身の投稿か */
   mine?: boolean;
+  /** 同じ人の投稿を見分けるための記号（匿名IDから作った短いハッシュ。IDそのものは返さない） */
+  who: string;
 };
 
 /** トップのカードに出す「いまの状況」（地点ごとの最新の投稿） */

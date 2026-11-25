@@ -5,6 +5,7 @@ import { addDays, todayJST } from '../dates';
 import { FRESH_MIN, clockTime } from '../freshness';
 import { cleanTag, hashtagsFor, OFFICIAL_TAG } from '../hashtags';
 import { composePost } from '../share';
+import { consensus } from '../consensus';
 import { siteUrl } from '../site';
 
 /**
@@ -65,13 +66,20 @@ function statusText(e: Ev) {
   ], link(e, 'x_auto'), tags(e, 'default'));
 }
 
-type Rep = { spot_id: number; spot_name: string; label: string; created_at: number; client_id: string };
+type Rep = { spot_id: number; spot_name: string; value: string; label: string; level: number; created_at: number; client_id: string };
 
 /** 現地の投稿：直近（FRESH_MIN 分）の投稿を地点ごとに最新1件ずつ。時刻・件数を必ず書く */
 function liveText(e: Ev, reps: Rep[]) {
-  const latest = new Map<number, Rep>();
-  for (const r of reps) if (!latest.has(r.spot_id) || latest.get(r.spot_id)!.created_at < r.created_at) latest.set(r.spot_id, r);
-  const items = [...latest.values()].sort((a, b) => b.created_at - a.created_at);
+  // 地点ごとに多数決（同じ人は1票）。意見が割れている地点は X には出さない（誤った情報を広めないため）
+  const bySpot = new Map<number, Rep[]>();
+  for (const r of reps) (bySpot.get(r.spot_id) ?? bySpot.set(r.spot_id, []).get(r.spot_id)!).push(r);
+  const items: Rep[] = [];
+  for (const list of bySpot.values()) {
+    const c = consensus(list.map((r) => ({ ...r, created_at: Number(r.created_at), who: r.client_id })), Date.now());
+    if (c && !c.stale && !c.split) items.push(c.report);
+  }
+  items.sort((a, b) => b.created_at - a.created_at);
+  if (!items.length) return null;
   const newest = items[0].created_at;
   const lines = [
     `【${e.name}｜現地の投稿 ${clockTime(newest)}時点】`,
@@ -102,13 +110,14 @@ export async function buildDrafts(opts: { liveMinUsers: number; liveGapMin: numb
   // 現地の投稿（開催中・直近の投稿が複数人から・前回の現地投稿の下書き/投稿から一定時間あいている）
   const since = Date.now() - FRESH_MIN * 60_000;
   for (const e of await q<Ev>(`${EV_SELECT} AND e.status = 'scheduled' AND e.start_date <= $1 AND e.end_date >= $1`, [today])) {
-    const reps = await q<Rep>(`SELECT r.spot_id, s.name AS spot_name, r.label, r.created_at, r.client_id FROM reports r JOIN spots s ON s.id = r.spot_id
+    const reps = await q<Rep>(`SELECT r.spot_id, s.name AS spot_name, r.value, r.label, r.level, r.created_at, r.client_id FROM reports r JOIN spots s ON s.id = r.spot_id
       WHERE r.event_id = $1 AND r.hidden = 0 AND r.created_at >= $2 ORDER BY r.created_at DESC`, [e.id, since]);
     if (new Set(reps.map((r) => r.client_id)).size < opts.liveMinUsers) continue; // 1人だけの投稿では発信しない
     const last = (await q<{ created_at: number; snapshot: string }>(`SELECT created_at, snapshot FROM sns_posts WHERE event_id = $1 AND kind = 'live'
       AND status IN ('draft', 'posted') ORDER BY created_at DESC LIMIT 1`, [e.id]))[0];
     if (last && Date.now() - last.created_at < opts.liveGapMin * 60_000) continue;
     const l = liveText(e, reps);
+    if (!l) continue;
     if (last && (JSON.parse(last.snapshot || '{}') as { content?: string }).content === l.content) continue; // 前回と同じ状況なら出さない
     const hash = crypto.createHash('sha1').update(l.content).digest('hex').slice(0, 12);
     out.push({ event_id: e.id, kind: 'live', text: l.text, dedupe_key: `live:${e.id}:${today}:${hash}`,

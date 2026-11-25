@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import KindIcon from '@/components/Icon';
 import { iconHtml } from '@/lib/icons';
 import { clockTime, FRESH_MIN, freshness, LEVEL_COLORS, levelColor, relTime } from '@/lib/freshness';
+import { consensus, consensusNote, type Consensus } from '@/lib/consensus';
 import type { Category, Report, Spot } from '@/lib/types';
 import type { MapMarker } from './LeafletMap';
 import ShareButtons from './ShareButtons';
@@ -106,19 +107,15 @@ export default function EventLive(p: Props) {
     return () => clearTimeout(t);
   }, [toast]);
 
-  /** 地点ごとの「現在の状況」= 有効期限内の最新投稿 */
-  const latestBySpot = useMemo(() => {
-    const m = new Map<number, Report>();
-    for (const r of reports) {
-      if (freshness(r.created_at, now) === 'expired') continue;
-      const cur = m.get(r.spot_id);
-      if (!cur || cur.created_at < r.created_at) m.set(r.spot_id, r);
-    }
+  /** 地点ごとの「現在の状況」：1人の投稿で決めず、直近の投稿の多数決（同じ人は1票）。lib/consensus.ts */
+  const statusBySpot = useMemo(() => {
+    const groups = new Map<number, Report[]>();
+    for (const r of reports) (groups.get(r.spot_id) ?? groups.set(r.spot_id, []).get(r.spot_id)!).push({ ...r, who: r.who ?? (r.mine ? 'me' : `r${r.id}`) });
+    const m = new Map<number, Consensus<Report>>();
+    for (const [id, list] of groups) { const c = consensus(list, now); if (c) m.set(id, c); }
     return m;
   }, [reports, now]);
-
-  const recentCount = (spotId: number) =>
-    reports.filter((r) => r.spot_id === spotId && freshness(r.created_at, now) === 'fresh').length;
+  const latestBySpot = useMemo(() => new Map([...statusBySpot].map(([id, c]) => [id, c.report])), [statusBySpot]);
 
   // 公開マップは簡易表示：施設は決まった種類だけ、エリアは四角に簡略化、線は出さない（lib/shapes.ts）
   const mapShapes = useMemo(() => simplifyShapes(p.shapes), [p.shapes]);
@@ -141,7 +138,7 @@ export default function EventLive(p: Props) {
       const res = await fetch('/api/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spotId, value }) });
       const data = await res.json();
       if (data.ok) {
-        setReports((rs) => [{ ...data.report, event_id: p.eventId, mine: true }, ...rs]);
+        setReports((rs) => [{ ...data.report, event_id: p.eventId, mine: true, who: rs.find((x) => x.mine)?.who ?? 'me' }, ...rs]);
         setNow(Date.now() + skew);
         setSelected(null);
         const sp = spotById.get(spotId);
@@ -170,10 +167,10 @@ export default function EventLive(p: Props) {
     ? <span className={`status-pill ${freshness(latest.created_at, now) === 'stale' ? 'stale' : ''}`} style={{ background: levelColor(latest.level) }}>{latest.label}</span>
     : <span className="status-pill none">投稿なし</span>;
   const when = (s: Spot, latest: Report | undefined) => {
-    if (!latest) return '';
-    const n = recentCount(s.id);
-    const fr = freshness(latest.created_at, now);
-    return `${fr === 'stale' ? `⚠️ ${relTime(latest.created_at, now)}の情報` : relTime(latest.created_at, now)}${n > 1 ? `・${n}件` : ''}`;
+    const c = statusBySpot.get(s.id);
+    if (!latest || !c) return '';
+    if (c.stale) return `⚠️ ${relTime(latest.created_at, now)}の情報`;
+    return `${relTime(latest.created_at, now)}・${consensusNote(c)}`;
   };
 
   return (
@@ -273,19 +270,16 @@ export default function EventLive(p: Props) {
             ) : null}
             {selCat.options.length > 0 ? (
               <>
-                <div className="current">
-                  現在の状況：
-                  {selLatest ? (
-                    <>
-                      <strong style={{ color: levelColor(selLatest.level) }}>{selLatest.label}</strong>
-                      <span className="muted">（{clockTime(selLatest.created_at)}投稿・
-                        {freshness(selLatest.created_at, now) === 'stale' ? `${relTime(selLatest.created_at, now)}の情報のため現在と異なる可能性があります` : relTime(selLatest.created_at, now)}）</span>
-                    </>
-                  ) : <span className="muted">現在の情報はありません</span>}
-                </div>
+                {!p.postable && (
+                  <div className="current">
+                    現在の状況：
+                    {selLatest ? <strong style={{ color: levelColor(selLatest.level) }}>{selLatest.label}</strong> : <span className="muted">現在の情報はありません</span>}
+                  </div>
+                )}
                 {p.postable ? (
                   <>
-                    <div className="sheet-ask">いまの状況を教えてください</div>
+                    <div className="sheet-ask">あなたが見た、いまの状況は？</div>
+                    <p className="muted small" style={{ margin: '-4px 0 8px' }}>ほかの人の投稿ではなく、実際に見た状況を選んでください</p>
                     <div className="option-grid">
                       {selCat.options.map((o) => (
                         <button key={o.value} className="option-btn" disabled={posting}
@@ -295,6 +289,9 @@ export default function EventLive(p: Props) {
                       ))}
                     </div>
                     <p className="muted small" style={{ marginBottom: 0 }}>投稿は匿名で、投稿時刻とともに公開されます。</p>
+                    {selLatest && statusBySpot.get(sel.id) && (
+                      <p className="muted small current-ref">参考：いまの表示は「{selLatest.label}」（{relTime(selLatest.created_at, now)}・{consensusNote(statusBySpot.get(sel.id)!) || '古い情報'}）</p>
+                    )}
                   </>
                 ) : <p className="muted small">{p.postBlockedReason}</p>}
                 {selPosts.length > 0 && (

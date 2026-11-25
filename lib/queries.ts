@@ -1,4 +1,5 @@
 import 'server-only';
+import { consensus } from './consensus';
 import { one, q, type Param } from './db';
 import { todayJST, weekendRange } from './dates';
 import { FEED_HOURS, FRESH_MIN } from './freshness';
@@ -59,13 +60,24 @@ export function liveEvents(): Promise<EventCard[]> {
 export async function latestSpotStatuses(eventIds: number[], perEvent = 3): Promise<Record<number, SpotStatus[]>> {
   const ids = eventIds.filter(Number.isInteger);
   if (ids.length === 0) return {};
-  const rows = await q<SpotStatus>(`SELECT DISTINCT ON (r.spot_id) r.event_id, r.spot_id, s.name AS spot_name,
-      c.slug AS cat_slug, c.icon AS cat_icon, r.label, r.level, r.created_at
+  const now = Date.now();
+  const rows = await q<SpotStatus & { value: string; who: string }>(`SELECT r.event_id, r.spot_id, s.name AS spot_name,
+      c.slug AS cat_slug, c.icon AS cat_icon, r.value, r.label, r.level, r.created_at, r.client_id AS who
     FROM reports r JOIN spots s ON s.id = r.spot_id JOIN spot_categories c ON c.id = s.category_id
-    WHERE r.hidden = 0 AND r.created_at >= $1 AND r.event_id IN (${ids.map((_, i) => `$${i + 2}`).join(', ')})
-    ORDER BY r.spot_id, r.created_at DESC`, [Date.now() - FRESH_MIN * 60_000, ...ids]);
+    WHERE r.hidden = 0 AND r.created_at >= $1 AND r.event_id IN (${ids.map((_, i) => `$${i + 2}`).join(', ')})`, [now - FRESH_MIN * 60_000, ...ids]);
+  // 地点ごとに多数決（1人1票）
+  const bySpot = new Map<number, typeof rows>();
+  for (const r of rows) (bySpot.get(r.spot_id) ?? bySpot.set(r.spot_id, []).get(r.spot_id)!).push(r);
+  const picked: SpotStatus[] = [];
+  for (const list of bySpot.values()) {
+    const c = consensus(list.map((r) => ({ ...r, created_at: Number(r.created_at) })), now);
+    if (c && !c.stale) {
+      const { value: _v, who: _w, ...rest } = c.report; // eslint-disable-line @typescript-eslint/no-unused-vars
+      picked.push(rest);
+    }
+  }
   const out: Record<number, SpotStatus[]> = {};
-  for (const r of rows.sort((a, b) => Number(b.created_at) - Number(a.created_at))) {
+  for (const r of picked.sort((a, b) => Number(b.created_at) - Number(a.created_at))) {
     const list = (out[r.event_id] ??= []);
     if (list.length < perEvent) list.push(r);
   }
@@ -118,12 +130,16 @@ export function eventSpots(eventId: number): Promise<Spot[]> {
 }
 
 /** リアルタイム表示用の投稿（非表示を除く直近 FEED_HOURS 時間） */
+/** 投稿者の見分け用ハッシュの塩（匿名IDを外から逆算できないように） */
+const WHO_SALT = process.env.IP_HASH_SALT || process.env.ADMIN_SECRET || 'evenow-who';
+
 export function recentReports(eventId: number, cid?: string | null): Promise<Report[]> {
   if (!Number.isInteger(eventId)) return Promise.resolve([]);
   // mine: 閲覧しているブラウザ自身の投稿か（匿名IDは返さず、真偽だけを返す）
-  return q<Report>(`SELECT id, event_id, spot_id, value, label, level, created_at, flag_count, (client_id = $3) AS mine FROM reports
+  return q<Report>(`SELECT id, event_id, spot_id, value, label, level, created_at, flag_count, (client_id = $3) AS mine,
+      substr(md5(client_id || $4), 1, 10) AS who FROM reports
     WHERE event_id = $1 AND hidden = 0 AND created_at >= $2 ORDER BY created_at DESC LIMIT 300`,
-    [eventId, Date.now() - FEED_HOURS * 3600_000, cid ?? '']);
+    [eventId, Date.now() - FEED_HOURS * 3600_000, cid ?? '', WHO_SALT]);
 }
 
 /** 簡易マップの図形（エリア・線） */
