@@ -50,9 +50,10 @@ export async function autoMapPending(limit = 1): Promise<{ id: number; name: str
  */
 export async function retryOsmPending(limit = 2): Promise<{ id: number; name: string; message: string }[]> {
   const evs = await q<{ id: number; name: string }>(`SELECT id, name FROM events
-    WHERE osm_pending = 1 AND end_date >= $1 AND is_sample = 0 ORDER BY published DESC, start_date LIMIT $2`, [todayJST(), limit]);
+    WHERE osm_pending = 1 AND end_date >= $1 AND is_sample = 0 ORDER BY osm_tried_at, start_date LIMIT $2`, [todayJST(), limit]);
   const out = [];
   for (const e of evs) {
+    await q('UPDATE events SET osm_tried_at = $1 WHERE id = $2', [Date.now(), e.id]); // 同じイベントばかり試さないよう、順番に回す
     let message: string;
     try { message = (await importOsmFacilities(q, e.id, { patient: true })).message; } catch (err) { message = err instanceof Error ? err.message : String(err); }
     const settled = await settleAutoPublish(e.id).catch(() => null);
