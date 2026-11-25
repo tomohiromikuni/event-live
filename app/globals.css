@@ -531,3 +531,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .admin .cand-table th { text-align: left; width: 90px; color: var(--muted); font-weight: 600; padding: 3px 6px 3px 0; vertical-align: top; }
 .admin .cand-table td { padding: 3px 0; word-break: break-all; }
 .admin .cand-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; margin-top: 10px; }
+
+/* かんたん表示（会場マップなし） */
+.notice.simple-note { background: #f5f3ff; color: #4c1d95; }
+.live-body.simple { display: block; }
+.live-body.simple .live-side { max-height: none; }

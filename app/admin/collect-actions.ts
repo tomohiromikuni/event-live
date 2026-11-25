@@ -7,6 +7,7 @@ import { PREFECTURES } from '@/lib/prefectures';
 import { todayJST } from '@/lib/dates';
 import { runCollect, setSetting } from '@/lib/collect/run';
 import type { Extracted } from '@/lib/collect/extract';
+import { enableSimpleMode } from '@/lib/simple';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -91,6 +92,8 @@ export async function approveCandidate(_prev: string | null, f: FormData): Promi
         v(d.summary), v(d.organizer), v(d.official_url), v(d.access), v(d.nearest_station), v(d.traffic_info), v(d.parking_info), v(d.ticket_info),
         d.status === 'canceled' || d.status === 'postponed' ? d.status : 'scheduled', c.source_url, todayJST(), now]);
     await tq("UPDATE event_candidates SET status = 'approved', event_id = $1, updated_at = $2 WHERE id = $3", [id, now, c.id]);
+    // 公式マイマップが無ければ、まず「かんたん表示（地図なし）」で公開できる状態にしておく（あとからマップを作れば通常表示に切り替わる）
+    if (!d.map_links?.length) await enableSimpleMode(tq, id);
     return id;
   });
   revalidatePath('/admin/candidates');

@@ -2,7 +2,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { timingSafeEqual } from 'node:crypto';
-import { q, tx, type Param } from '@/lib/db';
+import { one, q, tx, type Param } from '@/lib/db';
 import { adminPassword, endSession, requireAdmin, startSession } from '@/lib/admin';
 import { PREFECTURES } from '@/lib/prefectures';
 import { seedSamples } from '@/lib/seed';
@@ -10,6 +10,7 @@ import type { ReportOption } from '@/lib/types';
 import { SHAPE_STYLES } from '@/lib/shapes';
 import { CANVAS_W } from '@/lib/canvas';
 import { cleanTag, OFFICIAL_TAG } from '@/lib/hashtags';
+import { enableSimpleMode, leaveSimpleMode } from '@/lib/simple';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const n = (f: FormData, k: string) => Number(f.get(k));
@@ -56,8 +57,8 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
   for (const u of [v.official_url, v.source_url, v.image_url]) if (u && !/^https?:\/\//.test(u)) return 'URLは http(s):// から入力してください';
   // 掲載基準: 会場マップがあるイベントだけを公開する（施設3件以上、うちトイレか駐車場が1件以上）
   if (v.published) {
-    const ok = id ? await meetsPublishRule(id) : false;
-    if (!ok) return PUBLISH_RULE_MSG;
+    const why = id ? await publishBlocker(id, v) : PUBLISH_RULE_MSG;
+    if (why) return why;
   }
   const cats = f.getAll('categories').map(Number).filter(Boolean);
 
@@ -113,9 +114,12 @@ export async function addSpot(f: FormData) {
   const eid = n(f, 'event_id');
   const lat = n(f, 'lat'), lng = n(f, 'lng');
   if (!s(f, 'name') || !Number.isFinite(lat) || !Number.isFinite(lng) || f.get('lat') === '') return;
-  await q(`INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort)
-    VALUES ($1, $2, $3, $4, $5, $6, (SELECT COALESCE(MAX(sort), 0) + 1 FROM spots WHERE event_id = $1))`,
-    [eid, n(f, 'category_id'), s(f, 'name'), s(f, 'note'), lat, lng]);
+  await tx(async (tq) => {
+    await leaveSimpleMode(tq, eid); // 会場マップを描き始めたら、かんたん表示から通常表示へ
+    await tq(`INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort)
+      VALUES ($1, $2, $3, $4, $5, $6, (SELECT COALESCE(MAX(sort), 0) + 1 FROM spots WHERE event_id = $1))`,
+      [eid, n(f, 'category_id'), s(f, 'name'), s(f, 'note'), lat, lng]);
+  });
   revalidatePath(`/admin/events/${eid}`);
 }
 
@@ -164,6 +168,7 @@ export async function addShape(eventId: number, style: string, label: string, co
   const c = cleanCoords(coords);
   if (!st || !c || !Number.isInteger(eventId)) return '図形のデータが不正です';
   if (st.kind === 'area' && c.length < 3) return 'エリアは3点以上で囲んでください';
+  await tx((tq) => leaveSimpleMode(tq, eventId)); // 会場マップを描き始めたら、かんたん表示から通常表示へ
   await q(`INSERT INTO map_shapes (event_id, kind, style, label, coords, sort)
     VALUES ($1, $2, $3, $4, $5, (SELECT COALESCE(MAX(sort), 0) + 1 FROM map_shapes WHERE event_id = $1))`,
     [eventId, st.kind, st.key, label.trim().slice(0, 40), JSON.stringify(c)]);
@@ -244,14 +249,34 @@ export async function saveReportType(f: FormData) {
 }
 
 // ---------- 掲載基準 ----------
-const PUBLISH_RULE_MSG = '公開するには会場マップが必要です（施設3件以上、うちトイレか駐車場が1件以上）。「公開する」のチェックを外して保存し、マップを作ってから公開してください';
+const PUBLISH_RULE_MSG = '公開するには、会場マップを作る（施設3件以上、うちトイレか駐車場が1件以上）か、「かんたん表示（地図なし）」にしてください。「公開する」のチェックを外して保存してから準備してください';
 
-/** 会場マップが掲載基準を満たしているか（施設3件以上、うちトイレか駐車場が1件以上） */
-async function meetsPublishRule(eventId: number): Promise<boolean> {
+/**
+ * 公開できない理由（公開できるなら null）。
+ * - 会場マップあり：施設3件以上、うちトイレか駐車場が1件以上
+ * - かんたん表示：開催場所と情報元（公式サイトまたは情報元URL）が確認できていること
+ */
+async function publishBlocker(eventId: number, v: { venue_name: string; address: string; city: string; official_url: string; source_url: string }): Promise<string | null> {
+  const ev = await one<{ map_mode: string }>('SELECT map_mode FROM events WHERE id = $1', [eventId]);
+  if (ev?.map_mode === 'simple') {
+    if (!v.venue_name && !v.address) return 'かんたん表示で公開するには、開催場所（会場名か住所）を確認して入力してください';
+    if (!v.official_url && !v.source_url) return 'かんたん表示で公開するには、公式サイトか情報元のURLを入力してください（情報の確認のため）';
+    return null;
+  }
   const [r] = await q<{ total: number; key: number }>(`SELECT COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE c.slug IN ('toilet', 'parking'))::int AS key
-    FROM spots s JOIN spot_categories c ON c.id = s.category_id WHERE s.event_id = $1`, [eventId]);
-  return r.total >= 3 && r.key >= 1;
+    FROM spots s JOIN spot_categories c ON c.id = s.category_id WHERE s.event_id = $1 AND s.generic = 0`, [eventId]);
+  return r.total >= 3 && r.key >= 1 ? null : PUBLISH_RULE_MSG;
+}
+
+/** かんたん表示にする（管理画面のボタン） */
+export async function enableSimple(_prev: string | null, f: FormData): Promise<string | null> {
+  await requireAdmin();
+  const id = n(f, 'id');
+  const err = await tx((tq) => enableSimpleMode(tq, id));
+  if (err) return err;
+  revalidatePath(`/admin/events/${id}`);
+  redirect(`/admin/events/${id}?simple=1`);
 }
 
 /** 管理画面で入力されたハッシュタグを整える（#イベナウ は自動で先頭に付くので保存しない） */

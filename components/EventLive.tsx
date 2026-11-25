@@ -20,6 +20,8 @@ type Props = {
   eventName: string;
   canvas: { w: number; h: number };
   geo?: boolean;
+  /** かんたん表示（会場マップなし。項目の一覧だけで状況を共有） */
+  simple?: boolean;
   center?: [number, number];
   categories: Category[];
   spots: Spot[];
@@ -154,9 +156,11 @@ export default function EventLive(p: Props) {
         <span className="live-tag">自動更新中</span>
       </div>
       {!p.postable && <div className="notice">{p.postBlockedReason}</div>}
-      {p.postable && <div className="notice">地図やリストの地点をタップすると、いまの状況をワンタップで投稿できます（登録不要）</div>}
+      {p.postable && <div className="notice">{p.simple ? '項目をタップすると、いまの状況をワンタップで投稿できます（登録不要）' : '地図やリストの地点をタップすると、いまの状況をワンタップで投稿できます（登録不要）'}</div>}
+      {p.simple && <div className="notice simple-note">この会場はまだ会場マップがないため、項目ごとの状況だけを表示しています。</div>}
 
-      <div className="live-body">
+      <div className={`live-body ${p.simple ? 'simple' : ''}`}>
+      {!p.simple && (
       <div className="live-map">
       <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={p.shapes}
         onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
@@ -167,16 +171,17 @@ export default function EventLive(p: Props) {
         <span>点線＝{FRESH_MIN}分以上前</span>
       </div>
       </div>
+      )}
 
       <div className="live-side">
-      <nav className="chips" style={{ padding: '10px 14px', margin: 0, borderTop: '1.5px solid var(--border)' }} aria-label="カテゴリ">
+      {!p.simple && <nav className="chips" style={{ padding: '10px 14px', margin: 0, borderTop: '1.5px solid var(--border)' }} aria-label="カテゴリ">
         <button className={`chip ${filter === null ? 'active' : ''}`} onClick={() => setFilter(null)}>すべて</button>
         {usedCats.map((c) => (
           <button key={c.id} className={`chip ${filter === c.id ? 'active' : ''}`} onClick={() => setFilter(filter === c.id ? null : c.id)}>
             <KindIcon kind="category" slug={c.slug} emoji={c.icon} size={15} strokeWidth={2.4} />{c.name}
           </button>
         ))}
-      </nav>
+      </nav>}
 
       <div className="spot-list">
         {visibleSpots.filter((s) => filter === null || s.category_id === filter).map((s) => {

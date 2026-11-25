@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { q, tx, type Param } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin';
 import { checkDraft, toCanvas } from '@/lib/draft';
+import { leaveSimpleMode } from '@/lib/simple';
 
 export type ImportResult = { ok: boolean; errors: string[]; warnings: string[]; summary: string };
 
@@ -58,6 +59,8 @@ export async function importDraft(_prev: ImportResult | null, f: FormData): Prom
         eid = Number(mode);
         const ev = (await tq<{ map_h: number; map_mode: string }>('SELECT map_h, map_mode FROM events WHERE id = $1', [eid]))[0];
         if (!ev) throw new Error('対象のイベントが見つかりません');
+        // かんたん表示（地図なし）のイベントにマップを取り込むときは、自動で用意した項目を外して通常表示にする
+        if (ev.map_mode === 'simple') await leaveSimpleMode(tq, eid, geo ? 'geo' : 'canvas');
         const [{ n }] = await tq<{ n: number }>(
           'SELECT ((SELECT COUNT(*) FROM spots WHERE event_id = $1) + (SELECT COUNT(*) FROM map_shapes WHERE event_id = $1))::int AS n', [eid]);
         if (n === 0) {

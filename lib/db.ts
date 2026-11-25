@@ -337,7 +337,13 @@ CREATE TABLE IF NOT EXISTS app_settings (
 );
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12];
+/**
+ * v13: 会場マップがないイベントの「かんたん表示」。
+ * events.map_mode = 'simple' のとき、地図は出さず、自動で用意した項目（spots.generic = 1：駐車場（会場周辺）・トイレ など）の一覧で状況を共有する。
+ */
+const V13 = `ALTER TABLE spots ADD COLUMN IF NOT EXISTS generic INTEGER NOT NULL DEFAULT 0`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

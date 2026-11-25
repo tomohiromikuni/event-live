@@ -23,7 +23,8 @@ export type EventRow = {
   source_url: string; source_checked_at: string;
   map_style: string;
   map_w: number; map_h: number;
-  map_mode: 'canvas' | 'geo';
+  /** canvas=見取り図 / geo=地図（マイマップ） / simple=かんたん表示（地図なし・項目の一覧） */
+  map_mode: 'canvas' | 'geo' | 'simple';
   hashtags: string;
   recurring: number;
   created_at: number; updated_at: number;
@@ -31,7 +32,7 @@ export type EventRow = {
 
 export type EventCard = EventRow & { genre_name: string; genre_icon: string; genre_slug: string; genre_color: string; live_count?: number };
 
-export type Spot = { id: number; event_id: number; category_id: number; name: string; note: string; lat: number; lng: number; sort: number };
+export type Spot = { id: number; event_id: number; category_id: number; name: string; note: string; lat: number; lng: number; sort: number; generic?: number };
 
 export type Report = {
   id: number; event_id: number; spot_id: number; value: string; label: string; level: number;
