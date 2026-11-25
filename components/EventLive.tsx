@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import KindIcon from '@/components/Icon';
 import { iconHtml } from '@/lib/icons';
-import { clockTime, EXPIRE_MIN, FRESH_MIN, freshness, LEVEL_COLORS, levelColor, relTime } from '@/lib/freshness';
+import { clockTime, FRESH_MIN, freshness, LEVEL_COLORS, levelColor, relTime } from '@/lib/freshness';
 import type { Category, Report, Spot } from '@/lib/types';
 import type { MapMarker } from './LeafletMap';
 import ShareButtons from './ShareButtons';
@@ -30,11 +30,25 @@ type Props = {
   serverNow: number;
   postable: boolean;
   postBlockedReason: string;
+  /** 公式情報（管理者が情報元で確認した内容）。カードの「公式情報」に出す。空なら「未確認」 */
+  official?: { parking?: string; shuttle?: string; traffic?: string; toilet?: string; food?: string };
   /** 現地情報を投稿した直後に出す共有（サンプル・非公開イベントでは出さない） */
   share?: { eventName: string; base: string; path: string; tags: string[] };
 };
 
 const POLL_MS = 20_000;
+
+/**
+ * 詳細ページのカード（方針：駐車場・シャトルバス・トイレ・飲食の4つ。交通規制は駐車場カードの中に1行）。
+ * 1カードに「いまの状況（来場者の投稿）」「公式情報」「投稿ボタン」をまとめる。場所が複数あれば1か所1行。
+ * always: 公式情報も地点もないときでもカードを出す（「未確認」と分かるように）
+ */
+const TOPICS = [
+  { id: 'parking', title: '駐車場', cats: ['parking'], always: true },
+  { id: 'shuttle', title: 'シャトルバス', cats: ['shuttle'], always: false },
+  { id: 'toilet', title: 'トイレ', cats: ['toilet'], always: true },
+  { id: 'food', title: '飲食・屋台', cats: ['food'], always: false },
+] as const;
 
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -44,12 +58,12 @@ export default function EventLive(p: Props) {
   const [reports, setReports] = useState<Report[]>(p.initialReports);
   const [skew] = useState(() => p.serverNow - Date.now()); // 端末時計のずれを補正
   const [now, setNow] = useState(p.serverNow);
-  const [filter, setFilter] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<number | null>(null);
   const [toast, setToast] = useState<{ msg: string; error?: boolean } | null>(null);
   const [posting, setPosting] = useState(false);
   // 投稿完了パネル（お礼・投稿内容・共有）
-  const [thanks, setThanks] = useState<{ id: number; spot: string; label: string; level: number; at: number } | null>(null);
+  const [thanks, setThanks] = useState<{ id: number; spotId: number; spot: string; label: string; level: number; at: number } | null>(null);
   const [highlight, setHighlight] = useState<number | null>(null);
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
 
@@ -99,19 +113,17 @@ export default function EventLive(p: Props) {
   const recentCount = (spotId: number) =>
     reports.filter((r) => r.spot_id === spotId && freshness(r.created_at, now) === 'fresh').length;
 
-  const markers: MapMarker[] = useMemo(() => visibleSpots
-    .filter((s) => filter === null || s.category_id === filter)
-    .map((s) => {
-      const c = catById.get(s.category_id)!;
-      const latest = latestBySpot.get(s.id);
-      const stale = latest && freshness(latest.created_at, now) === 'stale';
-      const border = c.options.length ? levelColor(latest?.level) : c.color;
-      const badge = latest && !stale ? `<span class="mk-badge" style="background:${levelColor(latest.level)}">${escapeHtml(latest.label)}</span>` : '';
-      return {
-        id: s.id, lat: s.lat, lng: s.lng, title: s.name,
-        html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge}</div>`,
-      };
-    }), [visibleSpots, filter, catById, latestBySpot, selected, now]);
+  const markers: MapMarker[] = useMemo(() => visibleSpots.map((s) => {
+    const c = catById.get(s.category_id)!;
+    const latest = latestBySpot.get(s.id);
+    const stale = latest && freshness(latest.created_at, now) === 'stale';
+    const border = c.options.length ? levelColor(latest?.level) : c.color;
+    const badge = latest && !stale ? `<span class="mk-badge" style="background:${levelColor(latest.level)}">${escapeHtml(latest.label)}</span>` : '';
+    return {
+      id: s.id, lat: s.lat, lng: s.lng, title: s.name,
+      html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge}</div>`,
+    };
+  }), [visibleSpots, catById, latestBySpot, selected, now]);
 
   async function post(spotId: number, value: string) {
     if (posting) return;
@@ -124,7 +136,7 @@ export default function EventLive(p: Props) {
         setNow(Date.now() + skew);
         setSelected(null);
         const sp = spotById.get(spotId);
-        setThanks({ id: data.report.id, spot: sp?.name ?? '', label: data.report.label, level: data.report.level, at: data.report.created_at });
+        setThanks({ id: data.report.id, spotId, spot: sp?.name ?? '', label: data.report.label, level: data.report.level, at: data.report.created_at });
       } else {
         setToast({ msg: data.error ?? '投稿できませんでした', error: true });
       }
@@ -146,93 +158,96 @@ export default function EventLive(p: Props) {
   const sel = selected != null ? spotById.get(selected) : undefined;
   const selCat = sel ? catById.get(sel.category_id) : undefined;
   const selLatest = sel ? latestBySpot.get(sel.id) : undefined;
-  const feed = reports.filter((r) => spotById.has(r.spot_id)).slice(0, 30);
-  const usedCats = p.categories.filter((c) => visibleSpots.some((s) => s.category_id === c.id));
+  const selPosts = sel ? reports.filter((r) => r.spot_id === sel.id).slice(0, 5) : [];
+  const fresh = reports.filter((r) => spotById.has(r.spot_id) && freshness(r.created_at, now) === 'fresh');
+  const newest = reports.find((r) => spotById.has(r.spot_id));
+
+  /** 状況のピル（投稿なし・古い情報も同じ見た目で） */
+  const pill = (latest: Report | undefined) => latest
+    ? <span className={`status-pill ${freshness(latest.created_at, now) === 'stale' ? 'stale' : ''}`} style={{ background: levelColor(latest.level) }}>{latest.label}</span>
+    : <span className="status-pill none">投稿なし</span>;
+  const when = (s: Spot, latest: Report | undefined) => {
+    if (!latest) return '';
+    const n = recentCount(s.id);
+    const fr = freshness(latest.created_at, now);
+    return `${fr === 'stale' ? `⚠️ ${relTime(latest.created_at, now)}の情報` : relTime(latest.created_at, now)}${n > 1 ? `・${n}件` : ''}`;
+  };
 
   return (
-    <div className="live-card" id="live">
-      <div className="live-head">
-        <strong><span className="live-dot" />現地のリアルタイム情報</strong>
-        <span className="live-tag">自動更新中</span>
-      </div>
-      {!p.postable && <div className="notice">{p.postBlockedReason}</div>}
-      {p.postable && <div className="notice">{p.simple ? '項目をタップすると、いまの状況をワンタップで投稿できます（登録不要）' : '地図やリストの地点をタップすると、いまの状況をワンタップで投稿できます（登録不要）'}</div>}
-      {p.simple && <div className="notice simple-note">この会場はまだ会場マップがないため、項目ごとの状況だけを表示しています。</div>}
-
-      <div className={`live-body ${p.simple ? 'simple' : ''}`}>
-      {!p.simple && (
-      <div className="live-map">
-      <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={p.shapes}
-        onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
-
-      <div className="legend">
-        {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l}><i style={{ background: LEVEL_COLORS[i] }} />{l}</span>)}
-        <span><i style={{ background: '#94a3b8' }} />情報なし</span>
-        <span>点線＝{FRESH_MIN}分以上前</span>
-      </div>
-      </div>
-      )}
-
-      <div className="live-side">
-      {!p.simple && <nav className="chips" style={{ padding: '10px 14px', margin: 0, borderTop: '1.5px solid var(--border)' }} aria-label="カテゴリ">
-        <button className={`chip ${filter === null ? 'active' : ''}`} onClick={() => setFilter(null)}>すべて</button>
-        {usedCats.map((c) => (
-          <button key={c.id} className={`chip ${filter === c.id ? 'active' : ''}`} onClick={() => setFilter(filter === c.id ? null : c.id)}>
-            <KindIcon kind="category" slug={c.slug} emoji={c.icon} size={15} strokeWidth={2.4} />{c.name}
-          </button>
-        ))}
-      </nav>}
-
-      <div className="spot-list">
-        {visibleSpots.filter((s) => filter === null || s.category_id === filter).map((s) => {
-          const c = catById.get(s.category_id)!;
-          const latest = latestBySpot.get(s.id);
-          const fr = latest ? freshness(latest.created_at, now) : null;
-          const n = recentCount(s.id);
-          return (
-            <button key={s.id} className="spot-item" onClick={() => setSelected(s.id)}>
-              <span className="spot-icon" style={{ borderColor: c.options.length ? levelColor(latest?.level) : c.color }}><KindIcon kind="category" slug={c.slug} emoji={c.icon} size={20} /></span>
-              <span className="spot-main">
-                <span className="spot-name">{s.name}</span>
-                <span className="spot-sub">
-                  {c.name}
-                  {latest ? `・${fr === 'stale' ? `⚠️ ${relTime(latest.created_at, now)}の情報` : relTime(latest.created_at, now)}` : ''}
-                  {n > 1 ? `・直近${FRESH_MIN}分で${n}件` : ''}
-                </span>
-              </span>
-              {c.options.length === 0 ? (
-                <span className="status-pill none">施設情報</span>
-              ) : latest ? (
-                <span className={`status-pill ${fr === 'stale' ? 'stale' : ''}`} style={{ background: levelColor(latest.level) }}>{latest.label}</span>
-              ) : (
-                <span className="status-pill none">現在の情報はありません</span>
-              )}
-            </button>
-          );
-        })}
+    <section id="live" className="live-cards" style={{ scrollMarginTop: 70 }}>
+      <div className="now-sum">
+        {!p.postable ? p.postBlockedReason
+          : fresh.length ? <><span className="live-dot" />直近{FRESH_MIN}分で来場者から{fresh.length}件の投稿・最終 {relTime(newest!.created_at, now)}</>
+          : <>まだ直近の投稿はありません。項目をタップして、いまの状況を投稿できます（登録不要）</>}
       </div>
 
-      <div className="live-head" style={{ borderTop: '2.5px solid var(--ink)' }}>
-        <strong style={{ whiteSpace: 'nowrap' }}>最新の投稿</strong>
-        <span className="muted small">{EXPIRE_MIN}分以上前の情報は現在の状況に反映されません</span>
-      </div>
-      <div className="feed">
-        {feed.length === 0 && <div className="feed-item muted">まだ投稿はありません</div>}
-        {feed.map((r) => {
-          const s = spotById.get(r.spot_id)!;
-          const c = catById.get(s.category_id)!;
-          const fr = freshness(r.created_at, now);
-          return (
-            <div key={r.id} id={`report-${r.id}`} className={`feed-item ${fr !== 'fresh' ? 'stale' : ''} ${r.mine ? 'mine' : ''} ${highlight === r.id ? 'highlight' : ''}`}>
-              <span className="time">{clockTime(r.created_at)}<br />{relTime(r.created_at, now)}</span>
-              <span className="what"><KindIcon kind="category" slug={c.slug} emoji={c.icon} size={15} strokeWidth={2.4} /> {s.name}　<strong style={{ color: levelColor(r.level) }}>{r.label}</strong>{r.mine && <span className="mine-tag">あなたの投稿</span>}</span>
-              {!r.mine && !flagged.has(r.id) && <button className="flag-btn" onClick={() => flag(r.id)} aria-label="通報">通報</button>}
+      {TOPICS.map((t) => {
+        const spots = visibleSpots.filter((s) => (t.cats as readonly string[]).includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0);
+        const official = p.official?.[t.id]?.trim() ?? '';
+        if (!spots.length && !official && !t.always) return null;
+        const cat = p.categories.find((c) => (t.cats as readonly string[]).includes(c.slug));
+        // 並び：投稿がある場所（新しい順）→ 投稿がない場所（登録順）。多いときは3か所まで出して残りは畳む
+        const sorted = [...spots].sort((a, b) => (latestBySpot.get(b.id)?.created_at ?? 0) - (latestBySpot.get(a.id)?.created_at ?? 0) || a.sort - b.sort);
+        const open = expanded.has(t.id) || sorted.length <= 4;
+        const shown = open ? sorted : sorted.slice(0, 3);
+        const single = spots.length === 1 ? spots[0] : undefined;
+        const singleLatest = single ? latestBySpot.get(single.id) : undefined;
+        return (
+          <div key={t.id} className="topic-card" id={`topic-${t.id}`}>
+            <div className="tc-head">
+              <span className="tc-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={20} />}</span>
+              <h3>{t.title}</h3>
+              {single ? pill(singleLatest) : spots.length > 1 ? <span className="muted small" style={{ fontWeight: 800 }}>{spots.length}か所</span> : null}
             </div>
-          );
-        })}
-      </div>
-      </div>
-      </div>
+            {single && singleLatest && (
+              <div className={`tc-when ${highlight === single.id ? 'highlight' : ''}`} id={`spot-${single.id}`}>
+                現地の投稿・{when(single, singleLatest)}{singleLatest.mine && <span className="mine-tag">あなたの投稿</span>}
+              </div>
+            )}
+            {spots.length > 1 && (
+              <div className="tc-rows">
+                {shown.map((s) => {
+                  const latest = latestBySpot.get(s.id);
+                  return (
+                    <button key={s.id} id={`spot-${s.id}`} className={`tc-row spot-item ${highlight === s.id ? 'highlight' : ''}`} onClick={() => setSelected(s.id)}>
+                      <span className="tc-name"><span className="spot-name">{s.name}</span>
+                        <span className="tc-sub">{latest ? when(s, latest) : '投稿なし'}{latest?.mine && <span className="mine-tag">あなたの投稿</span>}</span></span>
+                      {latest && pill(latest)}<span className="tc-arrow" aria-hidden>›</span>
+                    </button>
+                  );
+                })}
+                {!open && <button className="tc-more" onClick={() => setExpanded((x) => new Set(x).add(t.id))}>ほかの{sorted.length - 3}か所を表示</button>}
+              </div>
+            )}
+            <div className="tc-off">
+              <span className="src-tag official">公式情報</span>
+              <div style={{ whiteSpace: 'pre-wrap' }}>{official || <span className="none">未確認</span>}</div>
+              {t.id === 'parking' && p.official?.traffic?.trim() && <div className="tc-traffic">🚧 交通規制：{p.official.traffic.trim()}</div>}
+            </div>
+            {single && (
+              <button className="tc-btn spot-item" onClick={() => setSelected(single.id)}>
+                {t.title}{p.postable ? 'のいまを投稿する' : 'の状況を見る'}
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      {!p.simple && (
+        <div className="topic-card map-card">
+          <div className="tc-head"><h3>会場マップ</h3></div>
+          <p className="muted small" style={{ margin: '0 0 8px' }}>地図の地点をタップしても、状況の確認・投稿ができます。</p>
+          <div className="live-map">
+            <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={p.shapes}
+              onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
+            <div className="legend">
+              {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l}><i style={{ background: LEVEL_COLORS[i] }} />{l}</span>)}
+              <span><i style={{ background: '#94a3b8' }} />情報なし</span>
+              <span>点線＝{FRESH_MIN}分以上前</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {sel && selCat && (
         <>
@@ -268,6 +283,18 @@ export default function EventLive(p: Props) {
                     <p className="muted small" style={{ marginBottom: 0 }}>投稿は匿名で、投稿時刻とともに公開されます。</p>
                   </>
                 ) : <p className="muted small">{p.postBlockedReason}</p>}
+                {selPosts.length > 0 && (
+                  <div className="sheet-posts">
+                    <div className="small" style={{ fontWeight: 800 }}>この場所への最近の投稿</div>
+                    {selPosts.map((r) => (
+                      <div key={r.id} className={`feed-item ${freshness(r.created_at, now) !== 'fresh' ? 'stale' : ''}`}>
+                        <span className="time">{clockTime(r.created_at)}</span>
+                        <span className="what"><strong style={{ color: levelColor(r.level) }}>{r.label}</strong>{r.mine && <span className="mine-tag">あなたの投稿</span>}</span>
+                        {!r.mine && !flagged.has(r.id) && <button className="flag-btn" onClick={() => flag(r.id)} aria-label="通報">通報</button>}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             ) : <p className="muted small">この地点は施設の位置情報のみ掲載しています。</p>}
             <button className="btn ghost" style={{ width: '100%', marginTop: 12 }} onClick={() => setSelected(null)}>閉じる</button>
@@ -280,7 +307,7 @@ export default function EventLive(p: Props) {
         const lines = [`${p.eventName}の${thanks.spot}、いま「${thanks.label}」です！（${clockTime(thanks.at)}時点）`, 'トイレ・駐車場など現地の最新状況はこちら'];
         const live = (ref: string) => (s ? shareUrl(s.base, s.path, ref) + '#live' : '');
         const d = new Date(thanks.at);
-        const when = `${d.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', weekday: 'short' })} ${clockTime(thanks.at)}`;
+        const whenText = `${d.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', weekday: 'short' })} ${clockTime(thanks.at)}`;
         return (
           <>
             <div className="sheet-backdrop" onClick={() => setThanks(null)} />
@@ -291,12 +318,12 @@ export default function EventLive(p: Props) {
               <dl className="thanks-detail">
                 <div><dt>イベント</dt><dd>{p.eventName}</dd></div>
                 <div><dt>投稿内容</dt><dd>{thanks.spot}：<strong style={{ color: levelColor(thanks.level) }}>{thanks.label}</strong></dd></div>
-                <div><dt>投稿日時</dt><dd>{when}</dd></div>
+                <div><dt>投稿日時</dt><dd>{whenText}</dd></div>
               </dl>
               <div className="thanks-actions">
                 <button className="btn" onClick={() => {
-                  setHighlight(thanks.id); setThanks(null);
-                  setTimeout(() => document.getElementById(`report-${thanks.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+                  setHighlight(thanks.spotId); setThanks(null);
+                  setTimeout(() => document.getElementById(`spot-${thanks.spotId}`)?.closest('.topic-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
                 }}>自分の投稿を見る</button>
                 <a className="btn ghost" href="/me">この端末の貢献実績を見る</a>
               </div>
@@ -308,6 +335,6 @@ export default function EventLive(p: Props) {
           </>
         );
       })()}
-    </div>
+    </section>
   );
 }

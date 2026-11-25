@@ -9,18 +9,16 @@ import type { Q } from './db';
  */
 type Item = { cat: string; name: string };
 
-export function simpleItems(genreSlug: string, opt: { shuttle?: boolean } = {}): Item[] {
+export function simpleItems(_genreSlug: string, opt: { shuttle?: boolean } = {}): Item[] {
+  // 方針：詳細ページのカードは 駐車場・シャトルバス・トイレ・飲食 の4つ（交通規制は駐車場カード内の公式情報）。
+  // 以前の項目（会場・入口／観覧場所／物販／周辺の道路）は、既存のイベントでは削除せず画面に出さないだけ
   const items: Item[] = [
-    { cat: 'gate', name: '会場・入口' },
     { cat: 'parking', name: '駐車場（周辺）' },
     { cat: 'toilet', name: 'トイレ' },
     { cat: 'food', name: '飲食・屋台' },
-    { cat: 'traffic', name: '周辺の道路' },
   ];
   // シャトルバスは運行があるイベント（公式情報にシャトルバスの記載がある）だけ
-  if (opt.shuttle) items.splice(items.findIndex((i) => i.cat === 'parking') + 1, 0, { cat: 'shuttle', name: 'シャトルバス' });
-  if (genreSlug === 'fireworks') items.splice(1, 0, { cat: 'viewing', name: '観覧場所' });
-  if (genreSlug === 'music' || genreSlug === 'anime_game') items.splice(1, 0, { cat: 'merch', name: '物販・グッズ' });
+  if (opt.shuttle) items.splice(1, 0, { cat: 'shuttle', name: 'シャトルバス' });
   return items;
 }
 

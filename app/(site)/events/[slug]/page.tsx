@@ -1,12 +1,10 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import KindIcon from '@/components/Icon';
 import EventLive from '@/components/EventLive';
 import { StatusBadges } from '@/components/EventCard';
 import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports, redirectedSlug, searchEvents } from '@/lib/queries';
 import { fmtRange, isEnded, isOngoing } from '@/lib/dates';
 import EndedEvent from '@/components/EndedEvent';
-import EventGuide, { GUIDE_FIELDS } from '@/components/EventGuide';
 import { ItemList } from '@/components/EventCard';
 import { eventDescription, eventTitle } from '@/lib/seo';
 import { INFO_FIELDS } from '@/lib/prefectures';
@@ -86,6 +84,8 @@ function eventJsonLd(e: EventCard, url: string) {
 }
 
 const NONE = <span className="none">情報なし</span>;
+/** 上のカード（駐車場・シャトルバス・トイレ・飲食／交通規制は駐車場カード内）に出す項目は、開催概要の表には出さない */
+const CARD_FIELDS = ['parking_info', 'shuttle_info', 'traffic_info', 'toilet_info', 'food_info'];
 
 function fieldValue(e: EventCard, key: string): React.ReactNode {
   switch (key) {
@@ -161,7 +161,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
 
   // 駐車場・シャトルバス・交通・トイレ・飲食は「来場の情報」の見出しで出すので、開催概要の表からは外す
   const fieldKeys = (genre.info_fields || INFO_FIELDS.map((f) => f.key).join(',')).split(',').map((s) => s.trim())
-    .filter((k) => k && !GUIDE_FIELDS.includes(k));
+    .filter((k) => k && !CARD_FIELDS.includes(k));
   const extras = e.extra_info.split('\n').map((l) => l.split(/[:：]/)).filter((p) => p.length >= 2 && p[0].trim())
     .map(([k, ...v]) => [k.trim(), v.join(':').trim()] as const);
 
@@ -175,20 +175,11 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       {e.is_sample ? (
         <div className="banner sample"><span className="banner-label">サンプル</span><span>これは動作確認用の<strong>サンプルデータ</strong>です。実在のイベントではありません。</span></div>
       ) : null}
-      {UNOFFICIAL && (
-        <div className="banner unofficial">
-          <span className="banner-label">非公式</span><span>このページは<strong>非公式</strong>の情報ページです。{e.organizer ? `「${e.organizer}」` : '主催者'}とは関係ありません。
-            正確な情報は{e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">公式サイト</a> : '公式発表'}でご確認ください。</span>
-        </div>
-      )}
       {e.status === 'canceled' && <div className="banner canceled"><span className="banner-label">中止</span><span><strong>開催中止</strong>　{e.status_note}</span></div>}
       {e.status === 'postponed' && <div className="banner postponed"><span className="banner-label">延期</span><span><strong>延期</strong>　{e.status_note}</span></div>}
 
       <div className="event-head">
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <span className="badge genre" style={{ background: genre.color }}><KindIcon kind="genre" slug={genre.slug} emoji={genre.icon} size={13} strokeWidth={2.6} />{genre.name}</span>
-          <StatusBadges e={e} />
-        </div>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadges e={e} /></div>
         <h1>{e.name}</h1>
         <div className="meta">
           <span>
@@ -208,25 +199,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         </div>
       </div>
 
-      {!e.is_sample && e.published ? (
-        <ShareButtons eventId={e.id} title="このイベントを共有" url={shareUrl(base, eventPath, 'copy')}
-          xText={composePost(shareLines, shareUrl(base, eventPath, 'x'), tags)}
-          lineText={composePost(shareLines, shareUrl(base, eventPath, 'line'), tags, 1000)} />
-      ) : null}
-
-      <nav className="tabs">
-        <a href="#live" className="primary">現地の状況</a>
-        <a href="#guide">駐車場・交通</a>
-        <a href="#info">開催概要</a>
-      </nav>
-
+      <h2 className="cards-title">{e.name}の駐車場・{e.shuttle_info ? 'シャトルバス・' : ''}トイレ（現地の状況）</h2>
       <EventLive eventId={e.id} eventName={e.name} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} simple={e.map_mode === 'simple'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
         initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}
+        official={{ parking: e.parking_info, shuttle: e.shuttle_info, traffic: e.traffic_info, toilet: e.toilet_info, food: e.food_info }}
         share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined} />
 
-      <EventGuide e={e} categories={categories} spots={spots} reports={reports} now={nowMs} blocked={postable ? '' : blocked} />
-
-      <section className="section" id="info" style={{ scrollMarginTop: 130 }}>
+      <section className="section" id="info" style={{ scrollMarginTop: 70 }}>
         <div className="section-head"><h2>開催概要</h2></div>
         <p style={{ marginTop: 0, whiteSpace: 'pre-wrap' }}>{e.summary || '概要の情報はありません'}</p>
         <dl className="info-table" style={{ margin: 0 }}>
@@ -247,6 +226,17 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           {e.source_checked_at && `（${e.source_checked_at} 確認）`}<br />
           掲載情報は変更される場合があります。最新情報は必ず公式サイトでご確認ください。
         </p>
+        {!e.is_sample && e.published ? (
+          <ShareButtons eventId={e.id} title="このイベントを共有" url={shareUrl(base, eventPath, 'copy')}
+            xText={composePost(shareLines, shareUrl(base, eventPath, 'x'), tags)}
+            lineText={composePost(shareLines, shareUrl(base, eventPath, 'line'), tags, 1000)} />
+        ) : null}
+        {UNOFFICIAL && (
+          <p className="muted small">
+            このページは<strong>非公式</strong>の情報ページです。{e.organizer ? `「${e.organizer}」` : '主催者'}とは関係ありません。
+            正確な情報は{e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>公式サイト</a> : '公式発表'}でご確認ください。
+          </p>
+        )}
         <p className="small">
           主催者・関係者の方へ：<a href={`/contact?type=removal&event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">このイベントの掲載停止を申請する</a>
           {'　'}<a href="/contact" style={{ textDecoration: 'underline' }} rel="nofollow">内容の訂正・お問い合わせ</a>
