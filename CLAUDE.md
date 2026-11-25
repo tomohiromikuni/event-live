@@ -35,4 +35,4 @@
 報酬（ポイント・クーポン）ではなく「誰かの役に立った」実感で投稿を促す。数字は実データのみ（推測値・架空の数字は出さない）、重複・不正投稿は実績に数えない、ランキング等の競争要素は作らない。仕様は `docs/CONTRIBUTION_SPEC.md`。
 
 ## 主なドキュメント
-- `docs/SERVICE_POLICY.md` サービス方針（最優先） ／ `docs/DESIGN.md` 全体設計 ／ `docs/DRAFT_FORMAT.md` 下書き（取り込み）形式 ／ `docs/AUTOMATION_PLAN.md` 自動収集・SNS ／ `docs/FUTURE_VISION.md` 将来構想 ／ `docs/CONTRIBUTION_SPEC.md` 貢献実績
+- `docs/SERVICE_POLICY.md` サービス方針（最優先） ／ `docs/DESIGN.md` 全体設計 ／ `docs/DRAFT_FORMAT.md` 下書き（取り込み）形式 ／ `docs/AUTOMATION_PLAN.md` 自動収集・SNS ／ `docs/SNS_PLAN.md` X自動投稿の計画 ／ `docs/FUTURE_VISION.md` 将来構想 ／ `docs/CONTRIBUTION_SPEC.md` 貢献実績
