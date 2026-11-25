@@ -8,7 +8,7 @@ import type { Category, Report, Spot } from '@/lib/types';
 import type { MapMarker } from './LeafletMap';
 import ShareButtons from './ShareButtons';
 import { composePost, shareUrl } from '@/lib/share';
-import type { MapShape } from '@/lib/shapes';
+import { PUBLIC_SPOT_CATS, simplifyShapes, type MapShape } from '@/lib/shapes';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
@@ -113,7 +113,9 @@ export default function EventLive(p: Props) {
   const recentCount = (spotId: number) =>
     reports.filter((r) => r.spot_id === spotId && freshness(r.created_at, now) === 'fresh').length;
 
-  const markers: MapMarker[] = useMemo(() => visibleSpots.map((s) => {
+  // 公開マップは簡易表示：施設は決まった種類だけ、エリアは四角に簡略化、線は出さない（lib/shapes.ts）
+  const mapShapes = useMemo(() => simplifyShapes(p.shapes), [p.shapes]);
+  const markers: MapMarker[] = useMemo(() => visibleSpots.filter((s) => PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '')).map((s) => {
     const c = catById.get(s.category_id)!;
     const latest = latestBySpot.get(s.id);
     const stale = latest && freshness(latest.created_at, now) === 'stale';
@@ -236,9 +238,9 @@ export default function EventLive(p: Props) {
       {!p.simple && (
         <div className="topic-card map-card">
           <div className="tc-head"><h3>会場マップ</h3></div>
-          <p className="muted small" style={{ margin: '0 0 8px' }}>地図の地点をタップしても、状況の確認・投稿ができます。</p>
+          <p className="muted small" style={{ margin: '0 0 8px' }}>位置の目安を示す簡易マップです。地点をタップしても、状況の確認・投稿ができます。</p>
           <div className="live-map">
-            <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={p.shapes}
+            <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes}
               onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
             <div className="legend">
               {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l}><i style={{ background: LEVEL_COLORS[i] }} />{l}</span>)}
