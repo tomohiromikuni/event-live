@@ -14,7 +14,10 @@ function entryPath() {
 export function middleware(req: NextRequest) {
   const entry = entryPath();
   if (!entry) return NextResponse.next();
-  const { pathname } = req.nextUrl;
+  // 日本語などを含む値でも一致するよう、URLの文字をもとに戻して比べる（末尾の / も無視）
+  let pathname = req.nextUrl.pathname;
+  try { pathname = decodeURIComponent(pathname); } catch { /* そのまま */ }
+  if (pathname.length > 1) pathname = pathname.replace(/\/+$/, '');
 
   if (pathname === `/${entry}`) {
     const url = req.nextUrl.clone();
