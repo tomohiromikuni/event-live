@@ -65,7 +65,31 @@ export async function tryAutoPublish(candidateId: number, isDuplicate: boolean):
   }
   await createEventFromCandidate({ id: c.id, source_url: c.source_url, d }, {
     name: d.name.trim(), start: d.start_date!, end: d.end_date && DATE_RE.test(d.end_date) && d.end_date >= d.start_date! ? d.end_date : d.start_date!,
-    pref: d.prefecture!, publish: true, auto: true,
+    pref: d.prefecture!, publish: false, auto: true,
   });
+  // 載せられる情報（公式の駐車場・シャトルバス・トイレ・飲食の情報）がすでにあれば、すぐ公開。無ければ会場マップの自動作成のあとに判断
   return 'published';
+}
+
+/**
+ * 載せられる情報があるか：公式情報（駐車場・シャトルバス・トイレ・飲食・交通規制）のどれかがある、
+ * または地図にトイレ・駐車場などの場所が1つ以上ある。何も無いイベント（イベント名と日程だけ）は公開しない（運営者の方針）。
+ */
+export async function hasUsefulInfo(eventId: number): Promise<boolean> {
+  const r = await one<{ info: boolean; spots: number }>(`SELECT
+      (e.parking_info <> '' OR e.shuttle_info <> '' OR e.toilet_info <> '' OR e.food_info <> '' OR e.traffic_info <> '') AS info,
+      (SELECT COUNT(*)::int FROM spots s JOIN spot_categories c ON c.id = s.category_id
+        WHERE s.event_id = e.id AND s.generic = 0 AND c.slug IN ('toilet', 'parking', 'shuttle', 'food')) AS spots
+    FROM events e WHERE e.id = $1`, [eventId]);
+  return !!r && (r.info || r.spots > 0);
+}
+
+/** 自動で作ったイベントの公開・非公開を、載せられる情報の有無で決める（自動作成したもので、まだ終わっていないものだけ） */
+export async function settleAutoPublish(eventId: number): Promise<'published' | 'hidden' | null> {
+  const ev = await one<{ auto_published: number; published: number; end_date: string }>('SELECT auto_published, published, end_date FROM events WHERE id = $1', [eventId]);
+  if (!ev || !ev.auto_published || ev.end_date < todayJST()) return null;
+  const ok = await hasUsefulInfo(eventId);
+  if (ok && !ev.published) { await q('UPDATE events SET published = 1, updated_at = $1 WHERE id = $2', [Date.now(), eventId]); return 'published'; }
+  if (!ok && ev.published) { await q('UPDATE events SET published = 0, updated_at = $1 WHERE id = $2', [Date.now(), eventId]); return 'hidden'; }
+  return null;
 }

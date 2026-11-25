@@ -116,7 +116,7 @@ export default async function AdminEvents({ searchParams }: { searchParams: Prom
                 <td>
                   <Link href={`/admin/events/${r.id}`} className="admin-name">{r.name}</Link>
                   {r.is_sample ? <span className="tag sample">サンプル</span> : null}
-                  {r.auto_published ? <span className="tag" title="承認なしで自動公開したイベント">自動</span> : null}
+                  {r.auto_published ? <span className="tag" title="自動で集めて作ったイベント">{r.published ? '自動' : '自動・情報待ち'}</span> : null}
                   {isEnded(r.end_date) ? <span className="tag" title="公開ページでは「終了しました」の案内だけを表示しています">終了</span> : null}
                   {!r.published && <span className="tag">非公開</span>}
                   <div className="muted small">{r.genre}</div>

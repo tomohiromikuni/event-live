@@ -424,7 +424,13 @@ const V23 = `UPDATE crawl_pages SET status = 'pending', attempts = 0, error = ''
 /** v24: 自動公開したイベントで、会場マップの自動作成が外部サービスの混雑で失敗したものを、すぐ試し直せるようにする */
 const V24 = `UPDATE events SET automap_at = 0 WHERE auto_published = 1 AND map_mode = 'simple'`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24];
+/** v25: 自動公開したイベントで、載せられる情報（公式情報・トイレ等の場所）が何も無いものは非公開にする（運営者の方針） */
+const V25 = `UPDATE events e SET published = 0 WHERE e.auto_published = 1
+  AND e.parking_info = '' AND e.shuttle_info = '' AND e.toilet_info = '' AND e.food_info = '' AND e.traffic_info = ''
+  AND NOT EXISTS (SELECT 1 FROM spots s JOIN spot_categories c ON c.id = s.category_id
+    WHERE s.event_id = e.id AND s.generic = 0 AND c.slug IN ('toilet', 'parking', 'shuttle', 'food'))`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

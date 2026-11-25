@@ -2,6 +2,7 @@ import 'server-only';
 import { q } from './db';
 import { importOsmFacilities } from './osm';
 import { importGuideMap } from './guidemap';
+import { settleAutoPublish } from './collect/publish';
 import { todayJST } from './dates';
 
 /**
@@ -32,7 +33,10 @@ export async function autoMapPending(limit = 1): Promise<{ id: number; name: str
   const out = [];
   for (const e of evs) {
     await q('UPDATE events SET automap_at = $1 WHERE id = $2', [Date.now(), e.id]); // 失敗しても毎回同じイベントで止まらないよう、先に記録
-    const message = await autoMap(e.id);
+    let message = await autoMap(e.id);
+    const settled = await settleAutoPublish(e.id).catch(() => null);
+    if (settled === 'published') message += ' ／ 載せられる情報があるため公開しました';
+    if (settled === 'hidden') message += ' ／ 載せられる情報が無いため非公開にしました';
     // 外部サービスの混雑などで取れなかったときは、7日待たずに翌日また試す
     if (/取得に失敗|接続できません|時間内に処理しきれ/.test(message)) await q('UPDATE events SET automap_at = $1 WHERE id = $2', [Date.now() - 6 * 86400_000, e.id]);
     out.push({ ...e, message });

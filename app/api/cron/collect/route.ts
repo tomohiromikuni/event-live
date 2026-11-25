@@ -13,5 +13,5 @@ export async function POST(req: Request) {
   if (!cronAuthorized(req)) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   if ((await getSetting('collect_enabled', '0')) !== '1') return NextResponse.json({ ok: true, done: true, skipped: '自動収集はOFFです' });
   const r = await runCollect('cron');
-  return NextResponse.json({ ok: true, done: r.done, fetched: r.fetched, extracted: r.extracted, new_candidates: r.new_candidates, published: r.published, errors: r.errors, log: r.log.slice(0, 3).map((l) => l.slice(0, 300)) });
+  return NextResponse.json({ ok: true, done: r.done, fetched: r.fetched, extracted: r.extracted, new_candidates: r.new_candidates, published: r.published, created: r.created, errors: r.errors, log: r.log.slice(0, 3).map((l) => l.slice(0, 300)) });
 }

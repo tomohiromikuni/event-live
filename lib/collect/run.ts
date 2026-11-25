@@ -5,7 +5,7 @@ import { PREFECTURES } from '../prefectures';
 import { fetchFeed, fetchPage } from './web';
 import { extractEvents, extractorReady, type Extracted } from './extract';
 import { confidence, datesOverlap, fingerprint, similarity } from './dedupe';
-import { tryAutoPublish } from './publish';
+import { settleAutoPublish, tryAutoPublish } from './publish';
 
 /**
  * 自動収集の1回分。Vercel の実行時間に収まるよう、1回で扱う件数を絞り、残りは次回へ回す。
@@ -28,7 +28,7 @@ export async function setSetting(key: string, value: string) {
 
 export async function runCollect(trigger: 'cron' | 'manual') {
   const started = Date.now();
-  const stats = { fetched: 0, changed: 0, extracted: 0, new_candidates: 0, duplicates: 0, published: 0, errors: 0, input_tokens: 0, output_tokens: 0 };
+  const stats = { fetched: 0, changed: 0, extracted: 0, new_candidates: 0, duplicates: 0, published: 0, created: 0, errors: 0, input_tokens: 0, output_tokens: 0 };
   const log: string[] = [];
   const [{ id: runId }] = await q<{ id: number }>('INSERT INTO crawl_runs (trigger, started_at) VALUES ($1, $2) RETURNING id', [trigger, started]);
 
@@ -101,7 +101,11 @@ export async function runCollect(trigger: 'cron' | 'manual') {
           // 承認を待たずに公開（条件を満たすものだけ。会場マップは定期実行で自動作成）
           if (r.id) {
             const pub = await tryAutoPublish(r.id, r.kind === 'duplicate').catch((err) => String(err));
-            if (pub === 'published') stats.published++;
+            if (pub === 'published') {
+              const ev = await one<{ event_id: number }>('SELECT event_id FROM event_candidates WHERE id = $1', [r.id]);
+              if (ev && (await settleAutoPublish(ev.event_id)) === 'published') stats.published++;
+              else stats.created++;
+            }
           }
         }
         await q("UPDATE crawl_pages SET status = 'done', extracted_at = $1, error = '' WHERE id = $2", [Date.now(), p.id]);
@@ -119,7 +123,7 @@ export async function runCollect(trigger: 'cron' | 'manual') {
     input_tokens = $8, output_tokens = $9, log = $10 WHERE id = $11`,
     [Date.now(), stats.fetched, stats.changed, stats.extracted, stats.new_candidates, stats.duplicates, stats.errors, stats.input_tokens, stats.output_tokens, log.join('\n').slice(0, 8000), runId]);
   // done: まだ処理が残っていなければ true（定期実行はこれが true になるまで数回呼ぶ）
-  if (stats.published) log.push(`自動公開 ${stats.published}件（会場マップは定期実行で自動作成）`);
+  if (stats.published || stats.created) log.push(`自動公開 ${stats.published}件・地図の自動作成待ち（非公開）${stats.created}件`);
   const done = (dueLeft?.n ?? 0) === 0 && (!extractorReady() || (remaining?.n ?? 0) === 0);
   return { runId, done, ...stats, log };
 }

@@ -16,7 +16,7 @@ import { distanceM, geocode } from './osm';
  */
 const NOMINATIM = process.env.NOMINATIM_URL || 'https://nominatim.openstreetmap.org/search';
 const UA = `EVENOW-bot/1.0 (+${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.evenow.jp'}/about)`;
-const MAX_IMAGES = 2;
+const MAX_IMAGES = 3;
 const TIME_BUDGET_MS = 20_000; // 1回の処理時間の目安（Vercel の実行時間の上限に収める）
 export const MAX_RMS_M = 80;      // 目安として採用する誤差の上限（目印の平均的な食い違い）
 const MAX_ONE_M = 150;            // 目印1つあたりの食い違いの上限
@@ -75,9 +75,11 @@ export function imageSize(b: Buffer): { w: number; h: number } | null {
 }
 
 /** 公式ページの中から、ガイドマップらしい画像のURLを探す（名前・代替テキスト・リンク文字で判定） */
-export function findMapImages(html: string, base: string): string[] {
-  const KEY = /(map|マップ|会場|案内図|配置|レイアウト|周辺図|交通規制|駐車場|アクセス|access|guide|area)/i;
-  const IMG = /\.(png|jpe?g|gif|webp)(\?|$)/i;
+const KEY = /(map|マップ|地図|会場|案内図|配置|レイアウト|周辺図|交通規制|駐車場|アクセス|access|guide|area|ユニバーサル|バリアフリー|universal)/i;
+
+/** loose=true：地図のページ（リンク先）では、名前に手がかりが無い画像も候補にする（ロゴ等は除く） */
+export function findMapImages(html: string, base: string, loose = false): string[] {
+  const IMG = /\.(png|jpe?g|gif|webp|pdf)(\?|$)/i;
   const out: { url: string; score: number }[] = [];
   const add = (src: string, text: string) => {
     let url: string;
@@ -85,7 +87,7 @@ export function findMapImages(html: string, base: string): string[] {
     if (!/^https?:/.test(url) || !IMG.test(new URL(url).pathname)) return;
     if (/(logo|icon|banner|btn|button|sns|twitter|facebook|line|instagram|youtube|spacer)/i.test(url)) return;
     const score = (KEY.test(text) ? 2 : 0) + (KEY.test(url) ? 2 : 0);
-    if (score > 0 && !out.some((o) => o.url === url)) out.push({ url, score });
+    if ((score > 0 || loose) && !out.some((o) => o.url === url)) out.push({ url, score });
   };
   for (const m of html.matchAll(/<img\b[^>]*>/gi)) {
     const tag = m[0];
@@ -97,16 +99,44 @@ export function findMapImages(html: string, base: string): string[] {
   return out.sort((a, b) => b.score - a.score).slice(0, MAX_IMAGES).map((o) => o.url);
 }
 
+/** 同じサイト内の「地図・会場・アクセス・ユニバーサルマップ」などのページへのリンク（ガイドマップが奥のページにある場合のため） */
+export function findMapPages(html: string, base: string, limit = 3): string[] {
+  const host = new URL(base).host;
+  const out: { url: string; score: number }[] = [];
+  for (const m of html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    let url: string;
+    try { url = new URL(m[1], base).toString(); } catch { continue; }
+    const u = new URL(url);
+    if (u.host !== host || /\.(png|jpe?g|gif|webp|pdf|zip|docx?|xlsx?)(\?|$)/i.test(u.pathname) || url === base) continue;
+    const text = m[2].replace(/<[^>]+>/g, '').trim();
+    const score = (KEY.test(text) ? 2 : 0) + (KEY.test(u.pathname) ? 1 : 0);
+    if (score > 0 && !out.some((o) => o.url === url)) out.push({ url, score });
+  }
+  return out.sort((a, b) => b.score - a.score).slice(0, limit).map((o) => o.url);
+}
+
+/** PDF の1ページ目の大きさ（MediaBox）。読めなければ A4 縦とみなす */
+export function pdfSize(b: Buffer): { w: number; h: number } {
+  const m = b.toString('latin1', 0, Math.min(b.length, 2_000_000)).match(/\/MediaBox\s*\[\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*\]/);
+  if (!m) return { w: 595, h: 842 };
+  const [x0, y0, x1, y1] = m.slice(1).map(Number);
+  return { w: Math.abs(x1 - x0) || 595, h: Math.abs(y1 - y0) || 842 };
+}
+const isPdf = (b: Buffer) => b.length > 5 && b.toString('ascii', 0, 5) === '%PDF-';
+
 async function readGuideMap(img: { type: string; data: Buffer }): Promise<GuideRead> {
   client ??= new Anthropic();
   const media = (['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(img.type) ? img.type : 'image/png') as 'image/png';
+  const pdf = isPdf(img.data);
   const res = await client.beta.messages.create({
     model: collectModel(),
     max_tokens: 4000,
     system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: [
-      { type: 'image', source: { type: 'base64', media_type: media, data: img.data.toString('base64') } },
-      { type: 'text', text: 'この画像を読み取ってください。' },
+      pdf
+        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: img.data.toString('base64') } }
+        : { type: 'image', source: { type: 'base64', media_type: media, data: img.data.toString('base64') } },
+      { type: 'text', text: pdf ? 'このPDFの1ページ目を読み取ってください（x, y は1ページ目の左上(0,0)〜右下(100,100)）。' : 'この画像を読み取ってください。' },
     ] }],
     output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA as unknown as Record<string, unknown> } },
   } as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming);
@@ -187,16 +217,25 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
   const images: string[] = [];
   for (const page of pages) {
     const html = await fetchHtml(page).catch(() => null);
-    if (html) for (const u of findMapImages(html, page)) if (!images.includes(u)) images.push(u);
+    if (!html) continue;
+    for (const u of findMapImages(html, page)) if (!images.includes(u)) images.push(u);
+    // 公式ページに地図が無ければ、同じサイト内の「地図・会場・アクセス・ユニバーサルマップ」のページも見る（1段だけ）
+    if (images.length < MAX_IMAGES) {
+      for (const sub of findMapPages(html, page, 2)) {
+        const h2 = await fetchHtml(sub).catch(() => null);
+        if (h2) for (const u of findMapImages(h2, sub, true)) if (!images.includes(u)) images.push(u);
+        if (images.length >= MAX_IMAGES) break;
+      }
+    }
   }
-  if (!images.length) return { ok: true, added: 0, message: '公式ページにガイドマップらしい画像が見つかりませんでした' };
+  if (!images.length) return { ok: true, added: 0, message: '公式サイトにガイドマップらしい画像・PDFが見つかりませんでした' };
 
   const reasons: string[] = [];
   const started = Date.now();
   for (const url of images.slice(0, MAX_IMAGES)) {
     if (Date.now() - started > TIME_BUDGET_MS) { reasons.push('時間内に処理しきれなかったため、残りの画像は次の機会に回しました'); break; }
     const img = await fetchBinary(url).catch(() => null);
-    const size = img && imageSize(img.data);
+    const size = img && (isPdf(img.data) ? pdfSize(img.data) : imageSize(img.data));
     if (!img || !size) { reasons.push('画像を読み込めませんでした'); continue; }
     let read: GuideRead;
     try { read = await readGuideMap(img); } catch (e) { reasons.push(e instanceof Error ? e.message : String(e)); continue; }
