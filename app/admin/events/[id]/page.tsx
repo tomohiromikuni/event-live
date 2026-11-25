@@ -9,6 +9,9 @@ import { eventCategories, eventShapes, eventSpots, getEventById } from '@/lib/qu
 import { autoMapFromOsm, deleteEvent } from '../../actions';
 import { one } from '@/lib/db';
 
+// 地図の自動作成（外部の地図データ・AIの読み取り）を含むため、1回の処理時間の上限を長めにする
+export const maxDuration = 60;
+
 export default async function EditEvent({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; imported?: string; osm?: string }> }) {
   const id = Number((await params).id);
   const { saved, imported, osm } = await searchParams;

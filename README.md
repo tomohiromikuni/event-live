@@ -66,7 +66,13 @@ npm run build && npm start   # http://localhost:3000
    - `COLLECT_MODEL`（任意）：既定は `claude-haiku-5-5`（費用優先）。精度が足りないときだけ `claude-opus-5-5`
    - `CRON_SECRET`：16文字以上のランダムな文字列（Sensitive）
 2. GitHub のリポジトリ → Settings → Secrets and variables → Actions に `CRON_SECRET`（同じ値）を登録
+   （これで 毎日の自動収集＋会場マップの自動作成 `.github/workflows/collect.yml` と、15分ごとのSNS下書き作成 `.github/workflows/sns.yml` が動きます）
    （`.github/workflows/collect.yml` が毎日 4:17 に収集を実行。Actions タブから手動実行も可）
 3. 管理画面「情報源」で、利用規約を確認した情報源だけを登録して「巡回する」にする
 4. 管理画面「自動収集」で ON にする（「今すぐ1回実行」で試せる）
 5. 「収集した候補」で内容を確認 → 承認すると非公開イベントができる → 会場マップを作って公開
+
+## 会場マップの自動作成・X投稿（追加の設定）
+- 会場マップの自動作成：追加の設定は不要（国土地理院・OpenStreetMap・Nominatim は無料。ガイドマップの読み取りは `ANTHROPIC_API_KEY` を使用）
+- X投稿：X Developer Portal のアプリ（権限 Read and Write）の `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_SECRET` を Vercel の環境変数に設定。
+  未設定でも下書きの作成・確認はできる。自動投稿は管理画面「X投稿」でONにしたときだけ（初期OFF）。

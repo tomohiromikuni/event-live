@@ -102,7 +102,7 @@ export async function approveCandidate(_prev: string | null, f: FormData): Promi
   // 公式マイマップが無ければ、会場マップを自動作成（OSM の常設トイレ・駐車場 → ガイドマップから仮設のものを目安で追加。無ければカードだけ）
   let osm = '';
   if (!d.map_links?.length) {
-    osm = await autoMap(eventId);
+    osm = await autoMap(eventId, { guide: false }); // 承認は素早く。ガイドマップからの追加は定期実行・「会場マップを自動作成」で行う
   }
   revalidatePath('/admin/candidates');
   // 公式のマイマップへのリンクがあれば、そのまま会場マップの取り込みへ

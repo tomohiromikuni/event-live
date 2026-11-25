@@ -310,10 +310,10 @@ export async function autoMapFromOsm(f: FormData) {
   redirect(`/admin/events/${id}?osm=${encodeURIComponent(msg)}`);
 }
 
-/** まだ地図の無いイベントに、まとめて自動作成（1回3件まで） */
+/** まだ地図の無いイベントに、自動作成（1回1件。押すたびに次のイベントへ） */
 export async function autoMapBatch() {
   await requireAdmin();
-  const r = await autoMapPending(3);
+  const r = await autoMapPending(1);
   revalidatePath('/', 'layout');
   redirect(`/admin/collect?automap=${encodeURIComponent(r.length ? r.map((x) => `${x.name}：${x.message}`).join('\n') : '地図の無い開催前・開催中のイベントはありません')}`);
 }

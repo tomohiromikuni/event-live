@@ -5,6 +5,9 @@ import { collectModel } from '@/lib/collect/extract';
 import { runCollectNow, setCollectEnabled } from '../collect-actions';
 import { autoMapBatch } from '../actions';
 
+// 地図の自動作成（外部の地図データ・AIの読み取り）を含むため、1回の処理時間の上限を長めにする
+export const maxDuration = 60;
+
 type Run = { id: number; trigger: string; started_at: number; finished_at: number; fetched: number; changed: number; extracted: number;
   new_candidates: number; duplicates: number; errors: number; input_tokens: number; output_tokens: number; log: string };
 
@@ -34,10 +37,10 @@ export default async function CollectPage({ searchParams }: { searchParams: Prom
       <div className="panel">
         <h2>会場マップの自動作成</h2>
         <p className="muted small" style={{ marginTop: 0 }}>
-          まだ地図の無い（カードだけの）開催前・開催中のイベントに、会場マップを自動で作ります（1回3件まで）。
+          まだ地図の無い（カードだけの）開催前・開催中のイベントに、会場マップを自動で作ります（1回1件・押すたびに次のイベントへ。毎日の自動収集のあとにも自動で実行）。
           ① 会場周辺の常設トイレ・駐車場（OpenStreetMap）② 公式ページのガイドマップから仮設のものを「目安」で追加。人が位置を合わせる作業はありません。
         </p>
-        <form action={autoMapBatch}><button className="btn sm">地図の無いイベントにまとめて作成</button></form>
+        <form action={autoMapBatch}><button className="btn sm">地図の無いイベントに作成（1件）</button></form>
       </div>
       <div className="panel">
         <div className="collect-status">

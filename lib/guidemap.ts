@@ -16,7 +16,8 @@ import { distanceM, geocode } from './osm';
  */
 const NOMINATIM = process.env.NOMINATIM_URL || 'https://nominatim.openstreetmap.org/search';
 const UA = `EVENOW-bot/1.0 (+${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.evenow.jp'}/about)`;
-const MAX_IMAGES = 3;
+const MAX_IMAGES = 2;
+const TIME_BUDGET_MS = 40_000; // 1回の処理時間の目安（Vercel の実行時間の上限に収める）
 export const MAX_RMS_M = 80;      // 目安として採用する誤差の上限（目印の平均的な食い違い）
 const MAX_ONE_M = 150;            // 目印1つあたりの食い違いの上限
 const NEAR_M = 40;                // すでにある同じ種類の施設とこれより近ければ、同じものとみなして追加しない
@@ -189,7 +190,9 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
   if (!images.length) return { ok: true, added: 0, message: '公式ページにガイドマップらしい画像が見つかりませんでした' };
 
   const reasons: string[] = [];
+  const started = Date.now();
   for (const url of images.slice(0, MAX_IMAGES)) {
+    if (Date.now() - started > TIME_BUDGET_MS) { reasons.push('時間内に処理しきれなかったため、残りの画像は次の機会に回しました'); break; }
     const img = await fetchBinary(url).catch(() => null);
     const size = img && imageSize(img.data);
     if (!img || !size) { reasons.push('画像を読み込めませんでした'); continue; }
@@ -198,7 +201,7 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
     if (!read.is_venue_map || !read.facilities.length) { reasons.push('地図ではない・施設が読み取れない画像でした'); continue; }
     // 目印の実際の位置を調べる（最大8つ）
     const pairs: { name: string; px: number; py: number; lat: number; lng: number }[] = [];
-    for (const lm of read.landmarks.slice(0, 8)) {
+    for (const lm of read.landmarks.slice(0, 6)) {
       const p = await locateLandmark(lm.name.trim(), ev, center);
       if (p) pairs.push({ name: lm.name, px: (lm.x / 100) * size.w, py: (lm.y / 100) * size.h, lat: p[0], lng: p[1] });
     }

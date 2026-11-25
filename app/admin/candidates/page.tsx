@@ -5,6 +5,9 @@ import { mergeCandidate, rejectCandidate } from '../collect-actions';
 import type { Extracted } from '@/lib/collect/extract';
 import { candidateDiff } from '@/lib/collect/merge';
 
+// 地図の自動作成（外部の地図データ・AIの読み取り）を含むため、1回の処理時間の上限を長めにする
+export const maxDuration = 60;
+
 type Row = { id: number; data: string; source_url: string; confidence: number; status: string; match_event_id: number | null;
   match_name: string | null; match_start: string | null; match_end: string | null; created_at: number; event_id: number | null };
 
