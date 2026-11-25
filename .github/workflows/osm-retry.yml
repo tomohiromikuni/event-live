@@ -1,0 +1,24 @@
+# OpenStreetMap（無料の公開サーバー）につながらなかったイベントの会場マップを、1時間ごとに取り直す。
+# AI もイベント探し（自動収集）も使わない（費用0円）。対象が無ければすぐ終わる。
+name: osm-retry
+on:
+  schedule:
+    - cron: '41 * * * *'
+  workflow_dispatch: {}
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Retry OpenStreetMap import
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE: https://www.evenow.jp
+        run: |
+          if [ -z "$CRON_SECRET" ]; then exit 0; fi
+          for i in 1 2 3; do
+            res=$(curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" --max-time 90 "$SITE/api/cron/osm-retry" || echo '{}')
+            echo "osm-retry $i: $res"
+            echo "$res" | grep -q '"done":true' && break
+            sleep 5
+          done

@@ -437,7 +437,12 @@ const V26 = `UPDATE events e SET automap_at = 0 WHERE e.auto_published = 1
 /** 画像の形式の判定・地図でない画像のときのサイト内検索を直したので、もう一度試す */
 const V27 = V26;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27];
+/** OpenStreetMap につながらなかったイベント（1時間ごとにやり直す）。今の地図の無い実イベントは一度やり直す */
+const V28 = `ALTER TABLE events ADD COLUMN IF NOT EXISTS osm_pending INTEGER NOT NULL DEFAULT 0;
+UPDATE events e SET osm_pending = 1 WHERE e.is_sample = 0 AND e.map_mode = 'simple'
+  AND NOT EXISTS (SELECT 1 FROM spots s WHERE s.event_id = e.id AND s.generic = 0)`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

@@ -43,3 +43,22 @@ export async function autoMapPending(limit = 1): Promise<{ id: number; name: str
   }
   return out;
 }
+
+/**
+ * OpenStreetMap だけのやり直し（1時間ごと）：前回つながらなかったイベントを、AIを使わずに取り直す（費用0円）。
+ * 公開の無料サーバーが混んでいて断られることがあるため。成功したら、載せられる情報の有無で公開・非公開を決める。
+ */
+export async function retryOsmPending(limit = 2): Promise<{ id: number; name: string; message: string }[]> {
+  const evs = await q<{ id: number; name: string }>(`SELECT id, name FROM events
+    WHERE osm_pending = 1 AND end_date >= $1 AND is_sample = 0 ORDER BY published DESC, start_date LIMIT $2`, [todayJST(), limit]);
+  const out = [];
+  for (const e of evs) {
+    let message: string;
+    try { message = (await importOsmFacilities(q, e.id, { patient: true })).message; } catch (err) { message = err instanceof Error ? err.message : String(err); }
+    const settled = await settleAutoPublish(e.id).catch(() => null);
+    if (settled === 'published') message += ' ／ 載せられる情報があるため公開しました';
+    if (settled === 'hidden') message += ' ／ 載せられる情報が無いため非公開にしました';
+    out.push({ ...e, message });
+  }
+  return out;
+}

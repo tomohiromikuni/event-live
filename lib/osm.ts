@@ -55,19 +55,19 @@ function direction(from: Geo, to: Geo) {
 const roundDist = (m: number) => (m < 100 ? '100m以内' : `約${Math.round(m / 50) * 50}m`);
 
 /** 会場の周りの常設トイレ・駐車場を OSM から取る（距離の近い順・種類ごとに上限あり） */
-export async function fetchFacilities(center: Geo): Promise<Facility[]> {
+export async function fetchFacilities(center: Geo, o: { patient?: boolean } = {}): Promise<Facility[]> {
   const [lat, lng] = center;
-  const around = `(around:${RADIUS_M},${lat},${lng})`;
-  const query = `[out:json][timeout:15];(nwr${around}[amenity=toilets];nwr${around}[amenity=parking];);out center tags;`;
+  // 1回の検索で済ませ、サーバーの負担を軽くする（混んでいても通りやすくするため）
+  const query = `[out:json][timeout:20];nwr(around:${RADIUS_M},${lat},${lng})[amenity~"^(toilets|parking)$"];out center tags;`;
   let els: OsmEl[] | null = null;
   const errs: string[] = [];
-  // 最初のサーバーは少し長めに待つ（公開サーバーは混んでいると10秒以上かかることがあるため）。全体で約25秒以内
+  // 最初のサーバーは少し長めに待つ（公開サーバーは混んでいると10秒以上かかることがあるため）。やり直し専用の実行（patient）では長めに待つ
   for (const [i, url] of OVERPASS.entries()) {
     const host = new URL(url).hostname;
     try {
       const res = await fetch(url, {
         method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA, Accept: 'application/json' },
-        body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(i === 0 ? 12000 : 6000), cache: 'no-store',
+        body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(o.patient ? (i === 0 ? 25000 : 10000) : (i === 0 ? 12000 : 6000)), cache: 'no-store',
       });
       if (!res.ok) { errs.push(`${host}:${res.status}`); continue; }
       els = ((await res.json()) as { elements: OsmEl[] }).elements ?? [];
@@ -116,7 +116,7 @@ export type OsmImportResult = { ok: boolean; message: string; added?: number };
  * かんたん表示のイベントは「地図」表示に切り替え、シャトルバス・飲食などの位置の無い項目はカードにそのまま残す。
  * 位置の無い「トイレ」「駐車場（周辺）」の項目は、まだ投稿が無ければ外す（実際の場所に置き換わるため）。
  */
-export async function importOsmFacilities(tq: Q, eventId: number): Promise<OsmImportResult> {
+export async function importOsmFacilities(tq: Q, eventId: number, o: { patient?: boolean } = {}): Promise<OsmImportResult> {
   const ev = (await tq<{ id: number; prefecture: string; city: string; venue_name: string; address: string; lat: number; lng: number; map_mode: string }>(
     'SELECT id, prefecture, city, venue_name, address, lat, lng, map_mode FROM events WHERE id = $1', [eventId]))[0];
   if (!ev) return { ok: false, message: 'イベントが見つかりません' };
@@ -130,7 +130,13 @@ export async function importOsmFacilities(tq: Q, eventId: number): Promise<OsmIm
     if (!center) return { ok: false, message: '会場の位置が分かりませんでした（住所か会場名を確認してください）' };
     await tq('UPDATE events SET lat = $1, lng = $2 WHERE id = $3', [center[0], center[1], eventId]);
   }
-  const found = await fetchFacilities(center);
+  let found: Facility[];
+  try { found = await fetchFacilities(center, o); } catch (e) {
+    // つながらなかった：1時間ごとのやり直し（/api/cron/osm-retry）の対象にする
+    await tq('UPDATE events SET osm_pending = 1 WHERE id = $1', [eventId]);
+    throw e;
+  }
+  await tq('UPDATE events SET osm_pending = 0 WHERE id = $1', [eventId]);
   if (found.length === 0) return { ok: true, added: 0, message: `会場の周り（${RADIUS_M}m以内）に、OpenStreetMap に登録されたトイレ・駐車場はありませんでした` };
 
   const cats = new Map((await tq<{ id: number; slug: string }>("SELECT id, slug FROM spot_categories WHERE slug IN ('toilet', 'parking')")).map((c) => [c.slug, c.id]));
