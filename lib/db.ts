@@ -421,7 +421,10 @@ ALTER TABLE event_candidates ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT
 /** v23: AIの読み取り形式の不具合（union型の数の制限）で失敗したページを、読み取り待ちに戻す */
 const V23 = `UPDATE crawl_pages SET status = 'pending', attempts = 0, error = '' WHERE error LIKE '%union types%'`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23];
+/** v24: 自動公開したイベントで、会場マップの自動作成が外部サービスの混雑で失敗したものを、すぐ試し直せるようにする */
+const V24 = `UPDATE events SET automap_at = 0 WHERE auto_published = 1 AND map_mode = 'simple'`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

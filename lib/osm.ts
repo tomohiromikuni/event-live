@@ -9,7 +9,12 @@ import type { Q } from './db';
  * 人の手での位置合わせはしない。名前が無い施設は「会場から北へ約200m」のように方角と距離で呼ぶ。
  */
 const GSI_SEARCH = process.env.GSI_SEARCH_URL || 'https://msearch.gsi.go.jp/address-search/AddressSearch';
-const OVERPASS = process.env.OSM_OVERPASS_URL || 'https://overpass-api.de/api/interpreter';
+// Overpass API はよく混雑するので、だめなら別のサーバーで試す（どれも無料の公開サーバー）
+const OVERPASS = process.env.OSM_OVERPASS_URL ? [process.env.OSM_OVERPASS_URL] : [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
 const UA = `EVENOW-bot/1.0 (+${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.evenow.jp'}/about)`;
 
 export const RADIUS_M = 700;       // 会場の中心からこの範囲
@@ -54,12 +59,20 @@ export async function fetchFacilities(center: Geo): Promise<Facility[]> {
   const [lat, lng] = center;
   const around = `(around:${RADIUS_M},${lat},${lng})`;
   const query = `[out:json][timeout:25];(nwr${around}[amenity=toilets];nwr${around}[amenity=parking];);out center tags;`;
-  const res = await fetch(OVERPASS, {
-    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
-    body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(30000), cache: 'no-store',
-  });
-  if (!res.ok) throw new Error(`OpenStreetMap からの取得に失敗しました（${res.status}）`);
-  const els = ((await res.json()) as { elements: OsmEl[] }).elements ?? [];
+  let els: OsmEl[] | null = null;
+  let lastStatus = 0;
+  for (const url of OVERPASS) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
+        body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(20000), cache: 'no-store',
+      });
+      if (!res.ok) { lastStatus = res.status; continue; }
+      els = ((await res.json()) as { elements: OsmEl[] }).elements ?? [];
+      break;
+    } catch { lastStatus = 0; }
+  }
+  if (!els) throw new Error(`OpenStreetMap からの取得に失敗しました（${lastStatus || '接続できません'}）`);
   const out: Facility[] = [];
   for (const el of els) {
     const t = el.tags ?? {};

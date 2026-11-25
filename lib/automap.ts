@@ -32,7 +32,10 @@ export async function autoMapPending(limit = 1): Promise<{ id: number; name: str
   const out = [];
   for (const e of evs) {
     await q('UPDATE events SET automap_at = $1 WHERE id = $2', [Date.now(), e.id]); // 失敗しても毎回同じイベントで止まらないよう、先に記録
-    out.push({ ...e, message: await autoMap(e.id) });
+    const message = await autoMap(e.id);
+    // 外部サービスの混雑などで取れなかったときは、7日待たずに翌日また試す
+    if (/取得に失敗|接続できません|時間内に処理しきれ/.test(message)) await q('UPDATE events SET automap_at = $1 WHERE id = $2', [Date.now() - 6 * 86400_000, e.id]);
+    out.push({ ...e, message });
   }
   return out;
 }
