@@ -2,8 +2,9 @@
 # リポジトリの Settings → Secrets and variables → Actions に CRON_SECRET（Vercel と同じ値）を登録して使う。
 name: collect-events
 on:
-  schedule:
-    - cron: '17 19 * * *'   # 毎日 4:17（日本時間）
+  # 毎朝の自動実行は止めている（運営者の依頼：まず数件を手動で試す）。再開するときは下の2行のコメントを外す
+  # schedule:
+  #   - cron: '17 19 * * *'   # 毎日 4:17（日本時間）
   workflow_dispatch: {}      # 手動実行もできる
 jobs:
   collect:

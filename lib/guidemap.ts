@@ -30,7 +30,7 @@ export type GuideRead = {
   landmarks: (Pt & { name: string })[];
 };
 
-const pct = { type: 'number', minimum: 0, maximum: 100 };
+const pct = { type: 'number' }; // 0〜100（範囲はコード側で確認）
 const SCHEMA = {
   type: 'object', additionalProperties: false, required: ['is_venue_map', 'facilities', 'landmarks'],
   properties: {
@@ -112,7 +112,9 @@ async function readGuideMap(img: { type: string; data: Buffer }): Promise<GuideR
   } as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming);
   if (res.stop_reason === 'refusal') throw new Error('AIが処理を断りました');
   const text = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
-  return JSON.parse(text) as GuideRead;
+  const r = JSON.parse(text) as GuideRead;
+  const ok = (p: Pt) => p.x >= 0 && p.x <= 100 && p.y >= 0 && p.y <= 100;
+  return { ...r, facilities: r.facilities.filter(ok), landmarks: r.landmarks.filter(ok) };
 }
 
 /** 目印の実際の位置：会場から3km以内で見つかったものだけ（同じ名前の遠くの場所を拾わない） */
