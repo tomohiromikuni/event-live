@@ -22,7 +22,8 @@ export default function AdminNav({ flags, removals, inquiries, candidates = 0, l
       { href: '/admin/reports?flagged=1', label: '通報', count: flags, match: (p, f) => p.startsWith('/admin/reports') && f },
       { href: '/admin/removals', label: '削除依頼', count: removals, match: (p) => p.startsWith('/admin/removals') },
       { href: '/admin/inquiries', label: '問い合わせ', count: inquiries, match: (p) => p.startsWith('/admin/inquiries') },
-      { href: '/admin/sns', label: 'SNS・シェア', match: (p) => p.startsWith('/admin/sns') },
+      { href: '/admin/sns/x', label: 'X投稿', match: (p) => p.startsWith('/admin/sns/x') },
+      { href: '/admin/sns', label: 'SNS・シェア', match: (p) => p === '/admin/sns' },
       { href: '/admin/searches', label: '検索ワード', match: (p) => p.startsWith('/admin/searches') },
     ],
     [

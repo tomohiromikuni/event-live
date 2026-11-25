@@ -359,7 +359,30 @@ CREATE TABLE IF NOT EXISTS slug_redirects (
 )
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16];
+/** v17: SNS投稿の下書き・履歴（最初は X のみ）。dedupe_key で同じ内容を二度作らない */
+const V17 = `
+CREATE TABLE IF NOT EXISTS sns_posts (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  channel TEXT NOT NULL DEFAULT 'x',
+  kind TEXT NOT NULL,                     -- pre / today / live / status
+  text TEXT NOT NULL,
+  dedupe_key TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'draft',   -- draft / posted / failed / canceled
+  snapshot TEXT NOT NULL DEFAULT '',      -- 現地の投稿：使った投稿の内容・最新時刻・件数（JSON）
+  external_id TEXT NOT NULL DEFAULT '',
+  external_url TEXT NOT NULL DEFAULT '',
+  error TEXT NOT NULL DEFAULT '',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  posted_at BIGINT NOT NULL DEFAULT 0,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sns_posts_status ON sns_posts(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_sns_posts_event ON sns_posts(event_id, kind, created_at)
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
