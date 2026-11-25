@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { one, q } from '@/lib/db';
 import { getSetting } from '@/lib/collect/run';
 import { collectModel } from '@/lib/collect/extract';
-import { runCollectNow, setCollectEnabled } from '../collect-actions';
+import { runCollectNow, runDiscoverNow, saveDiscoverSettings, setCollectEnabled } from '../collect-actions';
+import { discoverSettings, nextTarget, seasonThemes } from '@/lib/collect/discover';
+import { PREFECTURES } from '@/lib/prefectures';
 import { autoMapBatch } from '../actions';
 
 // 地図の自動作成（外部の地図データ・AIの読み取り）を含むため、1回の処理時間の上限を長めにする
@@ -13,8 +15,11 @@ type Run = { id: number; trigger: string; started_at: number; finished_at: numbe
 
 const fmt = (t: number) => new Date(t).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-export default async function CollectPage({ searchParams }: { searchParams: Promise<{ ran?: string; automap?: string }> }) {
-  const { ran, automap } = await searchParams;
+export default async function CollectPage({ searchParams }: { searchParams: Promise<{ ran?: string; automap?: string; discovered?: string }> }) {
+  const { ran, automap, discovered } = await searchParams;
+  const ds = await discoverSettings();
+  const next = await nextTarget();
+  const dlog = JSON.parse(await getSetting('discover_log', '[]')) as { at: number; message: string }[];
   const [enabled, runs, counts] = await Promise.all([
     getSetting('collect_enabled', '0'),
     q<Run>('SELECT * FROM crawl_runs ORDER BY id DESC LIMIT 20'),
@@ -34,11 +39,33 @@ export default async function CollectPage({ searchParams }: { searchParams: Prom
       <h1 className="admin-title">自動収集</h1>
       {ran && <div className="flash">収集を1回実行しました（結果は下の履歴）</div>}
       {automap && <div className="flash" style={{ whiteSpace: 'pre-wrap' }}>🗺️ {automap}</div>}
+      {discovered && <div className="flash">🔎 {discovered}</div>}
+      <div className="panel">
+        <h2>AIで探す（情報源の登録は不要）</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          毎日の自動収集の前に、季節に合わせて「都道府県 × テーマ」（いまの季節は {seasonThemes(new Date(Date.parse(next.from) + 30 * 86400_000).getUTCMonth() + 1).join('・')}）でAIがWeb検索し、
+          イベントの<strong>公式サイト</strong>（主催者・自治体・観光協会）を見つけて読み込みます。まとめサイト・ポータル・SNSは使いません。
+          見つかったイベントは「収集した候補」に入ります（確認して承認）。費用の目安：1回 約5円（検索3回＋AI）。1日3回で月 約450円。
+        </p>
+        <div className="small">次に探す：<strong>{next.pref}の「{next.theme}」</strong>（{next.index + 1} / {next.total}）・{next.from}〜{next.to} に開催</div>
+        <form action={saveDiscoverSettings} className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'end', margin: '10px 0' }}>
+          <label className="small">1日に探す回数（0で停止）<br /><input className="input" type="number" name="per_day" min={0} max={20} defaultValue={ds.perDay} style={{ width: 90 }} /></label>
+          <label className="small" style={{ flex: 1, minWidth: 220 }}>対象の都道府県（空欄＝全国。例：千葉県, 東京都）<br />
+            <input className="input" name="prefs" defaultValue={ds.prefs.length === PREFECTURES.length ? '' : ds.prefs.join(', ')} style={{ width: '100%' }} /></label>
+          <button className="btn sm ghost">保存</button>
+        </form>
+        <form action={runDiscoverNow}><button className="btn sm">今すぐ1回探す</button></form>
+        {dlog.length > 0 && (
+          <details className="small" style={{ marginTop: 8 }} open><summary>最近の結果</summary>
+            {dlog.slice(0, 10).map((l) => <div key={l.at}>{new Date(l.at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}　{l.message}</div>)}
+          </details>
+        )}
+      </div>
       <div className="panel">
         <h2>会場マップの自動作成</h2>
         <p className="muted small" style={{ marginTop: 0 }}>
           まだ地図の無い（カードだけの）開催前・開催中のイベントに、会場マップを自動で作ります（1回1件・押すたびに次のイベントへ。毎日の自動収集のあとにも自動で実行）。
-          ① 会場周辺の常設トイレ・駐車場（OpenStreetMap）② 公式ページのガイドマップから仮設のものを「目安」で追加。人が位置を合わせる作業はありません。
+          ① 会場周辺の常設トイレ・駐車場（OpenStreetMap）② 公式ページのガイドマップから仮設のものを「目安」で追加。人が位置を合わせる作業はありません。<strong>毎日自動で実行</strong>されます（自動収集のON/OFFに関係なく）。
         </p>
         <form action={autoMapBatch}><button className="btn sm">地図の無いイベントに作成（1件）</button></form>
       </div>

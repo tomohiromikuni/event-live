@@ -391,7 +391,16 @@ ALTER TABLE spots ADD COLUMN IF NOT EXISTS ext_id TEXT NOT NULL DEFAULT ''
 /** v19: 問い合わせの通知メールが送れなかった理由（Resend の返したエラー）。管理画面で原因が分かるように */
 const V19 = `ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS mail_error TEXT NOT NULL DEFAULT ''`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19];
+/**
+ * v20: 会場マップの自動作成を最後に試した時刻（同じイベントを毎日試さない）。
+ * 自動収集（AIで探す・会場マップの自動作成）は、運営者の依頼により初期ON（まだ一度も切り替えていない場合だけ。OFFにしてあれば変えない）
+ */
+const V20 = `
+ALTER TABLE events ADD COLUMN IF NOT EXISTS automap_at BIGINT NOT NULL DEFAULT 0;
+INSERT INTO app_settings (key, value) VALUES ('collect_enabled', '1') ON CONFLICT (key) DO NOTHING
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

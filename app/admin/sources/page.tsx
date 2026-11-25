@@ -10,10 +10,11 @@ const TRUST: Record<string, string> = { official: '公式', public: '自治体�
 export default async function SourcesPage({ searchParams }: { searchParams: Promise<{ url?: string; name?: string; pref?: string; trust?: string }> }) {
   const pf = await searchParams;
   const rows = await q<Source>(`SELECT s.*, (SELECT COUNT(*)::int FROM crawl_pages p WHERE p.source_id = s.id) AS pages,
-      (SELECT COUNT(*)::int FROM event_candidates c WHERE c.source_id = s.id) AS cands FROM sources s ORDER BY s.id DESC`);
+      (SELECT COUNT(*)::int FROM event_candidates c WHERE c.source_id = s.id) AS cands FROM sources s WHERE s.kind <> 'discover' ORDER BY s.id DESC`);
   return (
     <>
-      <h1 className="admin-title">情報源</h1>
+      <h1 className="admin-title">情報源（任意）</h1>
+      <p className="small" style={{ marginTop: 0 }}>ふだんは登録しなくても、「自動収集」の<strong>AIで探す</strong>が公式サイトを見つけます。よく使う自治体のRSSなど、決まったページを毎日見たいときだけ登録してください。</p>
       <p className="muted small">
         巡回するのは<strong>利用規約を確認し、確認日を入れて「巡回する」にしたもの</strong>だけです。robots.txt で禁止されたページは自動で取得しません。
         規約で「自動での取得・転載の禁止」とあるサイトは登録しないでください。RSS がある場合は RSS を登録すると効率的です。

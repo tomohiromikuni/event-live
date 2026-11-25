@@ -18,11 +18,21 @@ export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): 
   return msgs.join(' ／ ');
 }
 
-/** まだ地図の無い（かんたん表示の）開催前・開催中のイベントに、まとめて実行する（1回の実行時間に収まるよう、1回1件を基本にする） */
+/**
+ * 会場マップを自動で作る対象：開催前・開催中の実イベントで、
+ * かんたん表示（地図なし）か、自動で作った地図（手で描いた・マイマップの施設が無い）のもの。同じイベントは7日に1回まで試す。
+ */
 export async function autoMapPending(limit = 1): Promise<{ id: number; name: string; message: string }[]> {
-  const evs = await q<{ id: number; name: string }>(`SELECT id, name FROM events WHERE map_mode = 'simple' AND end_date >= $1 AND is_sample = 0
-    ORDER BY start_date LIMIT $2`, [todayJST(), limit]);
+  const weekAgo = Date.now() - 7 * 86400_000;
+  const evs = await q<{ id: number; name: string }>(`SELECT e.id, e.name FROM events e
+    WHERE e.end_date >= $1 AND e.is_sample = 0 AND e.automap_at < $2
+      AND (e.map_mode = 'simple' OR (e.map_mode = 'geo' AND NOT EXISTS (
+        SELECT 1 FROM spots s WHERE s.event_id = e.id AND s.generic = 0 AND s.source = '')))
+    ORDER BY e.published DESC, e.start_date LIMIT $3`, [todayJST(), weekAgo, limit]);
   const out = [];
-  for (const e of evs) out.push({ ...e, message: await autoMap(e.id) });
+  for (const e of evs) {
+    await q('UPDATE events SET automap_at = $1 WHERE id = $2', [Date.now(), e.id]); // 失敗しても毎回同じイベントで止まらないよう、先に記録
+    out.push({ ...e, message: await autoMap(e.id) });
+  }
   return out;
 }

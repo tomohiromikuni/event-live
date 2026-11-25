@@ -6,6 +6,7 @@ import { requireAdmin } from '@/lib/admin';
 import { PREFECTURES } from '@/lib/prefectures';
 import { todayJST } from '@/lib/dates';
 import { runCollect, setSetting } from '@/lib/collect/run';
+import { runDiscover } from '@/lib/collect/discover';
 import type { Extracted } from '@/lib/collect/extract';
 import { enableSimpleMode, syncSimpleItems } from '@/lib/simple';
 import { mergeColumns } from '@/lib/collect/merge';
@@ -135,4 +136,21 @@ export async function rejectCandidate(f: FormData) {
   await requireAdmin();
   await q("UPDATE event_candidates SET status = 'rejected', updated_at = $1 WHERE id = $2 AND status = 'pending'", [Date.now(), Number(f.get('id'))]);
   revalidatePath('/admin/candidates');
+}
+
+// ---------- AIで探す ----------
+export async function saveDiscoverSettings(f: FormData) {
+  await requireAdmin();
+  const n = Math.min(Math.max(Math.round(Number(f.get('per_day')) || 0), 0), 20);
+  await setSetting('discover_per_day', String(n));
+  await setSetting('discover_prefs', String(f.get('prefs') ?? '').split(/[,、\s]+/).filter((p) => PREFECTURES.includes(p)).join(','));
+  revalidatePath('/admin/collect');
+}
+
+export async function runDiscoverNow() {
+  await requireAdmin();
+  let msg: string;
+  try { msg = (await runDiscover()).message; } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  revalidatePath('/admin/collect');
+  redirect(`/admin/collect?discovered=${encodeURIComponent(msg)}`);
 }

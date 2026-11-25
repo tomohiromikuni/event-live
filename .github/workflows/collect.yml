@@ -1,4 +1,4 @@
-# イベント情報の自動収集（毎日1回）。EVENOW の /api/cron/collect を、処理が終わるまで（最大10回）呼ぶ。
+# イベント情報の自動収集（毎日1回）。AIで探す（/api/cron/discover）→ 自動収集（/api/cron/collect）→ 会場マップの自動作成（/api/cron/automap）の順に呼ぶ。
 # リポジトリの Settings → Secrets and variables → Actions に CRON_SECRET（Vercel と同じ値）を登録して使う。
 name: collect-events
 on:
@@ -10,6 +10,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Discover events with AI search (AIで探す)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE: https://www.evenow.jp
+        run: |
+          if [ -z "$CRON_SECRET" ]; then exit 0; fi
+          for i in $(seq 1 20); do
+            res=$(curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" --max-time 90 "$SITE/api/cron/discover" || echo '{}')
+            echo "discover $i: $res"
+            echo "$res" | grep -q '"done":true' && break
+            sleep 3
+          done
       - name: Run collector until done
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
