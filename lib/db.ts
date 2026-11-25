@@ -418,7 +418,10 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS auto_published INTEGER NOT NULL DEFA
 ALTER TABLE event_candidates ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22];
+/** v23: AIの読み取り形式の不具合（union型の数の制限）で失敗したページを、読み取り待ちに戻す */
+const V23 = `UPDATE crawl_pages SET status = 'pending', attempts = 0, error = '' WHERE error LIKE '%union types%'`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

@@ -22,7 +22,8 @@ export type Extracted = {
   evidence: { name: string | null; date: string | null; place: string | null };
 };
 
-const str = { anyOf: [{ type: 'string' }, { type: 'null' }] };
+// 「書かれていない」は空文字で返させる（null を許す項目が多いと、構造化出力の制限（union型の数）にかかるため）。空文字はコード側で null（未確認）に直す
+const str = { type: 'string' };
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -55,15 +56,15 @@ const SCHEMA = {
 const SYSTEM = `あなたは日本のイベント情報を整理する担当者です。与えられたWebページの本文から、一般の人が参加できるイベントの情報だけを抜き出してJSONで返します。
 
 ルール:
-- ページに書かれている事実だけを使う。書かれていない項目は必ず null にする。推測・補完・一般知識での穴埋めはしない。
-- 開催日は YYYY-MM-DD。年が書かれていない場合は、ページ内（更新日・「2026年度」など）から年が明確に分かるときだけ補い、分からなければ null。
+- ページに書かれている事実だけを使う。書かれていない項目は必ず空文字（""）にする。推測・補完・一般知識での穴埋めはしない。
+- 開催日は YYYY-MM-DD。年が書かれていない場合は、ページ内（更新日・「2026年度」など）から年が明確に分かるときだけ補い、分からなければ空文字。
 - 期間の場合は start_date と end_date、1日だけなら end_date は start_date と同じ。
 - prefecture は「東京都」「北海道」「京都府」「大阪府」「〇〇県」の正式名。
 - genre は次から最も近いもの: fireworks（花火大会）, festival（祭り・地域行事）, music（音楽フェス・ライブ）, marche（マルシェ・フリマ）, food（グルメ・フードフェス）, expo（展示会・見本市）, anime_game（アニメ・ゲーム）, sports（スポーツ）, local（自治体・地域イベント）, seasonal（季節イベント・イルミネーション等）, other。
-- parking_info（駐車場）・shuttle_info（シャトルバスの乗り場・運行時間・料金）・traffic_info（交通規制・通行止め・周辺道路）・toilet_info（トイレの場所・数）・food_info（屋台・飲食エリアの場所）は、本文に書かれている内容だけを短く整理する。書かれていなければ null。
+- parking_info（駐車場）・shuttle_info（シャトルバスの乗り場・運行時間・料金）・traffic_info（交通規制・通行止め・周辺道路）・toilet_info（トイレの場所・数）・food_info（屋台・飲食エリアの場所）は、本文に書かれている内容だけを短く整理する。書かれていなければ空文字。
 - summary は本文の丸写しではなく、80字以内の自分の言葉での要約。
 - status: 中止なら canceled、延期なら postponed、開催予定と読めるなら scheduled、判断できなければ unknown。
-- evidence には、イベント名・日付・場所の根拠となる本文中の文をそのまま短く引用する（無ければ null）。
+- evidence には、イベント名・日付・場所の根拠となる本文中の文をそのまま短く引用する（無ければ空文字）。
 - 過去の開催報告、ニュース、観光スポットの紹介（日付のない常設の施設）、募集要項だけのページはイベントに含めない。該当がなければ events は空配列。`;
 
 let client: Anthropic | null = null;
