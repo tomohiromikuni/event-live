@@ -1,5 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
+import KindIcon from '@/components/Icon';
 import EventLive from '@/components/EventLive';
 import { StatusBadges } from '@/components/EventCard';
 import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports, redirectedSlug, searchEvents } from '@/lib/queries';
@@ -179,6 +180,20 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       {e.status === 'postponed' && <div className="banner postponed"><span className="banner-label">延期</span><span><strong>延期</strong>　{e.status_note}</span></div>}
 
       <div className="event-head">
+        {/* ページ上部のサムネイル：利用許諾済みの写真があればそれ、無ければジャンルの色とイラストで作る（公式サイトの画像は転載しない） */}
+        {e.image_url ? (
+          <figure className="event-thumb photo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={e.image_url} alt={`${e.name}の写真`} />
+            {e.image_credit && <figcaption>{e.image_credit}</figcaption>}
+          </figure>
+        ) : (
+          <div className="event-thumb" style={{ background: genre.color }} aria-hidden>
+            <span className="thumb-dot a" /><span className="thumb-dot b" />
+            <span className="thumb-icon"><KindIcon kind="genre" slug={genre.slug} emoji={genre.icon} size={64} strokeWidth={2} /></span>
+            <span className="thumb-genre">{genre.name}</span>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadges e={e} /></div>
         <h1>{e.name}</h1>
         <div className="meta">

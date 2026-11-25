@@ -585,3 +585,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ガイドマップから推定した施設（位置は目安）は破線の枠 */
 .mk.est { border-style: dashed !important; }
 .legend .est-i { background: #fff !important; border: 2px dashed #64748b; }
+
+/* ---- 詳細ページ上部のサムネイル ---- */
+.event-thumb { position: relative; margin: -18px -16px 14px; height: 132px; border-radius: 21px 21px 0 0; border-bottom: 3px solid var(--ink); overflow: hidden; display: flex; align-items: center; justify-content: center; color: #fff; }
+.event-thumb .thumb-icon { position: relative; z-index: 1; width: 92px; height: 92px; border-radius: 50%; background: rgba(255,255,255,.18); border: 3px solid rgba(255,255,255,.85); display: grid; place-items: center; }
+.event-thumb .thumb-genre { position: absolute; left: 14px; bottom: 10px; z-index: 1; font-size: 13px; font-weight: 900; background: rgba(0,0,0,.28); padding: 3px 10px; border-radius: 999px; }
+.event-thumb .thumb-dot { position: absolute; border-radius: 50%; }
+.event-thumb .thumb-dot.a { width: 150px; height: 150px; right: -40px; top: -60px; background: #ffd23f; border: 3px solid var(--ink); }
+.event-thumb .thumb-dot.b { width: 36px; height: 36px; left: 22px; top: 18px; background: #3fd2c7; border: 3px solid var(--ink); }
+.event-thumb.photo { height: auto; aspect-ratio: 16 / 9; display: block; background: #eee; }
+.event-thumb.photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.event-thumb.photo figcaption { position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: #fff; background: rgba(0,0,0,.45); padding: 2px 8px; border-radius: 999px; }
