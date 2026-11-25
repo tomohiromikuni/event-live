@@ -65,7 +65,7 @@ export async function fetchFacilities(center: Geo): Promise<Facility[]> {
     try {
       const res = await fetch(url, {
         method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
-        body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(20000), cache: 'no-store',
+        body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(10000), cache: 'no-store',
       });
       if (!res.ok) { lastStatus = res.status; continue; }
       els = ((await res.json()) as { elements: OsmEl[] }).elements ?? [];

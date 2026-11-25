@@ -17,7 +17,7 @@ import { distanceM, geocode } from './osm';
 const NOMINATIM = process.env.NOMINATIM_URL || 'https://nominatim.openstreetmap.org/search';
 const UA = `EVENOW-bot/1.0 (+${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.evenow.jp'}/about)`;
 const MAX_IMAGES = 2;
-const TIME_BUDGET_MS = 40_000; // 1回の処理時間の目安（Vercel の実行時間の上限に収める）
+const TIME_BUDGET_MS = 20_000; // 1回の処理時間の目安（Vercel の実行時間の上限に収める）
 export const MAX_RMS_M = 80;      // 目安として採用する誤差の上限（目印の平均的な食い違い）
 const MAX_ONE_M = 150;            // 目印1つあたりの食い違いの上限
 const NEAR_M = 40;                // すでにある同じ種類の施設とこれより近ければ、同じものとみなして追加しない
