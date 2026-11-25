@@ -3,10 +3,12 @@ import type { Metadata } from 'next';
 import KindIcon from '@/components/Icon';
 import EventLive from '@/components/EventLive';
 import { StatusBadges } from '@/components/EventCard';
-import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports } from '@/lib/queries';
+import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports, searchEvents } from '@/lib/queries';
 import { fmtRange, isEnded, isOngoing } from '@/lib/dates';
 import EndedEvent from '@/components/EndedEvent';
 import EventGuide, { GUIDE_FIELDS } from '@/components/EventGuide';
+import { ItemList } from '@/components/EventCard';
+import { eventDescription, eventTitle } from '@/lib/seo';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
@@ -23,8 +25,8 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const e = await getEventBySlug((await params).slug);
   if (!e) return {};
-  const title = UNOFFICIAL ? `${e.name}（非公式情報）` : e.name;
   if (isEnded(e.end_date)) {
+    const title = e.name;
     // 終了したイベント：一度きりのものは検索エンジンから外す。毎年開催のものは翌年に備えてURLの評価を残す
     return {
       title, description: `${e.name}（${fmtRange(e.start_date, e.end_date)}）は終了しました。`,
@@ -32,8 +34,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       robots: e.is_sample || !e.published || !e.recurring ? { index: false, follow: true } : undefined,
     };
   }
-  const description = `${fmtRange(e.start_date, e.end_date)}・${e.prefecture}${e.city}${e.venue_name ? `「${e.venue_name}」` : ''}で開催。`
-    + `会場マップ、トイレ・駐車場・屋台の混雑や待ち時間を来場者がリアルタイムで共有。${e.summary}`.slice(0, 110);
+  // タイトルの末尾には「｜EVENOW【非公式】」が自動で付く（app/layout.tsx）
+  const title = eventTitle(e);
+  const description = eventDescription(e);
   return {
     title, description,
     alternates: { canonical: `/events/${e.slug}` },
@@ -46,6 +49,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 /** Google のイベント検索向け構造化データ（schema.org/Event）。事実情報のみを出力し、不明な項目は出さない。 */
+/** パンくずリスト（検索結果に「EVENOW › イベント名」と出るための構造化データ） */
+function breadcrumbJsonLd(e: EventCard, url: string) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'EVENOW', item: `${siteUrl()}/` },
+      { '@type': 'ListItem', position: 2, name: e.name, item: url },
+    ],
+  };
+}
+
 function eventJsonLd(e: EventCard, url: string) {
   const status = { canceled: 'https://schema.org/EventCancelled', postponed: 'https://schema.org/EventPostponed' }[e.status as string]
     ?? 'https://schema.org/EventScheduled';
@@ -103,6 +118,14 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       COALESCE(SUM(visitors) FILTER (WHERE day = $2), 0)::int AS today, COALESCE(SUM(visitors), 0)::int AS total
     FROM event_views WHERE event_id = $1`, [e.id, todayJST()]).then((r) => r[0]).catch(() => undefined);
   const nowMs = Date.now();
+  // 関連イベント（内部リンク）：同じ都道府県 → 足りなければ同じジャンル。開催中・これからのものだけ。サンプルは実イベントに混ぜない
+  const pickRelated = (list: EventCard[]) => list.filter((x) => x.id !== e.id && (!!x.is_sample === !!e.is_sample));
+  let related = pickRelated(await searchEvents({ pref: e.prefecture, limit: 8 }));
+  if (related.length < 4) {
+    const more = pickRelated(await searchEvents({ genre: genre.slug, limit: 8 })).filter((x) => !related.some((r) => r.id === x.id));
+    related = [...related, ...more];
+  }
+  related = related.slice(0, 4);
 
   // 共有リンク（?ref=x など）から来た訪問を記録（SNSからの流入の目安。個人情報は保存しない）
   const { ref } = await searchParams;
@@ -138,7 +161,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       {e.published ? <ViewBeacon eventId={e.id} /> : null}
       {!e.is_sample && (
         <script type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(e, `${siteUrl()}/events/${e.slug}`)).replace(/</g, '\\u003c') }} />
+          dangerouslySetInnerHTML={{ __html: JSON.stringify([eventJsonLd(e, `${siteUrl()}/events/${e.slug}`), breadcrumbJsonLd(e, `${siteUrl()}/events/${e.slug}`)]).replace(/</g, '\\u003c') }} />
       )}
       {e.is_sample ? (
         <div className="banner sample"><span className="banner-label">サンプル</span><span>これは動作確認用の<strong>サンプルデータ</strong>です。実在のイベントではありません。</span></div>
@@ -220,6 +243,13 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           {'　'}<a href="/contact" style={{ textDecoration: 'underline' }} rel="nofollow">内容の訂正・お問い合わせ</a>
         </p>
       </section>
+
+      {related.length > 0 && (
+        <section className="section">
+          <div className="section-head"><h2>ほかのイベント（{e.prefecture}・{genre.name}）</h2></div>
+          <ItemList events={related} empty="" />
+        </section>
+      )}
     </div>
   );
 }
