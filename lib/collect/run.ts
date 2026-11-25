@@ -5,6 +5,7 @@ import { PREFECTURES } from '../prefectures';
 import { fetchFeed, fetchPage } from './web';
 import { extractEvents, extractorReady, type Extracted } from './extract';
 import { confidence, datesOverlap, fingerprint, similarity } from './dedupe';
+import { tryAutoPublish } from './publish';
 
 /**
  * 自動収集の1回分。Vercel の実行時間に収まるよう、1回で扱う件数を絞り、残りは次回へ回す。
@@ -27,7 +28,7 @@ export async function setSetting(key: string, value: string) {
 
 export async function runCollect(trigger: 'cron' | 'manual') {
   const started = Date.now();
-  const stats = { fetched: 0, changed: 0, extracted: 0, new_candidates: 0, duplicates: 0, errors: 0, input_tokens: 0, output_tokens: 0 };
+  const stats = { fetched: 0, changed: 0, extracted: 0, new_candidates: 0, duplicates: 0, published: 0, errors: 0, input_tokens: 0, output_tokens: 0 };
   const log: string[] = [];
   const [{ id: runId }] = await q<{ id: number }>('INSERT INTO crawl_runs (trigger, started_at) VALUES ($1, $2) RETURNING id', [trigger, started]);
 
@@ -96,7 +97,12 @@ export async function runCollect(trigger: 'cron' | 'manual') {
           if (!e) continue;
           if (e.end_date && e.end_date < today) continue; // すでに終わったイベントは候補にしない
           const r = await saveCandidate(e, { pageId: p.id, sourceId: p.source_id, url: p.url, trust: src?.trust ?? 'other', mapLinks: JSON.parse(p.links || '[]') });
-          if (r === 'new') stats.new_candidates++; else if (r === 'duplicate') stats.duplicates++;
+          if (r.kind === 'new') stats.new_candidates++; else if (r.kind === 'duplicate') stats.duplicates++;
+          // 承認を待たずに公開（条件を満たすものだけ。会場マップは定期実行で自動作成）
+          if (r.id) {
+            const pub = await tryAutoPublish(r.id, r.kind === 'duplicate').catch((err) => String(err));
+            if (pub === 'published') stats.published++;
+          }
         }
         await q("UPDATE crawl_pages SET status = 'done', extracted_at = $1, error = '' WHERE id = $2", [Date.now(), p.id]);
       } catch (e) {
@@ -113,6 +119,7 @@ export async function runCollect(trigger: 'cron' | 'manual') {
     input_tokens = $8, output_tokens = $9, log = $10 WHERE id = $11`,
     [Date.now(), stats.fetched, stats.changed, stats.extracted, stats.new_candidates, stats.duplicates, stats.errors, stats.input_tokens, stats.output_tokens, log.join('\n').slice(0, 8000), runId]);
   // done: まだ処理が残っていなければ true（定期実行はこれが true になるまで数回呼ぶ）
+  if (stats.published) log.push(`自動公開 ${stats.published}件（会場マップは定期実行で自動作成）`);
   const done = (dueLeft?.n ?? 0) === 0 && (!extractorReady() || (remaining?.n ?? 0) === 0);
   return { runId, done, ...stats, log };
 }
@@ -156,7 +163,7 @@ async function saveCandidate(e: Extracted, ctx: { pageId: number; sourceId: numb
     if (twin.status === 'pending') {
       await q('UPDATE event_candidates SET data = $1, confidence = GREATEST(confidence, $2), updated_at = $3 WHERE id = $4', [data, confidence(e, ctx.trust), now, twin.id]);
     }
-    return 'duplicate';
+    return { kind: 'duplicate' as const, id: 0 };
   }
   // 既存のイベントと同じか（同じ都道府県・日程が重なる・名前が似ている）
   let match: number | null = null;
@@ -166,10 +173,10 @@ async function saveCandidate(e: Extracted, ctx: { pageId: number; sourceId: numb
     const hit = evs.find((x) => similarity(x.name, e.name) >= 0.7 && (datesOverlap(e.start_date, e.end_date, x.start_date, x.end_date) || x.recurring));
     match = hit?.id ?? null;
   }
-  await q(`INSERT INTO event_candidates (page_id, source_id, source_url, fingerprint, data, confidence, status, match_event_id, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $8)`,
+  const [{ id }] = await q<{ id: number }>(`INSERT INTO event_candidates (page_id, source_id, source_url, fingerprint, data, confidence, status, match_event_id, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $8) RETURNING id`,
     [ctx.pageId, ctx.sourceId, ctx.url, fp, data, confidence(e, ctx.trust), match, now]);
-  return match ? 'duplicate' : 'new';
+  return { kind: match ? 'duplicate' as const : 'new' as const, id };
 }
 
 function msg(e: unknown) {

@@ -8,7 +8,7 @@ import { candidateDiff } from '@/lib/collect/merge';
 // 地図の自動作成（外部の地図データ・AIの読み取り）を含むため、1回の処理時間の上限を長めにする
 export const maxDuration = 60;
 
-type Row = { id: number; data: string; source_url: string; confidence: number; status: string; match_event_id: number | null;
+type Row = { id: number; data: string; source_url: string; confidence: number; status: string; note: string; match_event_id: number | null;
   match_name: string | null; match_start: string | null; match_end: string | null; created_at: number; event_id: number | null };
 
 const FIELDS: [keyof Extracted, string][] = [
@@ -48,9 +48,10 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
               <strong className="cand-name">{d.name}</strong>
               <span className={`cand-conf ${r.confidence >= 80 ? 'hi' : r.confidence >= 55 ? 'mid' : 'lo'}`}>信頼度 {r.confidence}</span>
               <span className="tag">{STATUS[d.status] ?? d.status}</span>
-              {r.status !== 'pending' && <span className="tag">{{ approved: '承認済み', rejected: '却下', merged: '既存に反映' }[r.status]}</span>}
+              {r.status !== 'pending' && <span className="tag">{{ approved: '承認済み', rejected: '却下', merged: '既存に反映', auto: '自動公開' }[r.status]}</span>}
             </div>
             <div className="small">情報元：<a href={r.source_url} target="_blank" rel="noopener noreferrer">{r.source_url}</a></div>
+            {r.note && r.status === 'pending' && <div className="small" style={{ color: '#b45309', fontWeight: 700 }}>{r.note}</div>}
             {r.match_event_id && (
               <div className="cand-match">
                 ⚠️ 既存のイベント「<Link href={`/admin/events/${r.match_event_id}`}>{r.match_name}</Link>」（{r.match_start}〜{r.match_end}）と同じ可能性があります

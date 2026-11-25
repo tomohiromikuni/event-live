@@ -5,7 +5,7 @@ import { addDays, fmtRange, isEnded, todayJST } from '@/lib/dates';
 import { pendingCounts } from '@/lib/admin-data';
 
 type Row = { id: number; slug: string; name: string; start_date: string; end_date: string; prefecture: string; status: string;
-  is_sample: number; published: number; genre: string; spots: number; flags: number;
+  is_sample: number; published: number; auto_published: number; genre: string; spots: number; flags: number;
   views: number; visitors: number; posts: number };
 
 /** 集計期間 */
@@ -32,7 +32,7 @@ export default async function AdminEvents({ searchParams }: { searchParams: Prom
   const sinceDay = period.days ? addDays(todayJST(), -(period.days - 1)) : '0000-00-00';
   const sinceMs = period.days ? Date.parse(`${sinceDay}T00:00:00+09:00`) : 0;
 
-  const rows = await q<Row>(`SELECT e.id, e.slug, e.name, e.start_date, e.end_date, e.prefecture, e.status, e.is_sample, e.published,
+  const rows = await q<Row>(`SELECT e.id, e.slug, e.name, e.start_date, e.end_date, e.prefecture, e.status, e.is_sample, e.published, e.auto_published,
       g.name AS genre,
       (SELECT COUNT(*)::int FROM spots s WHERE s.event_id = e.id) AS spots,
       (SELECT COUNT(*)::int FROM report_flags f JOIN reports r ON r.id = f.report_id WHERE r.event_id = e.id AND f.resolved = 0) AS flags,
@@ -116,6 +116,7 @@ export default async function AdminEvents({ searchParams }: { searchParams: Prom
                 <td>
                   <Link href={`/admin/events/${r.id}`} className="admin-name">{r.name}</Link>
                   {r.is_sample ? <span className="tag sample">サンプル</span> : null}
+                  {r.auto_published ? <span className="tag" title="承認なしで自動公開したイベント">自動</span> : null}
                   {isEnded(r.end_date) ? <span className="tag" title="公開ページでは「終了しました」の案内だけを表示しています">終了</span> : null}
                   {!r.published && <span className="tag">非公開</span>}
                   <div className="muted small">{r.genre}</div>

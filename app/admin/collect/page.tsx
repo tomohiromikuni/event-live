@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { one, q } from '@/lib/db';
 import { getSetting } from '@/lib/collect/run';
 import { collectModel } from '@/lib/collect/extract';
-import { runCollectNow, runDiscoverNow, runSweepNow, saveDiscoverSettings, setCollectEnabled } from '../collect-actions';
+import { runCollectNow, runDiscoverNow, runSweepNow, saveDiscoverSettings, setAutoPublish, setCollectEnabled } from '../collect-actions';
 import { sweepStatus } from '@/lib/collect/sweep';
 import { discoverSettings, nextTarget, seasonThemes } from '@/lib/collect/discover';
 import { PREFECTURES } from '@/lib/prefectures';
@@ -19,6 +19,7 @@ const fmt = (t: number) => new Date(t).toLocaleString('ja-JP', { timeZone: 'Asia
 export default async function CollectPage({ searchParams }: { searchParams: Promise<{ ran?: string; automap?: string; discovered?: string }> }) {
   const { ran, automap, discovered } = await searchParams;
   const ds = await discoverSettings();
+  const autoPub = (await getSetting('auto_publish', '1')) === '1';
   const sw = await sweepStatus();
   const next = await nextTarget();
   const dlog = JSON.parse(await getSetting('discover_log', '[]')) as { at: number; message: string }[];
@@ -42,6 +43,15 @@ export default async function CollectPage({ searchParams }: { searchParams: Prom
       {ran && <div className="flash">収集を1回実行しました（結果は下の履歴）</div>}
       {automap && <div className="flash" style={{ whiteSpace: 'pre-wrap' }}>🗺️ {automap}</div>}
       {discovered && <div className="flash">🔎 {discovered}</div>}
+      <div className="panel">
+        <h2>自動公開：{autoPub ? 'ON' : 'OFF'}</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          ONのとき、集めたイベントは<strong>承認を待たずに公開</strong>し、会場マップも定期実行で自動作成します（非公式サイトのため）。
+          ただし「開催日とその根拠の文」「今日以降の開催」「都道府県」「会場か住所」がそろい、既存のイベントと重複しないものだけ。満たさないものは「収集した候補」に残ります。
+          間違いに気づいたら、イベント編集で「公開する」を外せばすぐ非公開になります。
+        </p>
+        <form action={setAutoPublish}><input type="hidden" name="on" value={autoPub ? '0' : '1'} /><button className="btn sm ghost">{autoPub ? '自動公開をOFFにする' : '自動公開をONにする'}</button></form>
+      </div>
       <div className="panel">
         <h2>AIで探す（情報源の登録は不要）</h2>
         <div className="small" style={{ margin: '0 0 8px', padding: '8px 10px', background: '#f6f3ff', borderRadius: 10 }}>
@@ -93,13 +103,7 @@ export default async function CollectPage({ searchParams }: { searchParams: Prom
           AI：{keyOk ? `設定済み（${model}）` : '⚠️ ANTHROPIC_API_KEY が未設定のため、ページの取得だけ行い、AIでの整理はしません'}
           ／ 直近30日のAI利用：入力 {month.reduce((a, r) => a + r.input_tokens, 0).toLocaleString()}・出力 {month.reduce((a, r) => a + r.output_tokens, 0).toLocaleString()} トークン
         </p>
-        {(counts?.active ?? 0) === 0 && (
-          <div className="cand-match" style={{ marginTop: 10 }}>
-            巡回できる情報源がまだありません。<Link href="/admin/sources">情報源</Link>で、利用規約を確認したサイトを登録し、
-            確認日を入れて「巡回する」にしてから実行してください。
-          </div>
-        )}
-        <form action={runCollectNow} style={{ marginTop: 10 }}><button className="btn sm" disabled={(counts?.active ?? 0) === 0}>今すぐ1回実行</button></form>
+        <form action={runCollectNow} style={{ marginTop: 10 }}><button className="btn sm">今すぐ1回実行（AI整理待ちのページを読んで候補・自動公開）</button></form>
       </div>
       <h2 className="admin-subtitle">実行履歴</h2>
       <div className="table-wrap">

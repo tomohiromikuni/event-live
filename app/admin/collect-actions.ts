@@ -12,6 +12,7 @@ import type { Extracted } from '@/lib/collect/extract';
 import { enableSimpleMode, syncSimpleItems } from '@/lib/simple';
 import { mergeColumns } from '@/lib/collect/merge';
 import { autoMap } from '@/lib/automap';
+import { createEventFromCandidate } from '@/lib/collect/publish';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -73,7 +74,7 @@ async function loadCandidate(id: number) {
   return { ...c, d: JSON.parse(c.data) as Extracted & { map_links?: string[] } };
 }
 
-/** 承認：非公開のイベントを作成する（マップを作ってから公開する方針のため、公開はしない） */
+/** 承認（自動公開の条件を満たさなかった候補を、管理者が確認して作るとき）：非公開のイベントを作成する */
 export async function approveCandidate(_prev: string | null, f: FormData): Promise<string | null> {
   await requireAdmin();
   const c = await loadCandidate(Number(f.get('id')));
@@ -84,23 +85,7 @@ export async function approveCandidate(_prev: string | null, f: FormData): Promi
   const pref = s(f, 'prefecture') || d.prefecture || '';
   if (!DATE_RE.test(start) || !DATE_RE.test(end) || end < start) return '開催日が未確認です。公式の情報で確認して入力してください';
   if (!PREFECTURES.includes(pref)) return '都道府県が未確認です。確認して選択してください';
-  const genre = await one<{ id: number }>('SELECT id FROM genres WHERE slug = $1', [d.genre]) ?? await one<{ id: number }>("SELECT id FROM genres WHERE slug = 'other'");
-  const now = Date.now();
-  const v = (x: string | null | undefined) => x ?? '';
-  const eventId = await tx(async (tq) => {
-    const [{ id }] = await tq<{ id: number }>(`INSERT INTO events (slug, name, genre_id, prefecture, city, venue_name, address, start_date, end_date, time_text,
-        summary, organizer, official_url, access, nearest_station, traffic_info, parking_info, ticket_info, status,
-        source_url, source_checked_at, published, is_sample, created_at, updated_at, shuttle_info, toilet_info, food_info)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,0,0,$22,$22,$23,$24,$25) RETURNING id`,
-      [`ev-${now.toString(36)}`, name.slice(0, 120), genre!.id, pref, v(d.city), v(d.venue_name), v(d.address), start, end, v(d.time_text),
-        v(d.summary), v(d.organizer), v(d.official_url), v(d.access), v(d.nearest_station), v(d.traffic_info), v(d.parking_info), v(d.ticket_info),
-        d.status === 'canceled' || d.status === 'postponed' ? d.status : 'scheduled', c.source_url, todayJST(), now,
-        v(d.shuttle_info), v(d.toilet_info), v(d.food_info)]);
-    await tq("UPDATE event_candidates SET status = 'approved', event_id = $1, updated_at = $2 WHERE id = $3", [id, now, c.id]);
-    // 公式マイマップが無ければ、まず「かんたん表示（地図なし）」で公開できる状態にしておく（あとからマップを作れば通常表示に切り替わる）
-    if (!d.map_links?.length) await enableSimpleMode(tq, id);
-    return id;
-  });
+  const eventId = await createEventFromCandidate(c, { name, start, end, pref, publish: false });
   // 公式マイマップが無ければ、会場マップを自動作成（OSM の常設トイレ・駐車場 → ガイドマップから仮設のものを目安で追加。無ければカードだけ）
   let osm = '';
   if (!d.map_links?.length) {
@@ -165,4 +150,10 @@ export async function runSweepNow() {
   } catch (e) { msg = e instanceof Error ? e.message : String(e); }
   revalidatePath('/admin/collect');
   redirect(`/admin/collect?discovered=${encodeURIComponent(msg)}`);
+}
+
+export async function setAutoPublish(f: FormData) {
+  await requireAdmin();
+  await setSetting('auto_publish', f.get('on') === '1' ? '1' : '0');
+  revalidatePath('/admin/collect');
 }

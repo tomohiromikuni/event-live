@@ -412,7 +412,13 @@ CREATE TABLE IF NOT EXISTS sweep_queue (
 CREATE INDEX IF NOT EXISTS idx_sweep_queue_status ON sweep_queue(status, found_at)
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21];
+/** v22: 自動公開（承認なしで公開したイベント）の印と、候補に自動公開しなかった理由のメモ */
+const V22 = `
+ALTER TABLE events ADD COLUMN IF NOT EXISTS auto_published INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE event_candidates ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
