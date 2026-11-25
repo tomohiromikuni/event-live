@@ -430,7 +430,11 @@ const V25 = `UPDATE events e SET published = 0 WHERE e.auto_published = 1
   AND NOT EXISTS (SELECT 1 FROM spots s JOIN spot_categories c ON c.id = s.category_id
     WHERE s.event_id = e.id AND s.generic = 0 AND c.slug IN ('toilet', 'parking', 'shuttle', 'food'))`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25];
+/** 公式サイト内の地図探し（深掘り・サイト内検索）を入れたので、自動で作ったイベントで場所がまだ無いものをもう一度試す */
+const V26 = `UPDATE events e SET automap_at = 0 WHERE e.auto_published = 1
+  AND NOT EXISTS (SELECT 1 FROM spots s WHERE s.event_id = e.id AND s.generic = 0)`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
