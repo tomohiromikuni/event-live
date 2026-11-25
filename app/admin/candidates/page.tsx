@@ -10,7 +10,7 @@ type Row = { id: number; data: string; source_url: string; confidence: number; s
 const FIELDS: [keyof Extracted, string][] = [
   ['start_date', '開始日'], ['end_date', '終了日'], ['time_text', '時間'], ['prefecture', '都道府県'], ['city', '市区町村'],
   ['venue_name', '会場'], ['address', '住所'], ['organizer', '主催'], ['official_url', '公式サイト'], ['access', 'アクセス'],
-  ['parking_info', '駐車場'], ['traffic_info', '交通規制'], ['ticket_info', '料金'], ['summary', '概要'],
+  ['parking_info', '駐車場'], ['shuttle_info', 'シャトルバス'], ['traffic_info', '交通規制'], ['toilet_info', 'トイレ'], ['food_info', '飲食エリア'], ['ticket_info', '料金'], ['summary', '概要'],
 ];
 const STATUS: Record<string, string> = { scheduled: '開催予定', canceled: '中止', postponed: '延期', unknown: '未確認' };
 

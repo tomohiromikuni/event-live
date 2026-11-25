@@ -30,6 +30,7 @@
 | summary | | 概要（自分の言葉で要約。公式文の丸写しはしない） |
 | organizer / official_url | | 主催者・公式サイト |
 | access / nearest_station / traffic_info / parking_info / ticket_info | | アクセス・最寄り駅・交通規制・駐車場・料金 |
+| shuttle_info / toilet_info / food_info | | シャトルバス・トイレ・飲食エリア（公式に書かれている内容だけ） |
 | extra_info | | ジャンル別の追加項目。「項目名: 値」を改行区切り |
 | source_url / source_checked_at | 推奨 | 情報元URLと確認日 `YYYY-MM-DD` |
 

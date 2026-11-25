@@ -17,6 +17,7 @@ export type Extracted = {
   genre: (typeof GENRES)[number];
   summary: string | null; organizer: string | null; official_url: string | null;
   access: string | null; nearest_station: string | null; parking_info: string | null; traffic_info: string | null; ticket_info: string | null;
+  shuttle_info: string | null; toilet_info: string | null; food_info: string | null;
   status: 'scheduled' | 'canceled' | 'postponed' | 'unknown';
   evidence: { name: string | null; date: string | null; place: string | null };
 };
@@ -33,13 +34,13 @@ const SCHEMA = {
         type: 'object',
         additionalProperties: false,
         required: ['name', 'start_date', 'end_date', 'time_text', 'prefecture', 'city', 'venue_name', 'address', 'genre', 'summary',
-          'organizer', 'official_url', 'access', 'nearest_station', 'parking_info', 'traffic_info', 'ticket_info', 'status', 'evidence'],
+          'organizer', 'official_url', 'access', 'nearest_station', 'parking_info', 'traffic_info', 'ticket_info', 'shuttle_info', 'toilet_info', 'food_info', 'status', 'evidence'],
         properties: {
           name: { type: 'string' },
           start_date: str, end_date: str, time_text: str, prefecture: str, city: str, venue_name: str, address: str,
           genre: { type: 'string', enum: [...GENRES] },
           summary: str, organizer: str, official_url: str, access: str, nearest_station: str,
-          parking_info: str, traffic_info: str, ticket_info: str,
+          parking_info: str, traffic_info: str, ticket_info: str, shuttle_info: str, toilet_info: str, food_info: str,
           status: { type: 'string', enum: ['scheduled', 'canceled', 'postponed', 'unknown'] },
           evidence: {
             type: 'object', additionalProperties: false, required: ['name', 'date', 'place'],
@@ -59,6 +60,7 @@ const SYSTEM = `あなたは日本のイベント情報を整理する担当者�
 - 期間の場合は start_date と end_date、1日だけなら end_date は start_date と同じ。
 - prefecture は「東京都」「北海道」「京都府」「大阪府」「〇〇県」の正式名。
 - genre は次から最も近いもの: fireworks（花火大会）, festival（祭り・地域行事）, music（音楽フェス・ライブ）, marche（マルシェ・フリマ）, food（グルメ・フードフェス）, expo（展示会・見本市）, anime_game（アニメ・ゲーム）, sports（スポーツ）, local（自治体・地域イベント）, seasonal（季節イベント・イルミネーション等）, other。
+- parking_info（駐車場）・shuttle_info（シャトルバスの乗り場・運行時間・料金）・traffic_info（交通規制・通行止め・周辺道路）・toilet_info（トイレの場所・数）・food_info（屋台・飲食エリアの場所）は、本文に書かれている内容だけを短く整理する。書かれていなければ null。
 - summary は本文の丸写しではなく、80字以内の自分の言葉での要約。
 - status: 中止なら canceled、延期なら postponed、開催予定と読めるなら scheduled、判断できなければ unknown。
 - evidence には、イベント名・日付・場所の根拠となる本文中の文をそのまま短く引用する（無ければ null）。

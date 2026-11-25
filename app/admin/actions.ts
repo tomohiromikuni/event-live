@@ -10,7 +10,7 @@ import type { ReportOption } from '@/lib/types';
 import { SHAPE_STYLES } from '@/lib/shapes';
 import { CANVAS_W } from '@/lib/canvas';
 import { cleanTag, OFFICIAL_TAG } from '@/lib/hashtags';
-import { enableSimpleMode, leaveSimpleMode } from '@/lib/simple';
+import { enableSimpleMode, leaveSimpleMode, syncSimpleItems } from '@/lib/simple';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const n = (f: FormData, k: string) => Number(f.get(k));
@@ -43,6 +43,7 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
     summary: s(f, 'summary'), organizer: s(f, 'organizer'), official_url: s(f, 'official_url'), access: s(f, 'access'),
     nearest_station: s(f, 'nearest_station'), traffic_info: s(f, 'traffic_info'), parking_info: s(f, 'parking_info'),
     ticket_info: s(f, 'ticket_info'), extra_info: s(f, 'extra_info'),
+    shuttle_info: s(f, 'shuttle_info'), toilet_info: s(f, 'toilet_info'), food_info: s(f, 'food_info'),
     // ハッシュタグ（空欄なら自動）。記号を除いて重複をなくし、#イベナウ以外で最大3個まで保存
     hashtags: cleanHashtags(s(f, 'hashtags')), status: s(f, 'status') || 'scheduled', status_note: s(f, 'status_note'),
     image_url: s(f, 'image_url'), image_credit: s(f, 'image_credit'), is_sample: f.get('is_sample') ? 1 : 0,
@@ -83,6 +84,7 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
       if (f.get('custom_categories')) {
         for (const c of cats) await tq('INSERT INTO event_categories (event_id, category_id) VALUES ($1, $2)', [eid, c]);
       }
+      await syncSimpleItems(tq, eid); // かんたん表示：シャトルバスの情報が入ったら項目を足す
       return eid;
     });
   } catch (e) {

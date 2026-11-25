@@ -17,6 +17,7 @@ export type EventRow = {
   start_date: string; end_date: string; time_text: string;
   summary: string; organizer: string; official_url: string; access: string;
   nearest_station: string; traffic_info: string; parking_info: string; ticket_info: string;
+  shuttle_info: string; toilet_info: string; food_info: string;
   extra_info: string; status: 'scheduled' | 'canceled' | 'postponed'; status_note: string;
   image_url: string; image_credit: string;
   is_sample: number; is_featured: number; published: number;

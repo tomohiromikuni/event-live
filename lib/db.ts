@@ -1,7 +1,7 @@
 import 'server-only';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';
-import { seed } from './seed';
+import { migrateShuttle, seed } from './seed';
 import { convertEventToCanvas } from './canvas';
 
 /**
@@ -343,7 +343,14 @@ CREATE TABLE IF NOT EXISTS app_settings (
  */
 const V13 = `ALTER TABLE spots ADD COLUMN IF NOT EXISTS generic INTEGER NOT NULL DEFAULT 0`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13];
+/** v14: シャトルバス・トイレ・飲食エリアの公式情報欄（詳細ページの見出し「駐車場／シャトルバス／交通規制・周辺道路／トイレ／飲食エリア」用） */
+const V14 = `
+ALTER TABLE events ADD COLUMN IF NOT EXISTS shuttle_info TEXT NOT NULL DEFAULT '';
+ALTER TABLE events ADD COLUMN IF NOT EXISTS toilet_info TEXT NOT NULL DEFAULT '';
+ALTER TABLE events ADD COLUMN IF NOT EXISTS food_info TEXT NOT NULL DEFAULT ''
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

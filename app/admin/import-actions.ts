@@ -48,6 +48,7 @@ export async function importDraft(_prev: ImportResult | null, f: FormData): Prom
           city: e.city ?? '', venue_name: e.venue_name ?? '', address: e.address ?? '', time_text: e.time_text ?? '', summary: e.summary ?? '',
           organizer: e.organizer ?? '', official_url: e.official_url ?? '', access: e.access ?? '', nearest_station: e.nearest_station ?? '',
           traffic_info: e.traffic_info ?? '', parking_info: e.parking_info ?? '', ticket_info: e.ticket_info ?? '', extra_info: e.extra_info ?? '',
+          shuttle_info: e.shuttle_info ?? '', toilet_info: e.toilet_info ?? '', food_info: e.food_info ?? '',
           source_url: e.source_url ?? '', source_checked_at: e.source_checked_at ?? '',
           published: 0, is_sample: 0, map_w: w, map_h: h, map_mode: geo ? 'geo' : 'canvas',
           lat: center?.[0] ?? 0, lng: center?.[1] ?? 0, created_at: now, updated_at: now,

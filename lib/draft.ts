@@ -18,6 +18,7 @@ export type Draft = {
     city?: string; venue_name?: string; address?: string; time_text?: string; summary?: string;
     organizer?: string; official_url?: string; access?: string; nearest_station?: string;
     traffic_info?: string; parking_info?: string; ticket_info?: string; extra_info?: string;
+    shuttle_info?: string; toilet_info?: string; food_info?: string;
     source_url?: string; source_checked_at?: string;
   };
   map?: {
@@ -41,7 +42,7 @@ export type CheckedDraft = {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const EVENT_TEXT_FIELDS = ['city', 'venue_name', 'address', 'time_text', 'summary', 'organizer', 'official_url', 'access',
-  'nearest_station', 'traffic_info', 'parking_info', 'ticket_info', 'extra_info', 'source_url', 'source_checked_at'] as const;
+  'nearest_station', 'traffic_info', 'parking_info', 'ticket_info', 'extra_info', 'shuttle_info', 'toilet_info', 'food_info', 'source_url', 'source_checked_at'] as const;
 
 /** 貼り付けられた文字列をチェックする（DBに書き込む前に必ず通す） */
 export function checkDraft(text: string, known: { genres: string[]; categories: string[] }, needEvent: boolean): CheckedDraft {

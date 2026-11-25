@@ -9,7 +9,7 @@ import type { Q } from './db';
  */
 type Item = { cat: string; name: string };
 
-export function simpleItems(genreSlug: string): Item[] {
+export function simpleItems(genreSlug: string, opt: { shuttle?: boolean } = {}): Item[] {
   const items: Item[] = [
     { cat: 'gate', name: '会場・入口' },
     { cat: 'parking', name: '駐車場（周辺）' },
@@ -17,6 +17,8 @@ export function simpleItems(genreSlug: string): Item[] {
     { cat: 'food', name: '飲食・屋台' },
     { cat: 'traffic', name: '周辺の道路' },
   ];
+  // シャトルバスは運行があるイベント（公式情報にシャトルバスの記載がある）だけ
+  if (opt.shuttle) items.splice(items.findIndex((i) => i.cat === 'parking') + 1, 0, { cat: 'shuttle', name: 'シャトルバス' });
   if (genreSlug === 'fireworks') items.splice(1, 0, { cat: 'viewing', name: '観覧場所' });
   if (genreSlug === 'music' || genreSlug === 'anime_game') items.splice(1, 0, { cat: 'merch', name: '物販・グッズ' });
   return items;
@@ -24,8 +26,8 @@ export function simpleItems(genreSlug: string): Item[] {
 
 /** かんたん表示にする（会場マップの施設・図形がまだ無いときだけ） */
 export async function enableSimpleMode(tq: Q, eventId: number): Promise<string | null> {
-  const ev = (await tq<{ map_mode: string; genre: string }>(
-    'SELECT e.map_mode, g.slug AS genre FROM events e JOIN genres g ON g.id = e.genre_id WHERE e.id = $1', [eventId]))[0];
+  const ev = (await tq<{ map_mode: string; genre: string; shuttle_info: string }>(
+    'SELECT e.map_mode, e.shuttle_info, g.slug AS genre FROM events e JOIN genres g ON g.id = e.genre_id WHERE e.id = $1', [eventId]))[0];
   if (!ev) return 'イベントが見つかりません';
   if (ev.map_mode === 'simple') return null;
   const [{ n }] = await tq<{ n: number }>(`SELECT ((SELECT COUNT(*) FROM spots WHERE event_id = $1 AND generic = 0)
@@ -33,7 +35,13 @@ export async function enableSimpleMode(tq: Q, eventId: number): Promise<string |
   if (n > 0) return 'すでに会場マップに施設・エリアがあります。かんたん表示にするには、先にそれらを削除してください';
   const cats = await tq<{ id: number; slug: string }>('SELECT id, slug FROM spot_categories');
   const catId = new Map(cats.map((c) => [c.slug, c.id]));
-  const items = simpleItems(ev.genre).filter((it) => catId.has(it.cat));
+  const items = simpleItems(ev.genre, { shuttle: !!ev.shuttle_info }).filter((it) => catId.has(it.cat));
+  await addItems(tq, eventId, items, catId);
+  await tq("UPDATE events SET map_mode = 'simple' WHERE id = $1", [eventId]);
+  return null;
+}
+
+async function addItems(tq: Q, eventId: number, items: Item[], catId: Map<string, number>) {
   for (const [i, it] of items.entries()) {
     await tq('INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort, generic) VALUES ($1, $2, $3, $4, 0, 0, $5, 1)',
       [eventId, catId.get(it.cat)!, it.name, '', i]);
@@ -46,8 +54,22 @@ export async function enableSimpleMode(tq: Q, eventId: number): Promise<string |
   if (used.some((c) => !visible.includes(c))) {
     for (const c of new Set([...visible, ...used])) await tq('INSERT INTO event_categories (event_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [eventId, c]);
   }
-  await tq("UPDATE events SET map_mode = 'simple' WHERE id = $1", [eventId]);
-  return null;
+}
+
+/** かんたん表示のイベントで、あとからシャトルバスの情報が入ったら項目を足す（項目は消さない：投稿が残っているため） */
+export async function syncSimpleItems(tq: Q, eventId: number) {
+  const ev = (await tq<{ map_mode: string; genre: string; shuttle_info: string }>(
+    'SELECT e.map_mode, e.shuttle_info, g.slug AS genre FROM events e JOIN genres g ON g.id = e.genre_id WHERE e.id = $1', [eventId]))[0];
+  if (ev?.map_mode !== 'simple') return;
+  const cats = await tq<{ id: number; slug: string }>('SELECT id, slug FROM spot_categories');
+  const catId = new Map(cats.map((c) => [c.slug, c.id]));
+  const have = new Set((await tq<{ category_id: number }>('SELECT category_id FROM spots WHERE event_id = $1 AND generic = 1', [eventId])).map((r) => r.category_id));
+  const all = simpleItems(ev.genre, { shuttle: !!ev.shuttle_info }).filter((it) => catId.has(it.cat));
+  const missing = all.filter((it) => !have.has(catId.get(it.cat)!));
+  if (missing.length === 0) return;
+  await addItems(tq, eventId, missing, catId);
+  // 並び順を項目の順にそろえる
+  for (const [i, it] of all.entries()) await tq('UPDATE spots SET sort = $1 WHERE event_id = $2 AND generic = 1 AND category_id = $3', [i, eventId, catId.get(it.cat)!]);
 }
 
 /** かんたん表示をやめる（会場マップを描き始めたとき）。自動で用意した項目は削除する */

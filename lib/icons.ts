@@ -22,6 +22,7 @@ const CATEGORY: Record<string, string> = {
   food: '<path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0zM9 21h6M13.5 3L10 9.5M18.5 4l-5 5.5"/>',
   parking: '<rect x="3" y="3" width="18" height="18" rx="4.5"/><path d="M9.5 17V7h3.5a3 3 0 0 1 0 6H9.5"/>',
   traffic: '<path d="M3.5 16.5v-4.5L6 6.5h12l2.5 5.5v4.5zM3.5 12h17"/><circle cx="7.5" cy="16.5" r="2"/><circle cx="16.5" cy="16.5" r="2"/>',
+  shuttle: '<rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v3M16 18v3"/><circle cx="8" cy="14.5" r=".6"/><circle cx="16" cy="14.5" r=".6"/>',
   stage: '<rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4M8.5 21h7"/>',
   merch: '<path d="M5 8h14l-1 13H6zM9 8V6.5a3 3 0 0 1 6 0V8"/>',
   viewing: '<path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',

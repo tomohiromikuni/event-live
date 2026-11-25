@@ -97,8 +97,11 @@ export default function EventForm({ event: e, genres, categories, genreDefaults,
         <div className="form-grid">
           <T label="アクセス方法" name="access" def={e?.access} />
           <F label="最寄り駅" name="nearest_station" def={e?.nearest_station} />
-          <T label="交通規制" name="traffic_info" def={e?.traffic_info} />
           <T label="駐車場" name="parking_info" def={e?.parking_info} />
+          <T label="シャトルバス（乗り場・運行時間・料金など）" name="shuttle_info" def={e?.shuttle_info} />
+          <T label="交通規制・周辺道路" name="traffic_info" def={e?.traffic_info} />
+          <T label="トイレ（場所・数など）" name="toilet_info" def={e?.toilet_info} />
+          <T label="飲食エリア（屋台・出店の場所など）" name="food_info" def={e?.food_info} />
           <T label="入場料・チケット" name="ticket_info" def={e?.ticket_info} />
           <F label="主催者" name="organizer" def={e?.organizer} />
           <F label="公式サイトURL" name="official_url" type="url" def={e?.official_url} />

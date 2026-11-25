@@ -6,6 +6,7 @@ import { StatusBadges } from '@/components/EventCard';
 import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports } from '@/lib/queries';
 import { fmtRange, isEnded, isOngoing } from '@/lib/dates';
 import EndedEvent from '@/components/EndedEvent';
+import EventGuide, { GUIDE_FIELDS } from '@/components/EventGuide';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
@@ -14,7 +15,7 @@ import ViewBeacon from '@/components/ViewBeacon';
 import { hashtagsFor, type TagContext } from '@/lib/hashtags';
 import { composePost, shareUrl } from '@/lib/share';
 import { q } from '@/lib/db';
-import { currentClientId, recordViews } from '@/lib/contrib';
+import { currentClientId, MIN_VIEWS_TO_SHOW, recordViews } from '@/lib/contrib';
 import { todayJST, weekendRange } from '@/lib/dates';
 
 export const dynamic = 'force-dynamic';
@@ -97,6 +98,11 @@ export default async function EventPage({ params, searchParams }: { params: Prom
     listGenres(), eventCategories(e.id, e.genre_id), eventSpots(e.id), recentReports(e.id, cid), eventShapes(e.id),
   ]);
   const genre = genres.find((g) => g.id === e.genre_id)!;
+  // このページを見た人の数（実データのみ。1人1日1回で数える。少ないうちは出さない）
+  const views = await q<{ today: number; total: number }>(`SELECT
+      COALESCE(SUM(visitors) FILTER (WHERE day = $2), 0)::int AS today, COALESCE(SUM(visitors), 0)::int AS total
+    FROM event_views WHERE event_id = $1`, [e.id, todayJST()]).then((r) => r[0]).catch(() => undefined);
+  const nowMs = Date.now();
 
   // 共有リンク（?ref=x など）から来た訪問を記録（SNSからの流入の目安。個人情報は保存しない）
   const { ref } = await searchParams;
@@ -121,7 +127,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
     : e.status === 'postponed' ? 'このイベントは延期のため、投稿を受け付けていません。'
     : !ongoing ? `現地情報の投稿は開催期間中（${fmtRange(e.start_date, e.end_date)}）に受け付けます。施設の位置は事前に確認できます。` : '';
 
-  const fieldKeys = (genre.info_fields || INFO_FIELDS.map((f) => f.key).join(',')).split(',').map((s) => s.trim()).filter(Boolean);
+  // 駐車場・シャトルバス・交通・トイレ・飲食は「来場の情報」の見出しで出すので、開催概要の表からは外す
+  const fieldKeys = (genre.info_fields || INFO_FIELDS.map((f) => f.key).join(',')).split(',').map((s) => s.trim())
+    .filter((k) => k && !GUIDE_FIELDS.includes(k));
   const extras = e.extra_info.split('\n').map((l) => l.split(/[:：]/)).filter((p) => p.length >= 2 && p[0].trim())
     .map(([k, ...v]) => [k.trim(), v.join(':').trim()] as const);
 
@@ -159,6 +167,12 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <svg aria-label="場所" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
             <span>{e.prefecture}{e.city}・{e.venue_name || '会場情報なし'}</span>
           </span>
+          {!e.is_sample && views && views.total >= MIN_VIEWS_TO_SHOW && (
+            <span>
+              <svg aria-label="閲覧" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
+              <span>{views.today > 0 ? `今日${views.today.toLocaleString()}人・` : ''}これまでのべ{views.total.toLocaleString()}人が見ました</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -170,15 +184,18 @@ export default async function EventPage({ params, searchParams }: { params: Prom
 
       <nav className="tabs">
         <a href="#live" className="primary">現地の状況</a>
-        <a href="#info">イベント情報</a>
+        <a href="#guide">駐車場・交通</a>
+        <a href="#info">開催概要</a>
       </nav>
 
       <EventLive eventId={e.id} eventName={e.name} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} simple={e.map_mode === 'simple'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
-        initialReports={reports} serverNow={Date.now()} postable={postable} postBlockedReason={blocked}
+        initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}
         share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined} />
 
+      <EventGuide e={e} categories={categories} spots={spots} reports={reports} now={nowMs} blocked={postable ? '' : blocked} />
+
       <section className="section" id="info" style={{ scrollMarginTop: 130 }}>
-        <div className="section-head"><h2>イベント情報</h2></div>
+        <div className="section-head"><h2>開催概要</h2></div>
         <p style={{ marginTop: 0, whiteSpace: 'pre-wrap' }}>{e.summary || '概要の情報はありません'}</p>
         <dl className="info-table" style={{ margin: 0 }}>
           {fieldKeys.map((key) => {

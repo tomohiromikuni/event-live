@@ -40,6 +40,13 @@ const REPORT_TYPES = [
     { value: '60min', label: '1時間以上', level: 3 },
     { value: 'soldout', label: '売り切れ', level: 4 },
   ] },
+  { slug: 'shuttle', name: 'シャトルバスの待ち', options: [
+    { value: 'none', label: 'すぐ乗れる', level: 0 },
+    { value: '10min', label: '10分程度', level: 1 },
+    { value: '30min', label: '30分程度', level: 2 },
+    { value: '60min', label: '1時間以上', level: 3 },
+    { value: 'stopped', label: '運行終了・運休', level: 4 },
+  ] },
 ];
 
 const CATEGORIES = [
@@ -48,6 +55,7 @@ const CATEGORIES = [
   { slug: 'food', name: '飲食・屋台', icon: '🍜', color: '#ea580c', rt: 'wait' },
   { slug: 'parking', name: '駐車場', icon: '🅿️', color: '#4f46e5', rt: 'parking' },
   { slug: 'traffic', name: '交通・道路', icon: '🚗', color: '#475569', rt: 'traffic' },
+  { slug: 'shuttle', name: 'シャトルバス', icon: '🚌', color: '#0f766e', rt: 'shuttle' },
   { slug: 'stage', name: 'ステージ', icon: '🎤', color: '#c026d3', rt: 'crowd' },
   { slug: 'merch', name: '物販', icon: '🛍️', color: '#db2777', rt: 'merch' },
   { slug: 'viewing', name: '観覧エリア', icon: '🎆', color: '#7c3aed', rt: 'crowd' },
@@ -58,19 +66,19 @@ const CATEGORIES = [
 
 const ALL_INFO = 'time_text,venue,access,nearest_station,traffic_info,parking_info,ticket_info,organizer,official_url,extra_info';
 const GENRES = [
-  { slug: 'fireworks', name: '花火大会', icon: '🎆', color: '#7c3aed', cats: ['viewing', 'gate', 'toilet', 'food', 'parking', 'traffic', 'first_aid', 'info'],
+  { slug: 'fireworks', name: '花火大会', icon: '🎆', color: '#7c3aed', cats: ['viewing', 'gate', 'toilet', 'food', 'parking', 'shuttle', 'traffic', 'first_aid', 'info'],
     info: 'time_text,venue,traffic_info,access,nearest_station,parking_info,ticket_info,extra_info,organizer,official_url' },
-  { slug: 'festival', name: '祭り・地域行事', icon: '🏮', color: '#dc2626', cats: ['food', 'toilet', 'stage', 'rest', 'parking', 'traffic', 'first_aid', 'info'], info: ALL_INFO },
-  { slug: 'music', name: '音楽フェス・ライブ', icon: '🎸', color: '#c026d3', cats: ['gate', 'stage', 'merch', 'food', 'toilet', 'parking', 'rest', 'first_aid', 'info'],
+  { slug: 'festival', name: '祭り・地域行事', icon: '🏮', color: '#dc2626', cats: ['food', 'toilet', 'stage', 'rest', 'parking', 'shuttle', 'traffic', 'first_aid', 'info'], info: ALL_INFO },
+  { slug: 'music', name: '音楽フェス・ライブ', icon: '🎸', color: '#c026d3', cats: ['gate', 'stage', 'merch', 'food', 'toilet', 'parking', 'shuttle', 'rest', 'first_aid', 'info'],
     info: 'time_text,venue,ticket_info,extra_info,access,nearest_station,parking_info,traffic_info,organizer,official_url' },
-  { slug: 'marche', name: 'マルシェ・フリマ', icon: '🧺', color: '#16a34a', cats: ['food', 'toilet', 'parking', 'rest', 'info'], info: ALL_INFO },
-  { slug: 'food', name: 'グルメ・フードフェス', icon: '🍔', color: '#ea580c', cats: ['food', 'gate', 'toilet', 'rest', 'parking', 'first_aid', 'info'], info: ALL_INFO },
-  { slug: 'expo', name: '展示会・見本市', icon: '🏢', color: '#0284c7', cats: ['gate', 'toilet', 'food', 'rest', 'parking', 'info'], info: ALL_INFO },
-  { slug: 'anime_game', name: 'アニメ・ゲーム', icon: '🎮', color: '#9333ea', cats: ['gate', 'merch', 'stage', 'toilet', 'food', 'rest', 'first_aid', 'info'], info: ALL_INFO },
-  { slug: 'sports', name: 'スポーツ', icon: '⚽', color: '#0d9488', cats: ['gate', 'toilet', 'food', 'merch', 'parking', 'traffic', 'first_aid', 'info'], info: ALL_INFO },
-  { slug: 'local', name: '自治体・地域イベント', icon: '🏛️', color: '#2563eb', cats: ['gate', 'toilet', 'food', 'parking', 'rest', 'info'], info: ALL_INFO },
-  { slug: 'seasonal', name: '季節イベント', icon: '🍁', color: '#d97706', cats: ['gate', 'toilet', 'food', 'parking', 'rest', 'info'], info: ALL_INFO },
-  { slug: 'other', name: 'その他', icon: '🎉', color: '#64748b', cats: ['gate', 'toilet', 'food', 'parking', 'info'], info: ALL_INFO },
+  { slug: 'marche', name: 'マルシェ・フリマ', icon: '🧺', color: '#16a34a', cats: ['food', 'toilet', 'parking', 'shuttle', 'rest', 'info'], info: ALL_INFO },
+  { slug: 'food', name: 'グルメ・フードフェス', icon: '🍔', color: '#ea580c', cats: ['food', 'gate', 'toilet', 'rest', 'parking', 'shuttle', 'first_aid', 'info'], info: ALL_INFO },
+  { slug: 'expo', name: '展示会・見本市', icon: '🏢', color: '#0284c7', cats: ['gate', 'toilet', 'food', 'rest', 'parking', 'shuttle', 'info'], info: ALL_INFO },
+  { slug: 'anime_game', name: 'アニメ・ゲーム', icon: '🎮', color: '#9333ea', cats: ['gate', 'merch', 'stage', 'toilet', 'food', 'shuttle', 'rest', 'first_aid', 'info'], info: ALL_INFO },
+  { slug: 'sports', name: 'スポーツ', icon: '⚽', color: '#0d9488', cats: ['gate', 'toilet', 'food', 'merch', 'parking', 'shuttle', 'traffic', 'first_aid', 'info'], info: ALL_INFO },
+  { slug: 'local', name: '自治体・地域イベント', icon: '🏛️', color: '#2563eb', cats: ['gate', 'toilet', 'food', 'parking', 'shuttle', 'rest', 'info'], info: ALL_INFO },
+  { slug: 'seasonal', name: '季節イベント', icon: '🍁', color: '#d97706', cats: ['gate', 'toilet', 'food', 'parking', 'shuttle', 'rest', 'info'], info: ALL_INFO },
+  { slug: 'other', name: 'その他', icon: '🎉', color: '#64748b', cats: ['gate', 'toilet', 'food', 'parking', 'shuttle', 'info'], info: ALL_INFO },
 ];
 
 type SpotSeed = [cat: string, name: string, dy: number, dx: number, note?: string];
@@ -258,3 +266,24 @@ const SAMPLE_SHAPES: Record<string, [style: string, label: string, pts: R[]][]> 
     ['restriction', '歩行者天国（11:00〜20:00）', [[0.0012, -0.0001], [-0.0012, -0.0001]]],
   ],
 };
+
+/**
+ * v14: シャトルバスの投稿分類を追加（すでに運用中のDB向け。新しいDBは seed() で入る）。
+ * ジャンル既定にも足す。イベント個別のカテゴリ設定は変えない（描いた施設が無ければ表示されないため影響なし）。
+ */
+export async function migrateShuttle(q: Q) {
+  const [{ n }] = await q<{ n: number }>('SELECT COUNT(*)::int AS n FROM spot_categories');
+  if (n === 0) return; // まだ初期データが無い（このあと seed() で入る）
+  const rt = REPORT_TYPES.find((r) => r.slug === 'shuttle')!;
+  const cat = CATEGORIES.find((c) => c.slug === 'shuttle')!;
+  await q('INSERT INTO report_types (slug, name, options) VALUES ($1, $2, $3) ON CONFLICT (slug) DO NOTHING', [rt.slug, rt.name, JSON.stringify(rt.options)]);
+  const [{ id: rtId }] = await q<{ id: number }>('SELECT id FROM report_types WHERE slug = $1', [rt.slug]);
+  const sort = CATEGORIES.indexOf(cat);
+  await q('UPDATE spot_categories SET sort = sort + 1 WHERE sort >= $1 AND slug <> $2', [sort, cat.slug]);
+  await q('INSERT INTO spot_categories (slug, name, icon, color, report_type_id, sort) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (slug) DO NOTHING',
+    [cat.slug, cat.name, cat.icon, cat.color, rtId, sort]);
+  const [{ id: catId }] = await q<{ id: number }>('SELECT id FROM spot_categories WHERE slug = $1', [cat.slug]);
+  for (const g of GENRES.filter((x) => x.cats.includes('shuttle'))) {
+    await q(`INSERT INTO genre_categories (genre_id, category_id) SELECT id, $1 FROM genres WHERE slug = $2 ON CONFLICT DO NOTHING`, [catId, g.slug]);
+  }
+}

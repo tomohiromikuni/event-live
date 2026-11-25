@@ -86,11 +86,12 @@ export async function approveCandidate(_prev: string | null, f: FormData): Promi
   const eventId = await tx(async (tq) => {
     const [{ id }] = await tq<{ id: number }>(`INSERT INTO events (slug, name, genre_id, prefecture, city, venue_name, address, start_date, end_date, time_text,
         summary, organizer, official_url, access, nearest_station, traffic_info, parking_info, ticket_info, status,
-        source_url, source_checked_at, published, is_sample, created_at, updated_at)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,0,0,$22,$22) RETURNING id`,
+        source_url, source_checked_at, published, is_sample, created_at, updated_at, shuttle_info, toilet_info, food_info)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,0,0,$22,$22,$23,$24,$25) RETURNING id`,
       [`ev-${now.toString(36)}`, name.slice(0, 120), genre!.id, pref, v(d.city), v(d.venue_name), v(d.address), start, end, v(d.time_text),
         v(d.summary), v(d.organizer), v(d.official_url), v(d.access), v(d.nearest_station), v(d.traffic_info), v(d.parking_info), v(d.ticket_info),
-        d.status === 'canceled' || d.status === 'postponed' ? d.status : 'scheduled', c.source_url, todayJST(), now]);
+        d.status === 'canceled' || d.status === 'postponed' ? d.status : 'scheduled', c.source_url, todayJST(), now,
+        v(d.shuttle_info), v(d.toilet_info), v(d.food_info)]);
     await tq("UPDATE event_candidates SET status = 'approved', event_id = $1, updated_at = $2 WHERE id = $3", [id, now, c.id]);
     // 公式マイマップが無ければ、まず「かんたん表示（地図なし）」で公開できる状態にしておく（あとからマップを作れば通常表示に切り替わる）
     if (!d.map_links?.length) await enableSimpleMode(tq, id);
