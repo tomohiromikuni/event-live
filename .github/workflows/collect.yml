@@ -22,3 +22,15 @@ jobs:
             echo "$res" | grep -q '"done":true' && break
             sleep 5
           done
+      - name: Create venue maps for events without one
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE: https://www.evenow.jp
+        run: |
+          if [ -z "$CRON_SECRET" ]; then exit 0; fi
+          for i in $(seq 1 5); do
+            res=$(curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" --max-time 90 "$SITE/api/cron/automap" || echo '{}')
+            echo "automap $i: $res"
+            echo "$res" | grep -q '"done":true' && break
+            sleep 5
+          done

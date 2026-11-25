@@ -36,7 +36,7 @@ export default async function SnsXPage() {
         <Link href="/admin/sns">共有の集計へ</Link>
       </div>
       <p className="muted small">
-        いまは<strong>下書きを作って、確認してから手動で投稿</strong>する段階です（自動では投稿しません）。投稿文は決まった型で作り、実際のデータ以外は入りません。
+        下書きは15分ごとに自動で作られます（「いまの状況から下書きを作る」でも作れます）。<strong>自動投稿は下の設定でONにしたときだけ</strong>行います（初期はOFF）。投稿文は決まった型で作り、実際のデータ以外は入りません。
         URL付きの投稿は X API の利用料金が1件 約$0.20 かかります。
       </p>
       {!ready && (
@@ -96,6 +96,16 @@ export default async function SnsXPage() {
           <label className="small">投稿の最低間隔（分） <input className="input" type="number" name="min_interval_min" min={0} max={720} defaultValue={s.minIntervalMin} /></label>
           <label className="small">現地の投稿：直近30分に何人以上から <input className="input" type="number" name="live_min_users" min={2} max={20} defaultValue={s.liveMinUsers} /></label>
           <label className="small">現地の投稿：同じイベントの間隔（分） <input className="input" type="number" name="live_gap_min" min={30} max={720} defaultValue={s.liveGapMin} /></label>
+          <fieldset className="small" style={{ border: '1.5px solid var(--border)', borderRadius: 10, padding: '8px 10px' }}>
+            <legend style={{ fontWeight: 800 }}>自動投稿（15分ごとの定期実行）</legend>
+            <label><input type="checkbox" name="auto_post" defaultChecked={s.autoPost} /> 自動で投稿する（OFFなら下書きを作るだけ）</label>
+            <div style={{ marginTop: 6 }}>
+              {([['pre', '前日案内（17〜22時）'], ['today', '当日案内（7〜20時）'], ['live', '現地の投稿（8〜23時）']] as const).map(([k, l]) => (
+                <label key={k} style={{ marginRight: 12 }}><input type="checkbox" name="auto_kinds" value={k} defaultChecked={s.autoKinds.includes(k)} /> {l}</label>
+              ))}
+            </div>
+            <div className="muted" style={{ marginTop: 4 }}>1回の実行で投稿するのは1件まで。1日の上限・最低間隔も守ります。中止・延期は常に手動です。</div>
+          </fieldset>
           <div><button className="btn sm">設定を保存</button></div>
         </form>
       </div>
