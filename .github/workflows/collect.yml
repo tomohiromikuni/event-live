@@ -5,7 +5,17 @@ on:
   # 毎朝の自動実行は止めている（運営者の依頼：まず数件を手動で試す）。再開するときは下の2行のコメントを外す
   # schedule:
   #   - cron: '17 19 * * *'   # 毎日 4:17（日本時間）
-  workflow_dispatch: {}      # 手動実行もできる
+  workflow_dispatch:         # 手動実行（試すときは collect_runs を 1 にすると、読み取りは1回分＝数件だけ）
+    inputs:
+      collect_runs:
+        description: '自動収集（AIで読み取り）を呼ぶ回数（1回で最大6ページ）'
+        default: '10'
+      discover_calls:
+        description: 'AIで探す・まとめ探しの取得を呼ぶ回数（0で呼ばない）'
+        default: '20'
+      automap_calls:
+        description: '会場マップの自動作成を呼ぶ回数（1回1件）'
+        default: '30'
 jobs:
   collect:
     runs-on: ubuntu-latest
@@ -17,7 +27,7 @@ jobs:
           SITE: https://www.evenow.jp
         run: |
           if [ -z "$CRON_SECRET" ]; then exit 0; fi
-          for i in $(seq 1 20); do
+          for i in $(seq 1 ${{ inputs.discover_calls || 20 }}); do
             res=$(curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" --max-time 90 "$SITE/api/cron/discover" || echo '{}')
             echo "discover $i: $res"
             echo "$res" | grep -q '"done":true' && break
@@ -29,7 +39,7 @@ jobs:
           SITE: https://www.evenow.jp
         run: |
           if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET が未設定です"; exit 0; fi
-          for i in $(seq 1 10); do
+          for i in $(seq 1 ${{ inputs.collect_runs || 10 }}); do
             res=$(curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" --max-time 90 "$SITE/api/cron/collect" || echo '{}')
             echo "run $i: $res"
             echo "$res" | grep -q '"done":true' && break
@@ -41,7 +51,7 @@ jobs:
           SITE: https://www.evenow.jp
         run: |
           if [ -z "$CRON_SECRET" ]; then exit 0; fi
-          for i in $(seq 1 30); do
+          for i in $(seq 1 ${{ inputs.automap_calls || 30 }}); do
             res=$(curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" --max-time 90 "$SITE/api/cron/automap" || echo '{}')
             echo "automap $i: $res"
             echo "$res" | grep -q '"done":true' && break
