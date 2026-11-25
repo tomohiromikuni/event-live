@@ -58,21 +58,27 @@ const roundDist = (m: number) => (m < 100 ? '100m以内' : `約${Math.round(m / 
 export async function fetchFacilities(center: Geo): Promise<Facility[]> {
   const [lat, lng] = center;
   const around = `(around:${RADIUS_M},${lat},${lng})`;
-  const query = `[out:json][timeout:25];(nwr${around}[amenity=toilets];nwr${around}[amenity=parking];);out center tags;`;
+  const query = `[out:json][timeout:15];(nwr${around}[amenity=toilets];nwr${around}[amenity=parking];);out center tags;`;
   let els: OsmEl[] | null = null;
-  let lastStatus = 0;
-  for (const url of OVERPASS) {
+  const errs: string[] = [];
+  // 最初のサーバーは少し長めに待つ（公開サーバーは混んでいると10秒以上かかることがあるため）。全体で約25秒以内
+  for (const [i, url] of OVERPASS.entries()) {
+    const host = new URL(url).hostname;
     try {
       const res = await fetch(url, {
-        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA },
-        body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(10000), cache: 'no-store',
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA, Accept: 'application/json' },
+        body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(i === 0 ? 12000 : 6000), cache: 'no-store',
       });
-      if (!res.ok) { lastStatus = res.status; continue; }
+      if (!res.ok) { errs.push(`${host}:${res.status}`); continue; }
       els = ((await res.json()) as { elements: OsmEl[] }).elements ?? [];
       break;
-    } catch { lastStatus = 0; }
+    } catch (e) {
+      const name = e instanceof Error ? (e.name === 'TimeoutError' || e.name === 'AbortError' ? '時間切れ' : (e.cause as { code?: string })?.code || e.message) : String(e);
+      errs.push(`${host}:${name}`);
+    }
   }
-  if (!els) throw new Error(`OpenStreetMap からの取得に失敗しました（${lastStatus || '接続できません'}）`);
+  // 原因が分かるよう、サーバーごとの結果を残す（「接続できません」の文言は翌日の再試行の判定にも使う）
+  if (!els) throw new Error(`OpenStreetMap からの取得に失敗しました（接続できません：${errs.join('、')}）`);
   const out: Facility[] = [];
   for (const el of els) {
     const t = el.tags ?? {};

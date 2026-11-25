@@ -123,11 +123,20 @@ export function pdfSize(b: Buffer): { w: number; h: number } {
   const [x0, y0, x1, y1] = m.slice(1).map(Number);
   return { w: Math.abs(x1 - x0) || 595, h: Math.abs(y1 - y0) || 842 };
 }
+/** 画像の形式はファイルの中身で判定する（サーバーが送る種類やファイル名の拡張子は間違っていることがある） */
+function sniffImage(b: Buffer): 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' | null {
+  if (b.length < 12) return null;
+  if (b[0] === 0x89 && b.toString('ascii', 1, 4) === 'PNG') return 'image/png';
+  if (b[0] === 0xff && b[1] === 0xd8) return 'image/jpeg';
+  if (b.toString('ascii', 0, 4) === 'GIF8') return 'image/gif';
+  if (b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
+  return null;
+}
 const isPdf = (b: Buffer) => b.length > 5 && b.toString('ascii', 0, 5) === '%PDF-';
 
 async function readGuideMap(img: { type: string; data: Buffer }): Promise<GuideRead> {
   client ??= new Anthropic();
-  const media = (['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(img.type) ? img.type : 'image/png') as 'image/png';
+  const media = sniffImage(img.data) ?? ((['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(img.type) ? img.type : 'image/png') as 'image/png');
   const pdf = isPdf(img.data);
   const res = await client.beta.messages.create({
     model: collectModel(),
@@ -260,26 +269,40 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
       }
     }
   }
-  // それでも見つからず、地図に何も無い（このままでは公開できない）イベントだけ、公式サイトの中を Web 検索する（1回・約2円・月の上限内）
+  // 地図に何も無い（このままでは公開できない）イベントだけ、公式サイトの中を Web 検索する（1回・約2円・月の上限内）。
+  // 見つかった画像が無いとき、または見つかった画像がどれも地図ではなかったときに使う（例：トップの画像は写真で、地図は奥のページにある）
   let searched = '';
-  if (!images.length && pages[0]) {
+  let searchDone = false;
+  const searchMore = async (): Promise<string[]> => {
+    searchDone = true;
+    if (!pages[0]) return [];
     const [{ n }] = await tq<{ n: number }>('SELECT COUNT(*)::int AS n FROM spots WHERE event_id = $1 AND generic = 0', [eventId]);
-    if (n === 0) {
-      const found = await searchSiteForMaps(pages[0], ev.name).catch((e) => { searched = `（公式サイト内の検索に失敗：${e instanceof Error ? e.message : e}）`; return [] as string[]; });
-      for (const u of found) {
-        if (/\.(png|jpe?g|gif|webp|pdf)(\?|$)/i.test(new URL(u).pathname)) { if (!images.includes(u)) images.push(u); continue; }
-        const h = await fetchHtml(u).catch(() => null);
-        if (h) for (const x of findMapImages(h, u, true)) if (!images.includes(x)) images.push(x);
-        if (images.length >= MAX_IMAGES) break;
-      }
-      if (!searched) searched = found.length ? `（公式サイト内を検索して ${found.length}件のページを確認）` : '（公式サイト内も検索しましたが見つかりませんでした）';
+    if (n > 0) return [];
+    const more: string[] = [];
+    const found = await searchSiteForMaps(pages[0], ev.name).catch((e) => { searched = `（公式サイト内の検索に失敗：${e instanceof Error ? e.message : e}）`; return [] as string[]; });
+    for (const u of found) {
+      if (/\.(png|jpe?g|gif|webp|pdf)(\?|$)/i.test(new URL(u).pathname)) { if (!images.includes(u) && !more.includes(u)) more.push(u); continue; }
+      const h = await fetchHtml(u).catch(() => null);
+      if (h) for (const x of findMapImages(h, u, true)) if (!images.includes(x) && !more.includes(x)) more.push(x);
+      if (more.length >= MAX_IMAGES) break;
     }
-  }
+    if (!searched) searched = found.length ? `（公式サイト内を検索して ${found.length}件のページを確認）` : '（公式サイト内も検索しましたが見つかりませんでした）';
+    return more;
+  };
+  if (!images.length) images.push(...await searchMore());
   if (!images.length) return { ok: true, added: 0, message: `公式サイトにガイドマップらしい画像・PDFが見つかりませんでした${searched}` };
 
   const reasons: string[] = [];
   const started = Date.now();
-  for (const url of images.slice(0, MAX_IMAGES)) {
+  const queue = images.slice(0, MAX_IMAGES);
+  for (let qi = 0; ; qi++) {
+    if (qi >= queue.length) {
+      // 見つけた画像がどれも使えなかった：まだなら公式サイト内を検索して、新しく見つかった地図も試す（時間に余裕があるときだけ）
+      if (searchDone || Date.now() - started > TIME_BUDGET_MS / 2) break;
+      queue.push(...(await searchMore()).slice(0, 2));
+      if (qi >= queue.length) break;
+    }
+    const url = queue[qi];
     if (Date.now() - started > TIME_BUDGET_MS) { reasons.push('時間内に処理しきれなかったため、残りの画像は次の機会に回しました'); break; }
     const img = await fetchBinary(url).catch(() => null);
     const size = img && (isPdf(img.data) ? pdfSize(img.data) : imageSize(img.data));
@@ -332,5 +355,5 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
     }
     return { ok: true, added, message: `ガイドマップから ${added}件 を目安の位置として追加しました（目印 ${pairs.length}か所・誤差 約${err}m）` };
   }
-  return { ok: true, added: 0, message: `ガイドマップからは追加しませんでした：${[...new Set(reasons)].join('／')}` };
+  return { ok: true, added: 0, message: `ガイドマップからは追加しませんでした：${[...new Set(reasons)].join('／')}${searched}` };
 }

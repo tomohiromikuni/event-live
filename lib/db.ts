@@ -434,7 +434,10 @@ const V25 = `UPDATE events e SET published = 0 WHERE e.auto_published = 1
 const V26 = `UPDATE events e SET automap_at = 0 WHERE e.auto_published = 1
   AND NOT EXISTS (SELECT 1 FROM spots s WHERE s.event_id = e.id AND s.generic = 0)`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26];
+/** 画像の形式の判定・地図でない画像のときのサイト内検索を直したので、もう一度試す */
+const V27 = V26;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
