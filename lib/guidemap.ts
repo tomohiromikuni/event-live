@@ -4,6 +4,7 @@ import type { Q } from './db';
 import { fetchBinary, fetchHtml } from './collect/web';
 import { collectModel, extractorReady } from './collect/extract';
 import { distanceM, geocode } from './osm';
+import { addSpend, costYen, discoverSettings, monthSpend } from './collect/discover';
 
 /**
  * 会場マップの自動作成（第2段階）：公式サイトのガイドマップから、仮設トイレ・臨時駐車場・シャトルバス乗り場などを「目安」として追加する。
@@ -193,6 +194,37 @@ export function fitSimilarity(pairs: { px: number; py: number; lat: number; lng:
   return { apply, err, rms, metersPerPx };
 }
 
+/**
+ * 公式サイトの中だけを Web 検索して、会場マップ・ユニバーサルマップ・アクセスのページや PDF を探す。
+ * 検索の範囲を公式サイトのドメインに限るので、まとめサイトや個人の地図は出てこない。費用は月の上限金額に含める。
+ */
+async function searchSiteForMaps(officialUrl: string, eventName: string): Promise<string[]> {
+  const host = new URL(officialUrl).hostname.replace(/^www\./, '');
+  const { budgetYen } = await discoverSettings();
+  if ((await monthSpend()) + 3 > budgetYen) throw new Error(`今月の上限（${budgetYen}円）に達しています`);
+  client ??= new Anthropic();
+  const res = await client.messages.create({
+    model: collectModel(),
+    max_tokens: 1500,
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2, allowed_domains: [host],
+      user_location: { type: 'approximate', country: 'JP', timezone: 'Asia/Tokyo' } }],
+    messages: [{ role: 'user', content: `「${eventName}」の公式サイト（${host}）の中から、会場マップ・会場案内図・ユニバーサルマップ・アクセスマップ・交通規制図のページやPDFを探してください。
+見つかったURLだけを1行に1つずつ書いてください（最大5件・説明不要）。無ければ「なし」とだけ答えてください。` }],
+  } as Anthropic.MessageCreateParamsNonStreaming);
+  const usage = {
+    input: res.usage.input_tokens + (res.usage.cache_read_input_tokens ?? 0), output: res.usage.output_tokens,
+    searches: (res.usage as { server_tool_use?: { web_search_requests?: number } }).server_tool_use?.web_search_requests ?? 0,
+  };
+  await addSpend(costYen(usage));
+  const text = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('\n');
+  const urls: string[] = [];
+  for (const m of text.matchAll(/https?:\/\/[^\s<>"'）)\]]+/g)) {
+    const u = m[0].replace(/[。、.,]+$/, '');
+    try { if (new URL(u).hostname.replace(/^www\./, '').endsWith(host) && !urls.includes(u)) urls.push(u); } catch { /* 無視 */ }
+  }
+  return urls.slice(0, 5);
+}
+
 const LABEL: Record<Cat, string> = { toilet: 'トイレ', parking: '駐車場', shuttle: 'シャトルバス乗り場', food: '飲食エリア', first_aid: '救護所', gate: '入口' };
 
 export type GuideResult = { ok: boolean; message: string; added?: number };
@@ -200,8 +232,8 @@ export type GuideResult = { ok: boolean; message: string; added?: number };
 /** 公式ページのガイドマップから施設を推定して追加する（見取り図で手描きしたイベントには混ぜない） */
 export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResult> {
   if (!extractorReady()) return { ok: false, message: 'ANTHROPIC_API_KEY が未設定のため、ガイドマップの読み取りはできません' };
-  const ev = (await tq<{ prefecture: string; city: string; venue_name: string; address: string; lat: number; lng: number; map_mode: string; official_url: string; source_url: string }>(
-    'SELECT prefecture, city, venue_name, address, lat, lng, map_mode, official_url, source_url FROM events WHERE id = $1', [eventId]))[0];
+  const ev = (await tq<{ name: string; prefecture: string; city: string; venue_name: string; address: string; lat: number; lng: number; map_mode: string; official_url: string; source_url: string }>(
+    'SELECT name, prefecture, city, venue_name, address, lat, lng, map_mode, official_url, source_url FROM events WHERE id = $1', [eventId]))[0];
   if (!ev) return { ok: false, message: 'イベントが見つかりません' };
   if (ev.map_mode === 'canvas') {
     const [{ n }] = await tq<{ n: number }>('SELECT COUNT(*)::int AS n FROM spots WHERE event_id = $1 AND generic = 0', [eventId]);
@@ -228,7 +260,22 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
       }
     }
   }
-  if (!images.length) return { ok: true, added: 0, message: '公式サイトにガイドマップらしい画像・PDFが見つかりませんでした' };
+  // それでも見つからず、地図に何も無い（このままでは公開できない）イベントだけ、公式サイトの中を Web 検索する（1回・約2円・月の上限内）
+  let searched = '';
+  if (!images.length && pages[0]) {
+    const [{ n }] = await tq<{ n: number }>('SELECT COUNT(*)::int AS n FROM spots WHERE event_id = $1 AND generic = 0', [eventId]);
+    if (n === 0) {
+      const found = await searchSiteForMaps(pages[0], ev.name).catch((e) => { searched = `（公式サイト内の検索に失敗：${e instanceof Error ? e.message : e}）`; return [] as string[]; });
+      for (const u of found) {
+        if (/\.(png|jpe?g|gif|webp|pdf)(\?|$)/i.test(new URL(u).pathname)) { if (!images.includes(u)) images.push(u); continue; }
+        const h = await fetchHtml(u).catch(() => null);
+        if (h) for (const x of findMapImages(h, u, true)) if (!images.includes(x)) images.push(x);
+        if (images.length >= MAX_IMAGES) break;
+      }
+      if (!searched) searched = found.length ? `（公式サイト内を検索して ${found.length}件のページを確認）` : '（公式サイト内も検索しましたが見つかりませんでした）';
+    }
+  }
+  if (!images.length) return { ok: true, added: 0, message: `公式サイトにガイドマップらしい画像・PDFが見つかりませんでした${searched}` };
 
   const reasons: string[] = [];
   const started = Date.now();
