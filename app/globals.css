@@ -582,3 +582,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .locate-btn { font: inherit; font-weight: 800; font-size: 13px; padding: 6px 10px; border-radius: 10px; border: 2px solid var(--ink); background: #fff; color: var(--ink); cursor: pointer; box-shadow: 0 2px 0 var(--ink); }
 .locate-btn.on { background: #2563eb; color: #fff; }
 .gmap-link { display: inline-block; margin-top: 8px; font-weight: 800; font-size: 14px; color: #1d4ed8; text-decoration: underline; }
+/* ガイドマップから推定した施設（位置は目安）は破線の枠 */
+.mk.est { border-style: dashed !important; }
+.legend .est-i { background: #fff !important; border: 2px dashed #64748b; }

@@ -1,5 +1,5 @@
 'use server';
-import { importOsmFacilities } from '@/lib/osm';
+import { autoMap, autoMapPending } from '@/lib/automap';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { timingSafeEqual } from 'node:crypto';
@@ -301,16 +301,19 @@ function cleanHashtags(raw: string): string {
   return out.slice(0, 3).join(' ');
 }
 
-/** 会場の周りの常設トイレ・駐車場を OpenStreetMap から自動で取り込む（人の手での位置合わせはしない） */
+/** 会場マップを自動作成（OpenStreetMap の常設トイレ・駐車場 → ガイドマップから仮設のものを目安で追加） */
 export async function autoMapFromOsm(f: FormData) {
   await requireAdmin();
   const id = Number(f.get('id'));
-  let msg: string;
-  try {
-    msg = (await importOsmFacilities(q, id)).message;
-  } catch (e) {
-    msg = e instanceof Error ? e.message : String(e);
-  }
+  const msg = await autoMap(id);
   revalidatePath('/', 'layout');
   redirect(`/admin/events/${id}?osm=${encodeURIComponent(msg)}`);
+}
+
+/** まだ地図の無いイベントに、まとめて自動作成（1回3件まで） */
+export async function autoMapBatch() {
+  await requireAdmin();
+  const r = await autoMapPending(3);
+  revalidatePath('/', 'layout');
+  redirect(`/admin/collect?automap=${encodeURIComponent(r.length ? r.map((x) => `${x.name}：${x.message}`).join('\n') : '地図の無い開催前・開催中のイベントはありません')}`);
 }

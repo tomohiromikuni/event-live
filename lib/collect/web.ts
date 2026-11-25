@@ -132,3 +132,24 @@ function decode(s: string) {
     .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
     .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&');
 }
+
+/** robots.txt を守って HTML をそのまま取る（ガイドマップの画像を探すため）。禁止なら null */
+export async function fetchHtml(url: string): Promise<string | null> {
+  if (!(await robotsAllows(url))) return null;
+  const r = await rawFetch(url);
+  return r.status === 200 && /html/i.test(r.type) ? r.body : null;
+}
+
+/** robots.txt を守って画像などのファイルを取る（メモリ上で使うだけ。保存しない）。禁止・大きすぎ・失敗なら null */
+export async function fetchBinary(url: string, maxBytes = 4_500_000): Promise<{ type: string; data: Buffer } | null> {
+  if (!(await robotsAllows(url))) return null;
+  const u = new URL(url);
+  await politeWait(u.host);
+  const res = await fetch(url, { headers: { 'User-Agent': UA }, redirect: 'follow', signal: AbortSignal.timeout(TIMEOUT_MS), cache: 'no-store' });
+  if (!res.ok) return null;
+  const len = Number(res.headers.get('content-length') || 0);
+  if (len > maxBytes) return null;
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.byteLength > maxBytes) return null;
+  return { type: (res.headers.get('content-type') ?? '').split(';')[0].trim(), data: buf };
+}

@@ -123,7 +123,7 @@ export default function EventLive(p: Props) {
     const badge = latest && !stale ? `<span class="mk-badge" style="background:${levelColor(latest.level)}">${escapeHtml(latest.label)}</span>` : '';
     return {
       id: s.id, lat: s.lat, lng: s.lng, title: s.name,
-      html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge}</div>`,
+      html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}${s.source === 'guide' ? ' est' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge}</div>`,
     };
   }), [visibleSpots, catById, latestBySpot, selected, now]);
 
@@ -246,6 +246,7 @@ export default function EventLive(p: Props) {
               {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l}><i style={{ background: LEVEL_COLORS[i] }} />{l}</span>)}
               <span><i style={{ background: '#94a3b8' }} />情報なし</span>
               <span>点線＝{FRESH_MIN}分以上前</span>
+              {visibleSpots.some((s) => s.source === 'guide') && <span><i className="est-i" />破線の枠＝位置は目安</span>}
             </div>
             {visibleSpots.some((s) => s.source === 'osm') && (
               <div className="muted small" style={{ padding: '0 12px 10px' }}>
@@ -266,7 +267,7 @@ export default function EventLive(p: Props) {
             {sel.note && <div className="muted small">{sel.note}</div>}
             {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
               <a className="gmap-link" href={`https://www.google.com/maps/search/?api=1&query=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer">
-                Googleマップで場所を開く ↗
+                {sel.source === 'guide' ? 'Googleマップでこの辺りを開く ↗' : 'Googleマップで場所を開く ↗'}
               </a>
             ) : null}
             {selCat.options.length > 0 ? (

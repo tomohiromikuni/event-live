@@ -9,7 +9,7 @@ import { runCollect, setSetting } from '@/lib/collect/run';
 import type { Extracted } from '@/lib/collect/extract';
 import { enableSimpleMode, syncSimpleItems } from '@/lib/simple';
 import { mergeColumns } from '@/lib/collect/merge';
-import { importOsmFacilities } from '@/lib/osm';
+import { autoMap } from '@/lib/automap';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -99,10 +99,10 @@ export async function approveCandidate(_prev: string | null, f: FormData): Promi
     if (!d.map_links?.length) await enableSimpleMode(tq, id);
     return id;
   });
-  // 公式マイマップが無ければ、会場の周りの常設トイレ・駐車場を OpenStreetMap から自動で取り込む（見つからなければカードだけのまま）
+  // 公式マイマップが無ければ、会場マップを自動作成（OSM の常設トイレ・駐車場 → ガイドマップから仮設のものを目安で追加。無ければカードだけ）
   let osm = '';
   if (!d.map_links?.length) {
-    try { osm = (await importOsmFacilities(q, eventId)).message; } catch (e) { osm = e instanceof Error ? e.message : String(e); }
+    osm = await autoMap(eventId);
   }
   revalidatePath('/admin/candidates');
   // 公式のマイマップへのリンクがあれば、そのまま会場マップの取り込みへ

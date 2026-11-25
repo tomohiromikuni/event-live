@@ -3,14 +3,15 @@ import { one, q } from '@/lib/db';
 import { getSetting } from '@/lib/collect/run';
 import { collectModel } from '@/lib/collect/extract';
 import { runCollectNow, setCollectEnabled } from '../collect-actions';
+import { autoMapBatch } from '../actions';
 
 type Run = { id: number; trigger: string; started_at: number; finished_at: number; fetched: number; changed: number; extracted: number;
   new_candidates: number; duplicates: number; errors: number; input_tokens: number; output_tokens: number; log: string };
 
 const fmt = (t: number) => new Date(t).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-export default async function CollectPage({ searchParams }: { searchParams: Promise<{ ran?: string }> }) {
-  const { ran } = await searchParams;
+export default async function CollectPage({ searchParams }: { searchParams: Promise<{ ran?: string; automap?: string }> }) {
+  const { ran, automap } = await searchParams;
   const [enabled, runs, counts] = await Promise.all([
     getSetting('collect_enabled', '0'),
     q<Run>('SELECT * FROM crawl_runs ORDER BY id DESC LIMIT 20'),
@@ -29,6 +30,15 @@ export default async function CollectPage({ searchParams }: { searchParams: Prom
     <>
       <h1 className="admin-title">自動収集</h1>
       {ran && <div className="flash">収集を1回実行しました（結果は下の履歴）</div>}
+      {automap && <div className="flash" style={{ whiteSpace: 'pre-wrap' }}>🗺️ {automap}</div>}
+      <div className="panel">
+        <h2>会場マップの自動作成</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          まだ地図の無い（カードだけの）開催前・開催中のイベントに、会場マップを自動で作ります（1回3件まで）。
+          ① 会場周辺の常設トイレ・駐車場（OpenStreetMap）② 公式ページのガイドマップから仮設のものを「目安」で追加。人が位置を合わせる作業はありません。
+        </p>
+        <form action={autoMapBatch}><button className="btn sm">地図の無いイベントにまとめて作成</button></form>
+      </div>
       <div className="panel">
         <div className="collect-status">
           <div><span>自動収集（毎日）</span><strong>{enabled === '1' ? 'ON' : 'OFF'}</strong>
