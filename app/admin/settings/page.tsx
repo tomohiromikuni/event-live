@@ -81,7 +81,7 @@ export default async function Settings() {
               <button className="btn sm">{r ? '保存' : '追加'}</button>
             </div>
             <textarea className="input" name="options" defaultValue={r ? rtText(r.options) : ''} rows={5} style={{ height: 'auto', fontSize: 13, padding: 8, fontFamily: 'monospace' }}
-              placeholder={'none|待ち時間なし|0\n10min|10分程度|2'} />
+              placeholder={'none|空いている|0\nsome|少し並ぶ|1'} />
           </form>
         ))}
       </section>

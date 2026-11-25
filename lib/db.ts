@@ -1,7 +1,7 @@
 import 'server-only';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';
-import { migrateShuttle, seed } from './seed';
+import { migrateCoarseOptions, migrateShuttle, seed } from './seed';
 import { convertEventToCanvas } from './canvas';
 
 /**
@@ -444,7 +444,7 @@ UPDATE events e SET osm_pending = 1 WHERE e.is_sample = 0 AND e.map_mode = 'simp
 
 const V29 = `ALTER TABLE events ADD COLUMN IF NOT EXISTS osm_tried_at BIGINT NOT NULL DEFAULT 0`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29];
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

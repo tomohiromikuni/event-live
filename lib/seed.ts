@@ -9,17 +9,16 @@ import { convertEventToCanvas } from './canvas';
  * 開催日は投入時点の日付を基準に相対的に設定する（常に「今日開催」のデモができるように）。
  */
 const REPORT_TYPES = [
+  // 選択肢は「ざっくり」（運営者の判断：分の数字は目測で迷いやすく、票も割れやすい。見る人が知りたいのは行くか・やめるか）
   { slug: 'wait', name: '待ち時間', options: [
-    { value: 'none', label: '待ち時間なし', level: 0 },
-    { value: '5min', label: '5分程度', level: 1 },
-    { value: '10min', label: '10分程度', level: 2 },
-    { value: '20min', label: '20分以上', level: 3 },
+    { value: 'none', label: '空いている', level: 0 },
+    { value: 'some', label: '少し並ぶ', level: 1 },
+    { value: 'long', label: '長い列', level: 3 },
   ] },
   { slug: 'parking', name: '駐車場の空き', options: [
     { value: 'available', label: '空きあり', level: 0 },
     { value: 'few', label: '残りわずか', level: 1 },
-    { value: 'full', label: '満車', level: 3 },
-    { value: 'queue', label: '入庫待ちあり', level: 3 },
+    { value: 'full', label: '満車・入庫待ち', level: 3 },
   ] },
   { slug: 'crowd', name: '混雑度', options: [
     { value: 'empty', label: '空いている', level: 0 },
@@ -42,12 +41,35 @@ const REPORT_TYPES = [
   ] },
   { slug: 'shuttle', name: 'シャトルバスの待ち', options: [
     { value: 'none', label: 'すぐ乗れる', level: 0 },
-    { value: '10min', label: '10分程度', level: 1 },
-    { value: '30min', label: '30分程度', level: 2 },
-    { value: '60min', label: '1時間以上', level: 3 },
-    { value: 'stopped', label: '運行終了・運休', level: 4 },
+    { value: 'some', label: '少し並ぶ', level: 1 },
+    { value: 'long', label: '長い列（30分以上の目安）', level: 3 },
+    { value: 'stopped', label: '運休・終了', level: 4 },
   ] },
 ];
+
+/** 以前の細かい選択肢 → ざっくりした選択肢（これまでの投稿もそのまま使う） */
+const VALUE_ALIASES: Record<string, Record<string, string>> = {
+  wait: { '5min': 'some', '10min': 'some', '20min': 'long' },
+  parking: { queue: 'full' },
+  shuttle: { '10min': 'some', '30min': 'long', '60min': 'long' },
+};
+
+/** 選択肢をざっくりにする：選択肢を差し替え、これまでの投稿の値・表示名も新しい選択肢に合わせる */
+export async function migrateCoarseOptions(q: Q) {
+  for (const slug of Object.keys(VALUE_ALIASES)) {
+    const rt = REPORT_TYPES.find((r) => r.slug === slug)!;
+    const [row] = await q<{ id: number }>('SELECT id FROM report_types WHERE slug = $1', [slug]);
+    if (!row) continue; // まだ初期データが無い（このあと seed() で入る）
+    await q('UPDATE report_types SET options = $1 WHERE id = $2', [JSON.stringify(rt.options), row.id]);
+    const inType = 'spot_id IN (SELECT s.id FROM spots s JOIN spot_categories c ON c.id = s.category_id WHERE c.report_type_id = $2)';
+    for (const [from, to] of Object.entries(VALUE_ALIASES[slug])) {
+      await q(`UPDATE reports SET value = $1 WHERE value = $3 AND ${inType}`, [to, row.id, from]);
+    }
+    for (const o of rt.options) {
+      await q(`UPDATE reports SET label = $1, level = $3 WHERE value = $4 AND ${inType}`, [o.label, row.id, o.level, o.value]);
+    }
+  }
+}
 
 const CATEGORIES = [
   { slug: 'gate', name: '入場口', icon: '🚪', color: '#2563eb', rt: 'crowd' },
@@ -223,7 +245,8 @@ export async function seedSamples(q: Q) {
       const sp = spotIds[idx];
       if (!sp) continue;
       const rtSlug = CATEGORIES.find((c) => c.slug === sp.cat)!.rt!;
-      const opt = REPORT_TYPES.find((r) => r.slug === rtSlug)!.options.find((o) => o.value === value)!;
+      const v = VALUE_ALIASES[rtSlug]?.[value] ?? value;
+      const opt = REPORT_TYPES.find((r) => r.slug === rtSlug)!.options.find((o) => o.value === v)!;
       await q(`INSERT INTO reports (event_id, spot_id, value, label, level, client_id, ip_hash, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'seed', $7)`,
         [eid, sp.id, opt.value, opt.label, opt.level, `seed-${i}`, now - ago * 60000]);
     }
