@@ -7,6 +7,7 @@ import MapEditor from '@/components/admin/MapEditor';
 import { formData } from '@/lib/admin-data';
 import { eventCategories, eventShapes, eventSpots, getEventById } from '@/lib/queries';
 import { deleteEvent } from '../../actions';
+import { one } from '@/lib/db';
 
 export default async function EditEvent({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; imported?: string }> }) {
   const id = Number((await params).id);
@@ -14,6 +15,8 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
   const e = await getEventById(id);
   if (!e) notFound();
   const [spots, cats, fd, shapes] = await Promise.all([eventSpots(e.id), eventCategories(e.id, e.genre_id), formData(e.id), eventShapes(e.id)]);
+  // 公式サイトが情報源として登録済みか（登録すれば、公式ページの変更が「候補」として届く）
+  const src = e.official_url ? await one<{ id: number; enabled: number }>('SELECT id, enabled FROM sources WHERE url = $1', [e.official_url]) : undefined;
   return (
     <>
       <div className="section-head">
@@ -24,6 +27,12 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
       {imported && <div className="flash">下書きを取り込みました。マップの位置を確認・調整し、内容に問題がなければ下の「公開する」にチェックして保存してください。</div>}
       {/^ev-[a-z0-9]+$/.test(e.slug) && (
         <div className="cand-match">URLが自動の文字列（/events/{e.slug}）のままです。検索で見つけてもらいやすいよう、下の「URL用ID」にイベント名のローマ字（例: sumida-hanabi）を入れて保存してください。</div>
+      )}
+      {e.official_url && !src && (
+        <div className="small" style={{ margin: '6px 0' }}>
+          <Link href={`/admin/sources?url=${encodeURIComponent(e.official_url)}&name=${encodeURIComponent(`${e.name} 公式サイト`)}&pref=${encodeURIComponent(e.prefecture)}&trust=official#add`}>
+            公式サイトを情報源に登録する →</Link>（登録すると、公式ページの変更（駐車場・シャトルバス・交通規制など）が「候補」として届きます）
+        </div>
       )}
       {!e.published && <div className="banner postponed">🔒 このイベントは<strong>非公開</strong>です（一般の人には表示されません）</div>}
       <SimpleModePanel eventId={e.id} simple={e.map_mode === 'simple'} items={spots.filter((sp) => sp.generic).map((sp) => sp.name)} hasMap={spots.some((sp) => !sp.generic) || shapes.length > 0} />

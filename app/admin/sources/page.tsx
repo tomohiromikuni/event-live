@@ -7,7 +7,8 @@ type Source = { id: number; name: string; kind: string; url: string; prefecture:
 
 const TRUST: Record<string, string> = { official: '公式', public: '自治体・観光協会', other: 'その他' };
 
-export default async function SourcesPage() {
+export default async function SourcesPage({ searchParams }: { searchParams: Promise<{ url?: string; name?: string; pref?: string; trust?: string }> }) {
+  const pf = await searchParams;
   const rows = await q<Source>(`SELECT s.*, (SELECT COUNT(*)::int FROM crawl_pages p WHERE p.source_id = s.id) AS pages,
       (SELECT COUNT(*)::int FROM event_candidates c WHERE c.source_id = s.id) AS cands FROM sources s ORDER BY s.id DESC`);
   return (
@@ -17,7 +18,9 @@ export default async function SourcesPage() {
         巡回するのは<strong>利用規約を確認し、確認日を入れて「巡回する」にしたもの</strong>だけです。robots.txt で禁止されたページは自動で取得しません。
         規約で「自動での取得・転載の禁止」とあるサイトは登録しないでください。RSS がある場合は RSS を登録すると効率的です。
       </p>
-      <div className="panel"><h2>情報源を追加</h2><SourceForm /></div>
+      <div className="panel" id="add"><h2>情報源を追加</h2>
+        {pf.url && <p className="small" style={{ marginTop: 0 }}>イベントの公式サイトを入れてあります。<strong>そのサイトの利用規約を確認してから</strong>、確認日を入れて「巡回する」にしてください。</p>}
+        <SourceForm prefill={{ url: pf.url, name: pf.name, prefecture: pf.pref, trust: pf.trust }} /></div>
       {rows.length === 0 ? <div className="empty">まだ情報源がありません</div> : rows.map((s) => (
         <div key={s.id} className="panel">
           <div className="small muted" style={{ marginBottom: 6 }}>

@@ -6,23 +6,23 @@ import { PREFECTURES } from '@/lib/prefectures';
 type Source = { id: number; name: string; kind: string; url: string; prefecture: string; trust: string; terms_checked_at: string; enabled: number; interval_hours: number; note: string };
 
 /** 情報源の登録・編集（送信後も入力内容が消えないよう onSubmit で送る） */
-export function SourceForm({ s }: { s?: Source }) {
+export function SourceForm({ s, prefill }: { s?: Source; prefill?: { name?: string; url?: string; prefecture?: string; trust?: string } }) {
   const [err, action, pending] = useActionState(saveSource, null);
   return (
     <form className="source-form" onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); startTransition(() => action(fd)); }}>
       {s && <input type="hidden" name="id" value={s.id} />}
       <div className="row">
-        <input name="name" defaultValue={s?.name} placeholder="名前（例：〇〇市観光協会 イベント情報）" required />
+        <input name="name" defaultValue={s?.name ?? prefill?.name} placeholder="名前（例：〇〇市観光協会 イベント情報）" required />
         <select name="kind" defaultValue={s?.kind ?? 'page'}>
           <option value="page">ページ</option><option value="rss">RSS</option>
         </select>
       </div>
-      <input name="url" defaultValue={s?.url} placeholder="https://..." required />
+      <input name="url" defaultValue={s?.url ?? prefill?.url} placeholder="https://..." required />
       <div className="row">
-        <select name="prefecture" defaultValue={s?.prefecture ?? ''}>
+        <select name="prefecture" defaultValue={s?.prefecture ?? prefill?.prefecture ?? ''}>
           <option value="">都道府県（任意）</option>{PREFECTURES.map((p) => <option key={p}>{p}</option>)}
         </select>
-        <select name="trust" defaultValue={s?.trust ?? 'public'}>
+        <select name="trust" defaultValue={s?.trust ?? prefill?.trust ?? 'public'}>
           <option value="official">公式サイト</option><option value="public">自治体・観光協会</option><option value="other">その他</option>
         </select>
         <select name="interval_hours" defaultValue={String(s?.interval_hours ?? 24)}>

@@ -3,6 +3,7 @@ import { q } from '@/lib/db';
 import { ApproveForm } from '@/components/admin/CollectForms';
 import { mergeCandidate, rejectCandidate } from '../collect-actions';
 import type { Extracted } from '@/lib/collect/extract';
+import { candidateDiff } from '@/lib/collect/merge';
 
 type Row = { id: number; data: string; source_url: string; confidence: number; status: string; match_event_id: number | null;
   match_name: string | null; match_start: string | null; match_end: string | null; created_at: number; event_id: number | null };
@@ -19,6 +20,12 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
   const rows = await q<Row>(`SELECT c.*, e.name AS match_name, e.start_date AS match_start, e.end_date AS match_end
     FROM event_candidates c LEFT JOIN events e ON e.id = c.match_event_id
     ${all ? '' : "WHERE c.status = 'pending'"} ORDER BY c.status = 'pending' DESC, c.confidence DESC, c.id DESC LIMIT 100`);
+  // 既存のイベントと同じ可能性がある候補は、いまの掲載内容と見比べる
+  const matchIds = [...new Set(rows.filter((r) => r.status === 'pending' && r.match_event_id).map((r) => r.match_event_id!))];
+  const evs = matchIds.length
+    ? await q<Record<string, unknown> & { id: number }>(`SELECT * FROM events WHERE id IN (${matchIds.map((_, i) => `$${i + 1}`).join(',')})`, matchIds)
+    : [];
+  const evById = new Map(evs.map((e) => [e.id, e]));
   return (
     <>
       <div className="section-head">
@@ -46,6 +53,28 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
                 ⚠️ 既存のイベント「<Link href={`/admin/events/${r.match_event_id}`}>{r.match_name}</Link>」（{r.match_start}〜{r.match_end}）と同じ可能性があります
               </div>
             )}
+            {r.status === 'pending' && r.match_event_id && evById.has(r.match_event_id) && (() => {
+              const diff = candidateDiff(evById.get(r.match_event_id)!, d);
+              return (
+                <form action={mergeCandidate} className="cand-diff">
+                  <input type="hidden" name="id" value={r.id} />
+                  <div className="small" style={{ fontWeight: 800, margin: '8px 0 4px' }}>いまの掲載内容との違い（反映する項目にチェック）</div>
+                  {diff.length === 0 ? <div className="small muted">掲載内容と違う項目はありません（反映すると情報元の確認日だけ更新します）</div> : (
+                    <table className="cand-table"><thead><tr><th></th><th>いまの掲載</th><th>候補（情報元）</th></tr></thead><tbody>
+                      {diff.map((x) => (
+                        <tr key={x.key}>
+                          <th><label><input type="checkbox" name="fields" value={x.key} defaultChecked={x.defaultOn} /> {x.label}</label></th>
+                          <td>{x.current || <span className="muted">（空欄）</span>}</td>
+                          <td><strong>{x.next}</strong></td>
+                        </tr>
+                      ))}
+                    </tbody></table>
+                  )}
+                  <button className="btn sm" style={{ marginTop: 6 }}>チェックした項目を「{r.match_name}」に反映</button>
+                </form>
+              );
+            })()}
+            <details className="small" open={!r.match_event_id}><summary>候補の全項目</summary>
             <table className="cand-table"><tbody>
               {FIELDS.map(([k, label]) => {
                 const v = d[k] as string | null;
@@ -53,18 +82,13 @@ export default async function CandidatesPage({ searchParams }: { searchParams: P
               })}
               {d.map_links?.length ? <tr><th>マイマップ</th><td>{d.map_links.map((u) => <a key={u} href={u} target="_blank" rel="noopener noreferrer">{u}</a>)}</td></tr> : null}
             </tbody></table>
+            </details>
             <details className="small"><summary>AIが根拠にした本文</summary>
               <div>名前：{d.evidence?.name ?? '—'}</div><div>日付：{d.evidence?.date ?? '—'}</div><div>場所：{d.evidence?.place ?? '—'}</div>
             </details>
             {r.status === 'pending' ? (
               <div className="cand-actions">
                 <ApproveForm id={r.id} name={d.name} start={d.start_date} end={d.end_date} pref={d.prefecture} />
-                {r.match_event_id && (
-                  <form action={mergeCandidate}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <button className="btn sm ghost">既存のイベントに反映（日程・開催状況・情報元）</button>
-                  </form>
-                )}
                 <form action={rejectCandidate}><input type="hidden" name="id" value={r.id} /><button className="btn sm ghost">却下</button></form>
               </div>
             ) : r.event_id ? <div className="small"><Link href={`/admin/events/${r.event_id}`}>作成・反映したイベントを開く</Link></div> : null}

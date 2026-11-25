@@ -7,7 +7,8 @@ import { PREFECTURES } from '@/lib/prefectures';
 import { todayJST } from '@/lib/dates';
 import { runCollect, setSetting } from '@/lib/collect/run';
 import type { Extracted } from '@/lib/collect/extract';
-import { enableSimpleMode } from '@/lib/simple';
+import { enableSimpleMode, syncSimpleItems } from '@/lib/simple';
+import { mergeColumns } from '@/lib/collect/merge';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -103,23 +104,22 @@ export async function approveCandidate(_prev: string | null, f: FormData): Promi
   redirect(map ? `/admin/import?event=${eventId}&mymap=${encodeURIComponent(map)}` : `/admin/events/${eventId}?created=1`);
 }
 
-/** 既存イベントに反映：日程・開催状況・情報元だけを更新する（毎年開催の次回日程など） */
+/** 既存イベントに反映：管理者がチェックした項目だけを更新する（毎年開催の次回日程、公式ページで変わった駐車場・シャトルバスの情報など） */
 export async function mergeCandidate(f: FormData) {
   await requireAdmin();
   const c = await loadCandidate(Number(f.get('id')));
   const target = Number(f.get('event_id')) || c.match_event_id;
   if (!target) return;
-  const d = c.d;
+  const cols = mergeColumns(c.d, f.getAll('fields').map(String));
   const sets: string[] = [], vals: Param[] = [];
   const add = (col: string, val: Param) => { vals.push(val); sets.push(`${col} = $${vals.length}`); };
-  if (d.start_date) { add('start_date', d.start_date); add('end_date', d.end_date ?? d.start_date); }
-  if (d.time_text) add('time_text', d.time_text);
-  if (d.status === 'canceled' || d.status === 'postponed') add('status', d.status);
+  for (const [col, val] of cols) add(col, val);
   add('source_url', c.source_url); add('source_checked_at', todayJST()); add('updated_at', Date.now());
   vals.push(target);
   await tx(async (tq) => {
     await tq(`UPDATE events SET ${sets.join(', ')} WHERE id = $${vals.length}`, vals);
     await tq("UPDATE event_candidates SET status = 'merged', event_id = $1, updated_at = $2 WHERE id = $3", [target, Date.now(), c.id]);
+    await syncSimpleItems(tq, target); // かんたん表示：シャトルバスの情報が入ったら項目を足す
   });
   revalidatePath('/', 'layout');
   redirect(`/admin/events/${target}?saved=1`);
