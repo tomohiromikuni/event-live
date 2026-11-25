@@ -5,7 +5,7 @@ import { requireAdmin } from '@/lib/admin';
 import { KIND_LABEL } from '@/lib/inquiry';
 
 type Row = { id: number; kind: string; event_id: number | null; event_name: string; reason: string; relation: string; message: string;
-  name: string; email: string; mail_sent: number; status: string; created_at: number };
+  name: string; email: string; mail_sent: number; mail_error: string; status: string; created_at: number };
 
 async function setStatus(f: FormData) {
   'use server';
@@ -36,7 +36,7 @@ export default async function Inquiries({ searchParams }: { searchParams: Promis
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 }}>
               <span className={`badge ${r.kind === 'removal' ? 'canceled' : ''}`} style={r.kind === 'removal' ? undefined : { background: '#e2e8f0' }}>{KIND_LABEL[r.kind]}</span>
               <span className="muted small">#{r.id}・{new Date(r.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}</span>
-              {!r.mail_sent && <span className="muted small">（メール未送信）</span>}
+              {!r.mail_sent && <span className="muted small">（メール未送信{r.mail_error ? `：${r.mail_error}` : ''}）</span>}
             </div>
             {r.event_name && (
               <div style={{ fontWeight: 700 }}>

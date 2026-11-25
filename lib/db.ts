@@ -388,7 +388,10 @@ ALTER TABLE spots ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT '';
 ALTER TABLE spots ADD COLUMN IF NOT EXISTS ext_id TEXT NOT NULL DEFAULT ''
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18];
+/** v19: 問い合わせの通知メールが送れなかった理由（Resend の返したエラー）。管理画面で原因が分かるように */
+const V19 = `ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS mail_error TEXT NOT NULL DEFAULT ''`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

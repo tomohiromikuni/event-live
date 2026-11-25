@@ -46,7 +46,8 @@ export async function submitInquiry(_prev: ContactResult | null, f: FormData): P
     [kind, ev?.id ?? null, ev?.name ?? '', reason, relation, message, name, email, iph, Date.now()]);
 
   const sent = await notifyByMail({ id: row!.id, kind, eventName: ev?.name ?? '', slug, reason, relation, message, name, email });
-  if (sent) await q('UPDATE inquiries SET mail_sent = 1 WHERE id = $1', [row!.id]);
+  if (sent.ok) await q('UPDATE inquiries SET mail_sent = 1 WHERE id = $1', [row!.id]);
+  else if (sent.error) await q('UPDATE inquiries SET mail_error = $1 WHERE id = $2', [sent.error.slice(0, 300), row!.id]);
 
   return {
     ok: true,
@@ -59,7 +60,7 @@ export async function submitInquiry(_prev: ContactResult | null, f: FormData): P
 /** 運営宛のメール通知（Resend の API を使用）。未設定・失敗時は false（データは保存済みなので管理画面で確認できる） */
 async function notifyByMail(d: { id: number; kind: string; eventName: string; slug: string; reason: string; relation: string; message: string; name: string; email: string }) {
   const to = process.env.CONTACT_EMAIL, key = process.env.RESEND_API_KEY;
-  if (!to || !key) return false;
+  if (!to || !key) return { ok: false, error: '' };
   const from = process.env.CONTACT_FROM || `${SITE_NAME} <onboarding@resend.dev>`;
   const base = siteUrl();
   const lines = [
@@ -87,8 +88,13 @@ async function notifyByMail(d: { id: number; kind: string; eventName: string; sl
       }),
       signal: AbortSignal.timeout(10000),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (res.ok) return { ok: true, error: '' };
+    // 送れなかった理由（送信元のドメインが未認証、テスト用の送信元から登録外のアドレスへ送った、など）を残す
+    const body = (await res.json().catch(() => null)) as { message?: string; name?: string } | null;
+    const error = `${res.status} ${body?.message || body?.name || ''}`.trim();
+    console.error('[contact] Resend error:', error);
+    return { ok: false, error };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
