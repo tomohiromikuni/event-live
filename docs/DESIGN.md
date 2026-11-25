@@ -92,6 +92,8 @@ API: GET /api/events/[id]/live, POST /api/reports, POST /api/reports/[id]/flag
   - タイトル：「イベント名＋年 駐車場・（公式情報があれば）シャトルバス・トイレ・交通規制と混雑状況」
   - 説明文：日程・会場・駐車場/シャトルバスの公式情報の冒頭（事実のみ）
 - 構造化データ：Event＋BreadcrumbList（パンくず）
+- URL：`/events/{英小文字のID}`（例 `sumida-hanabi`。年は入れず毎年同じURL）。自動の `ev-xxxx` のままなら管理画面に案内が出る。
+  URLを変えると古いURLは `slug_redirects` に残り、308 で新しいURLへ転送（`?ref=` も引き継ぐ。何度変えても最新へ）。
 - 内部リンク：詳細ページ下部に「ほかのイベント（同じ都道府県→同じジャンル・開催中/これから・最大4件）」
 - 構造化データ `schema.org/Event`（Google 検索の「イベント」枠に載るための形式。開催状況＝中止/延期も反映）
 - サンプル（架空）イベントは `noindex` にして検索結果に出さない

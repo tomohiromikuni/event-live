@@ -49,7 +49,10 @@ export default function EventForm({ event: e, genres, categories, genreDefaults,
                 {genres.map((g) => <option key={g.id} value={g.id}>{g.icon} {g.name}</option>)}
               </select>
             </div>
-            <F label="URL用ID（空欄で自動）" name="slug" def={e?.slug} placeholder="例: minato-hanabi-2026" />
+            <div>
+              <F label="URL用ID（英小文字・数字・ハイフン）" name="slug" def={e?.slug} placeholder="例: sumida-hanabi" />
+              <div className="muted small" style={{ marginTop: 4 }}>イベント名のローマ字や英語名がおすすめ（年は入れない：毎年同じURLを使うため）。変えても古いURLは自動で転送されます。</div>
+            </div>
           </div>
           <div className="two">
             <F label="開始日" name="start_date" type="date" def={e?.start_date} required />

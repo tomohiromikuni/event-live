@@ -22,6 +22,9 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
       </div>
       {saved && <div className="flash">保存しました</div>}
       {imported && <div className="flash">下書きを取り込みました。マップの位置を確認・調整し、内容に問題がなければ下の「公開する」にチェックして保存してください。</div>}
+      {/^ev-[a-z0-9]+$/.test(e.slug) && (
+        <div className="cand-match">URLが自動の文字列（/events/{e.slug}）のままです。検索で見つけてもらいやすいよう、下の「URL用ID」にイベント名のローマ字（例: sumida-hanabi）を入れて保存してください。</div>
+      )}
       {!e.published && <div className="banner postponed">🔒 このイベントは<strong>非公開</strong>です（一般の人には表示されません）</div>}
       <SimpleModePanel eventId={e.id} simple={e.map_mode === 'simple'} items={spots.filter((sp) => sp.generic).map((sp) => sp.name)} hasMap={spots.some((sp) => !sp.generic) || shapes.length > 0} />
       <MapEditor eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} spots={spots.filter((sp) => !sp.generic)} shapes={shapes} categories={cats} />

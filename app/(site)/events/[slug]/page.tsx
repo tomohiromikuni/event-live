@@ -1,9 +1,9 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import KindIcon from '@/components/Icon';
 import EventLive from '@/components/EventLive';
 import { StatusBadges } from '@/components/EventCard';
-import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports, searchEvents } from '@/lib/queries';
+import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports, redirectedSlug, searchEvents } from '@/lib/queries';
 import { fmtRange, isEnded, isOngoing } from '@/lib/dates';
 import EndedEvent from '@/components/EndedEvent';
 import EventGuide, { GUIDE_FIELDS } from '@/components/EventGuide';
@@ -103,7 +103,16 @@ function fieldValue(e: EventCard, key: string): React.ReactNode {
 }
 
 export default async function EventPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ ref?: string }> }) {
-  const e = await getEventBySlug((await params).slug);
+  const slug = (await params).slug;
+  const e = await getEventBySlug(slug);
+  if (!e) {
+    // URLを変えたイベントの古いURL → いまのURLへ転送（?ref= などはそのまま引き継ぐ）
+    const to = await redirectedSlug(slug);
+    if (to) {
+      const qs = new URLSearchParams(Object.entries(await searchParams).filter(([, v]) => typeof v === 'string') as [string, string][]).toString();
+      permanentRedirect(`/events/${to}${qs ? `?${qs}` : ''}`);
+    }
+  }
   if (!e || !e.published) notFound();
   // 終了したイベントは「終了しました」の案内だけ（マップ・投稿・混雑状況は見せない。データは管理画面に残る）
   if (isEnded(e.end_date)) return <EndedEvent e={e} />;

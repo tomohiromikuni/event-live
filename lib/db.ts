@@ -350,7 +350,16 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS toilet_info TEXT NOT NULL DEFAULT ''
 ALTER TABLE events ADD COLUMN IF NOT EXISTS food_info TEXT NOT NULL DEFAULT ''
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle];
+/** v16: URL（スラッグ）を変えたときの転送先。古いURL → イベント（いまのURLへ 308 で転送）。共有済みのリンク・検索エンジンの評価を引き継ぐ */
+const V16 = `
+CREATE TABLE IF NOT EXISTS slug_redirects (
+  old_slug TEXT PRIMARY KEY,
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  created_at BIGINT NOT NULL
+)
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

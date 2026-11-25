@@ -78,6 +78,12 @@ export async function prefectureCounts(): Promise<Record<string, number>> {
   return Object.fromEntries(rows.map((r) => [r.prefecture, r.n]));
 }
 
+/** 古いURL（変更前のスラッグ）なら、いまのスラッグを返す */
+export async function redirectedSlug(slug: string): Promise<string | null> {
+  const r = await one<{ slug: string }>('SELECT e.slug FROM slug_redirects r JOIN events e ON e.id = r.event_id WHERE r.old_slug = $1', [slug]);
+  return r && r.slug !== slug ? r.slug : null;
+}
+
 export function getEventBySlug(slug: string): Promise<EventCard | undefined> {
   return one<EventCard>(`${CARD_SELECT} WHERE e.slug = $1`, [slug]);
 }

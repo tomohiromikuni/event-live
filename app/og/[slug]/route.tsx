@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { getEventBySlug } from '@/lib/queries';
+import { getEventBySlug, redirectedSlug } from '@/lib/queries';
 import { fmtRange } from '@/lib/dates';
 import { iconSvg } from '@/lib/icons';
 import { UNOFFICIAL } from '@/lib/site';
@@ -38,7 +38,8 @@ function svgData(svg: string) {
 
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const fallback = new URL('/og.png', req.url);
-  const e = await getEventBySlug((await params).slug);
+  const slug = (await params).slug;
+  const e = await getEventBySlug(slug) ?? await redirectedSlug(slug).then((s) => (s ? getEventBySlug(s) : undefined));
   if (!e || !e.published) return Response.redirect(fallback, 302);
 
   const name = e.name;

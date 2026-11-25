@@ -52,6 +52,7 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
   };
   if (!v.name) return 'イベント名は必須です';
   if (!/^[a-z0-9-]+$/.test(slug)) return 'URL用ID（スラッグ）は半角英小文字・数字・ハイフンのみ使えます';
+  if (slug.length < 3 || slug.length > 60 || /^-|-$|--/.test(slug)) return 'URL用IDは3〜60文字で、先頭・末尾・連続のハイフンは使えません';
   if (!PREFECTURES.includes(v.prefecture)) return '都道府県を選択してください';
   if (!DATE_RE.test(v.start_date) || !DATE_RE.test(v.end_date) || v.end_date < v.start_date) return '開催日が不正です';
   if (!['scheduled', 'canceled', 'postponed'].includes(v.status)) return '開催状況が不正です';
@@ -71,6 +72,12 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
       const now = Date.now();
       let eid: number;
       if (id) {
+        // URLを変えたら、古いURLを転送用に残す（共有済みのリンク・検索エンジンの評価を引き継ぐ）
+        const old = (await tq<{ slug: string }>('SELECT slug FROM events WHERE id = $1', [id]))[0]?.slug;
+        if (old && old !== slug) {
+          await tq('INSERT INTO slug_redirects (old_slug, event_id, created_at) VALUES ($1, $2, $3) ON CONFLICT (old_slug) DO UPDATE SET event_id = $2',
+            [old, id, Date.now()]);
+        }
         // $1 = slug, $2.. = 各カラム, 続いて updated_at, id
         await tq(`UPDATE events SET slug = $1, ${cols.map((c, i) => `${c} = $${i + 2}`).join(', ')},
           updated_at = $${cols.length + 2} WHERE id = $${cols.length + 3}`, [slug, ...vals, now, id]);
@@ -80,6 +87,7 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
         eid = (await tq<{ id: number }>(`INSERT INTO events (slug, ${cols.join(', ')}, created_at, updated_at)
           VALUES ($1, ${ph}, $${cols.length + 2}, $${cols.length + 2}) RETURNING id`, [slug, ...vals, now]))[0].id;
       }
+      await tq('DELETE FROM slug_redirects WHERE old_slug = $1', [slug]); // 新しいURLが転送元に残っていれば外す
       await tq('DELETE FROM event_categories WHERE event_id = $1', [eid]);
       if (f.get('custom_categories')) {
         for (const c of cats) await tq('INSERT INTO event_categories (event_id, category_id) VALUES ($1, $2)', [eid, c]);
