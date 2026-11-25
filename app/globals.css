@@ -626,3 +626,24 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .admin-nav-more > summary { height: 38px; }
   .admin-nav-foot { width: 100%; margin: 4px 0 0; padding: 0 6px; gap: 14px; }
 }
+
+/* ---- 地図の地点：この場所に行く ---- */
+.go-btn { display: block; width: 100%; text-align: center; margin-top: 10px; font-weight: 900; }
+
+/* ---- 投稿ありがとう：自動で閉じるまでの残り時間・クラッカー ---- */
+.sheet.thanks { position: fixed; }
+.thanks-timer { height: 4px; border-radius: 99px; background: #fde68a; margin: 2px 0 8px; overflow: hidden; position: relative; }
+.thanks-timer::after { content: ''; position: absolute; inset: 0; background: var(--brand); transform-origin: left; animation: thanks-timer 6s linear forwards; }
+@keyframes thanks-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.sheet.thanks h3 .pop { display: inline-block; margin-right: 6px; animation: pop .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes pop { 0% { transform: scale(0) rotate(-30deg); } 100% { transform: scale(1) rotate(0); } }
+.confetti { position: fixed; left: 0; right: 0; bottom: 0; height: 0; z-index: 2002; pointer-events: none; }
+.confetti i { position: absolute; bottom: 40vh; border-radius: 2px; opacity: 0; animation: confetti 1.6s cubic-bezier(.15, .7, .3, 1) forwards; }
+.confetti i.l { left: 8%; }
+.confetti i.r { right: 8%; }
+@keyframes confetti {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0) scale(.4); }
+  45% { opacity: 1; transform: translate(var(--x), var(--y)) rotate(calc(var(--r) * .6)) scale(1); }
+  100% { opacity: 0; transform: translate(calc(var(--x) * 1.1), calc(var(--y) + 320px)) rotate(var(--r)) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } .thanks-timer::after, .sheet.thanks h3 .pop { animation: none; } }

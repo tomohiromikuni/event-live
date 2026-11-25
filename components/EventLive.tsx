@@ -92,6 +92,14 @@ export default function EventLive(p: Props) {
     return () => { clearInterval(tick); clearInterval(poll); document.removeEventListener('visibilitychange', onVis); };
   }, [refresh, skew]);
 
+  // 投稿ありがとうのパネルは6秒で自動的に閉じ、自分の投稿の場所を光らせる（パネルを触ったら閉じない）
+  const [thanksHold, setThanksHold] = useState(false);
+  useEffect(() => {
+    if (!thanks || thanksHold) return;
+    const t = setTimeout(() => { setHighlight(thanks.spotId); setThanks(null); }, 6000);
+    return () => clearTimeout(t);
+  }, [thanks, thanksHold]);
+
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2600);
@@ -137,6 +145,7 @@ export default function EventLive(p: Props) {
         setNow(Date.now() + skew);
         setSelected(null);
         const sp = spotById.get(spotId);
+        setThanksHold(false);
         setThanks({ id: data.report.id, spotId, spot: sp?.name ?? '', label: data.report.label, level: data.report.level, at: data.report.created_at });
       } else {
         setToast({ msg: data.error ?? '投稿できませんでした', error: true });
@@ -258,8 +267,8 @@ export default function EventLive(p: Props) {
             <h3>{sel.name}</h3>
             {sel.note && <div className="muted small">{sel.note}</div>}
             {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
-              <a className="gmap-link" href={`https://www.google.com/maps/search/?api=1&query=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer">
-                {sel.source === 'guide' ? 'Googleマップでこの辺りを開く ↗' : 'Googleマップで場所を開く ↗'}
+              <a className="btn ghost go-btn" href={`https://www.google.com/maps/dir/?api=1&destination=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer">
+                📍 {sel.source === 'guide' ? 'この辺りに行く' : 'この場所に行く'}（Googleマップ）
               </a>
             ) : null}
             {selCat.options.length > 0 ? (
@@ -315,9 +324,11 @@ export default function EventLive(p: Props) {
         return (
           <>
             <div className="sheet-backdrop" onClick={() => setThanks(null)} />
-            <div className="sheet thanks" role="dialog" aria-label="投稿ありがとうございます">
+            <Confetti key={thanks.id} />
+            <div className="sheet thanks" role="dialog" aria-label="投稿ありがとうございます" onPointerDown={() => setThanksHold(true)}>
               <div className="sheet-grip" />
-              <h3>投稿ありがとうございます！</h3>
+              {!thanksHold && <div className="thanks-timer" aria-hidden />}
+              <h3><span className="pop">🎉</span>投稿ありがとうございます！</h3>
               <p className="thanks-lead">あなたの情報がイベント参加者に共有されました。</p>
               <dl className="thanks-detail">
                 <div><dt>イベント</dt><dd>{p.eventName}</dd></div>
@@ -330,6 +341,7 @@ export default function EventLive(p: Props) {
                   setTimeout(() => document.getElementById(`spot-${thanks.spotId}`)?.closest('.topic-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
                 }}>自分の投稿を見る</button>
                 <a className="btn ghost" href="/me">この端末の貢献実績を見る</a>
+                <button className="btn ghost" onClick={() => setThanks(null)}>閉じる</button>
               </div>
               {s && (
                 <ShareButtons eventId={p.eventId} context="live" compact title="ほかの来場者にも知らせる" url={live('copy_live')}
@@ -340,5 +352,31 @@ export default function EventLive(p: Props) {
         );
       })()}
     </section>
+  );
+}
+
+/** クラッカー（投稿ありがとうのときに、左右から紙吹雪がパンと飛ぶ）。動きを減らす設定の端末では出さない */
+const CONFETTI_COLORS = ['#e0245e', '#ffd23f', '#3fd2c7', '#7c3aed', '#16a34a', '#2563eb', '#fb923c'];
+function Confetti() {
+  const pieces = useMemo(() => Array.from({ length: 36 }, (_, i) => {
+    const left = i % 2 === 0; // 左右の2か所から
+    const a = ((15 + Math.random() * 55) * Math.PI) / 180; // 真上から内側へ 15〜70°
+    const dist = 160 + Math.random() * 220;
+    return {
+      left, color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      x: Math.round((left ? 1 : -1) * Math.sin(a) * dist),
+      y: Math.round(-Math.cos(a) * dist),
+      r: Math.round(Math.random() * 720 - 360), d: Math.round(Math.random() * 120), w: 6 + Math.round(Math.random() * 6),
+    };
+  }), []);
+  return (
+    <div className="confetti" aria-hidden>
+      {pieces.map((c, i) => (
+        <i key={i} className={c.left ? 'l' : 'r'} style={{
+          background: c.color, width: c.w, height: c.w * 1.6, animationDelay: `${c.d}ms`,
+          ['--x' as string]: `${c.x}px`, ['--y' as string]: `${c.y}px`, ['--r' as string]: `${c.r}deg`,
+        }} />
+      ))}
+    </div>
   );
 }
