@@ -42,7 +42,13 @@ export default async function CollectPage({ searchParams }: { searchParams: Prom
           AI：{keyOk ? `設定済み（${model}）` : '⚠️ ANTHROPIC_API_KEY が未設定のため、ページの取得だけ行い、AIでの整理はしません'}
           ／ 直近30日のAI利用：入力 {month.reduce((a, r) => a + r.input_tokens, 0).toLocaleString()}・出力 {month.reduce((a, r) => a + r.output_tokens, 0).toLocaleString()} トークン
         </p>
-        <form action={runCollectNow} style={{ marginTop: 10 }}><button className="btn sm">今すぐ1回実行</button></form>
+        {(counts?.active ?? 0) === 0 && (
+          <div className="cand-match" style={{ marginTop: 10 }}>
+            巡回できる情報源がまだありません。<Link href="/admin/sources">情報源</Link>で、利用規約を確認したサイトを登録し、
+            確認日を入れて「巡回する」にしてから実行してください。
+          </div>
+        )}
+        <form action={runCollectNow} style={{ marginTop: 10 }}><button className="btn sm" disabled={(counts?.active ?? 0) === 0}>今すぐ1回実行</button></form>
       </div>
       <h2 className="admin-subtitle">実行履歴</h2>
       <div className="table-wrap">

@@ -34,6 +34,7 @@ export async function runCollect(trigger: 'cron' | 'manual') {
   // ---- 1) 取得 ----
   const due = await q<Source>(`SELECT * FROM sources WHERE enabled = 1 AND terms_checked_at <> ''
     AND last_fetched_at < $1::bigint - interval_hours::bigint * 3600000 ORDER BY last_fetched_at LIMIT 10`, [started]);
+  if (due.length === 0) log.push('巡回の時期が来た情報源はありません（情報源が未登録・停止中、または前回の取得から間隔が経っていない）');
   let budget = FETCH_LIMIT;
   for (const s of due) {
     if (budget <= 0) break;
