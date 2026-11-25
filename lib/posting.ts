@@ -67,15 +67,3 @@ export async function createReport(spotId: number, value: string): Promise<PostR
   return { ok: true, report: { id: r.id, event_id: spot.event_id, spot_id: spotId, value: opt.value, label: opt.label, level: opt.level, created_at: now, flag_count: 0 } };
 }
 
-export async function flagReport(reportId: number, reason: string): Promise<{ ok: boolean; error?: string }> {
-  if (!Number.isInteger(reportId)) return { ok: false, error: '投稿が見つかりません' };
-  const rep = await one('SELECT id FROM reports WHERE id = $1', [reportId]);
-  if (!rep) return { ok: false, error: '投稿が見つかりません' };
-  const cid = await getOrCreateClientId();
-  const res = await q(`INSERT INTO report_flags (report_id, client_id, reason, created_at) VALUES ($1, $2, $3, $4)
-    ON CONFLICT (report_id, client_id) DO NOTHING RETURNING id`, [reportId, cid, reason.slice(0, 200), Date.now()]);
-  if (res.length === 0) return { ok: false, error: 'この投稿はすでに通報済みです' };
-  await q(`UPDATE reports SET flag_count = flag_count + 1,
-    hidden = CASE WHEN flag_count + 1 >= $1 THEN 1 ELSE hidden END WHERE id = $2`, [LIMITS.autoHideFlags, reportId]);
-  return { ok: true };
-}
