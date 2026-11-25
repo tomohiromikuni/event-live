@@ -85,7 +85,7 @@ function eventJsonLd(e: EventCard, url: string) {
 }
 
 const NONE = <span className="none">情報なし</span>;
-/** 上のカード（駐車場・シャトルバス・トイレ・飲食／交通規制は駐車場カード内）に出す項目は、開催概要の表には出さない */
+/** 上のカード（駐車場・シャトルバス・トイレ／交通規制は駐車場カード内）に出す項目は、開催概要の表には出さない（飲食エリアは扱わない） */
 const CARD_FIELDS = ['parking_info', 'shuttle_info', 'traffic_info', 'toilet_info', 'food_info'];
 
 function fieldValue(e: EventCard, key: string): React.ReactNode {

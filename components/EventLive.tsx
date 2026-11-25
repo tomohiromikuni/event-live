@@ -40,7 +40,7 @@ type Props = {
 const POLL_MS = 20_000;
 
 /**
- * 詳細ページのカード（方針：駐車場・シャトルバス・トイレ・飲食の4つ。交通規制は駐車場カードの中に1行）。
+ * 詳細ページのカード（方針：駐車場・シャトルバス・トイレの3つ。交通規制は駐車場カードの中に1行。飲食・屋台の混雑は運営者の判断で扱わない）。
  * 1カードに「いまの状況（来場者の投稿）」「公式情報」「投稿ボタン」をまとめる。場所が複数あれば1か所1行。
  * always: 公式情報も地点もないときでもカードを出す（「未確認」と分かるように）
  */
@@ -48,7 +48,6 @@ const TOPICS = [
   { id: 'parking', title: '駐車場', cats: ['parking'], always: true },
   { id: 'shuttle', title: 'シャトルバス', cats: ['shuttle'], always: false },
   { id: 'toilet', title: 'トイレ', cats: ['toilet'], always: true },
-  { id: 'food', title: '飲食・屋台', cats: ['food'], always: false },
 ] as const;
 
 function escapeHtml(s: string) {

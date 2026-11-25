@@ -29,6 +29,6 @@ export function eventDescription(e: EventCard) {
   return [
     `${fmtRange(e.start_date, e.end_date)}・${place}で開催。`,
     facts && `${facts}。`,
-    '駐車場・トイレ・屋台の混雑や待ち時間を、来場者の投稿でリアルタイムに確認できます。',
+    '駐車場・シャトルバス・トイレの混雑や待ち時間を、来場者の投稿でリアルタイムに確認できます。',
   ].filter(Boolean).join('');
 }

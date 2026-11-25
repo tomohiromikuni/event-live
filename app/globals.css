@@ -682,3 +682,9 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .event-head h1 { font-size: 22px; margin: 8px 0 8px; }
 .cards-title { font-size: 14px; margin: 10px 0 2px; }
 .now-sum { font-size: 12px; }
+/* いまの状況：3つ（駐車場・シャトルバス・トイレ）を横一列に。アイコン・名前・状況を縦に並べる */
+.status-tiles { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+@media (max-width: 420px) { .status-tiles { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); } }
+.status-tile { grid-template-columns: 1fr; grid-template-rows: auto; justify-items: center; text-align: center; padding: 10px 6px; border-left-width: 2.5px; border-top: 6px solid var(--c); }
+.status-tile .st-icon { grid-row: auto; }
+.status-tile .st-val { justify-self: center; }

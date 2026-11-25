@@ -72,14 +72,14 @@ export async function tryAutoPublish(candidateId: number, isDuplicate: boolean):
 }
 
 /**
- * 載せられる情報があるか：公式情報（駐車場・シャトルバス・トイレ・飲食・交通規制）のどれかがある、
+ * 載せられる情報があるか：公式情報（駐車場・シャトルバス・トイレ・交通規制）のどれかがある、
  * または地図にトイレ・駐車場などの場所が1つ以上ある。何も無いイベント（イベント名と日程だけ）は公開しない（運営者の方針）。
  */
 export async function hasUsefulInfo(eventId: number): Promise<boolean> {
   const r = await one<{ info: boolean; spots: number }>(`SELECT
-      (e.parking_info <> '' OR e.shuttle_info <> '' OR e.toilet_info <> '' OR e.food_info <> '' OR e.traffic_info <> '') AS info,
+      (e.parking_info <> '' OR e.shuttle_info <> '' OR e.toilet_info <> '' OR e.traffic_info <> '') AS info,
       (SELECT COUNT(*)::int FROM spots s JOIN spot_categories c ON c.id = s.category_id
-        WHERE s.event_id = e.id AND s.generic = 0 AND c.slug IN ('toilet', 'parking', 'shuttle', 'food')) AS spots
+        WHERE s.event_id = e.id AND s.generic = 0 AND c.slug IN ('toilet', 'parking', 'shuttle')) AS spots
     FROM events e WHERE e.id = $1`, [eventId]);
   return !!r && (r.info || r.spots > 0);
 }

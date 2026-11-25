@@ -44,7 +44,7 @@ export async function saveEvent(_prev: string | null, f: FormData): Promise<stri
     summary: s(f, 'summary'), organizer: s(f, 'organizer'), official_url: s(f, 'official_url'), access: s(f, 'access'),
     nearest_station: s(f, 'nearest_station'), traffic_info: s(f, 'traffic_info'), parking_info: s(f, 'parking_info'),
     ticket_info: s(f, 'ticket_info'), extra_info: s(f, 'extra_info'),
-    shuttle_info: s(f, 'shuttle_info'), toilet_info: s(f, 'toilet_info'), food_info: s(f, 'food_info'),
+    shuttle_info: s(f, 'shuttle_info'), toilet_info: s(f, 'toilet_info'),
     // ハッシュタグ（空欄なら自動）。記号を除いて重複をなくし、#イベナウ以外で最大3個まで保存
     hashtags: cleanHashtags(s(f, 'hashtags')), status: s(f, 'status') || 'scheduled', status_note: s(f, 'status_note'),
     image_url: s(f, 'image_url'), image_credit: s(f, 'image_credit'), is_sample: f.get('is_sample') ? 1 : 0,

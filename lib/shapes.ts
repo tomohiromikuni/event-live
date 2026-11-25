@@ -33,7 +33,7 @@ export type MapShape = { id: number; event_id: number; kind: ShapeKind; style: s
  */
 export const PUBLIC_AREA_STYLES = ['food', 'parking', 'closed', 'viewing'];
 /** 公開マップに出す施設の種類（カードの4つ＋入口・救護所） */
-export const PUBLIC_SPOT_CATS = ['parking', 'shuttle', 'toilet', 'food', 'gate', 'first_aid'];
+export const PUBLIC_SPOT_CATS = ['parking', 'shuttle', 'toilet', 'gate', 'first_aid']; // 飲食・屋台の混雑は扱わない（エリアの四角は位置の目安として残す）
 
 export function simplifyShapes(shapes: MapShape[]): MapShape[] {
   return shapes
