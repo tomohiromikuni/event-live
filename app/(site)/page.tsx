@@ -23,7 +23,7 @@ export default async function Home() {
           <div className="hero-copy">
             {UNOFFICIAL && <span className="unofficial-note">非公式</span>}
             <h1>イベントの<br className="sp-only" />「今」が<br className="sp-only" />わかる。</h1>
-            <p>混雑・待ち時間・駐車場を、<br />来場者がリアルタイムで投稿。</p>
+            <p>駐車場・シャトルバス・トイレの混雑を、<br />来場者がリアルタイムで投稿。</p>
           </div>
           <form action="/search" className="search-box">
             <input name="q" type="search" placeholder="イベント名で探す" aria-label="キーワード" />
@@ -35,7 +35,7 @@ export default async function Home() {
 
         {live.length > 0 && (
           <section className="section" style={{ marginTop: 18 }}>
-            <div className="section-head"><h2><span className="live-dot" />いま、現地が盛り上がり中</h2></div>
+            <div className="section-head"><h2><span className="live-dot" />いま、現地から投稿があるイベント</h2></div>
             <EventCard e={live[0]} hero statuses={statuses[live[0].id]} now={now} />
             {live.length > 1 && <div style={{ marginTop: 14 }}><CardRow events={live.slice(1)} empty="" /></div>}
           </section>
