@@ -213,7 +213,7 @@ export default function EventLive(p: Props) {
       </div>
 
       <div className="live-head" style={{ borderTop: '2.5px solid var(--ink)' }}>
-        <strong>最新の投稿</strong>
+        <strong style={{ whiteSpace: 'nowrap' }}>最新の投稿</strong>
         <span className="muted small">{EXPIRE_MIN}分以上前の情報は現在の状況に反映されません</span>
       </div>
       <div className="feed">
