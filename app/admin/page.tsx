@@ -46,7 +46,6 @@ export default async function AdminEvents({ searchParams }: { searchParams: Prom
   const pending = await pendingCounts();
   const todo = [
     pending.removals ? { href: '/admin/removals', label: `削除依頼 ${pending.removals}件` } : null,
-    pending.flags ? { href: '/admin/reports?flagged=1', label: `通報 ${pending.flags}件` } : null,
     pending.inquiries ? { href: '/admin/inquiries', label: `問い合わせ ${pending.inquiries}件` } : null,
   ].filter((x): x is { href: string; label: string } => !!x);
 
@@ -108,7 +107,7 @@ export default async function AdminEvents({ searchParams }: { searchParams: Prom
               {sortHead('views', '閲覧', 'num')}
               <th className="num">見た人</th>
               {sortHead('posts', '投稿', 'num')}
-              <th className="num">未対応通報</th><th />
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -128,7 +127,6 @@ export default async function AdminEvents({ searchParams }: { searchParams: Prom
                 <td className="num">{r.views ? <strong>{fmt(r.views)}</strong> : <span className="muted">0</span>}</td>
                 <td className="num">{r.visitors ? fmt(r.visitors) : <span className="muted">0</span>}</td>
                 <td className="num">{r.posts ? <Link href={`/admin/reports?event=${r.id}`}>{fmt(r.posts)}</Link> : <span className="muted">0</span>}</td>
-                <td className="num" style={{ color: r.flags ? 'var(--danger)' : 'var(--muted)', fontWeight: r.flags ? 700 : 400 }}>{r.flags}</td>
                 <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                   <Link href={`/admin/events/${r.id}`}>編集</Link>{'　'}
                   <Link href={`/events/${r.slug}`} target="_blank">表示 ↗</Link>
