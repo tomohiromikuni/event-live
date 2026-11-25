@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { one, q } from '@/lib/db';
 import { getSetting } from '@/lib/collect/run';
 import { collectModel } from '@/lib/collect/extract';
-import { runCollectNow, runDiscoverNow, saveDiscoverSettings, setCollectEnabled } from '../collect-actions';
+import { runCollectNow, runDiscoverNow, runSweepNow, saveDiscoverSettings, setCollectEnabled } from '../collect-actions';
+import { sweepStatus } from '@/lib/collect/sweep';
 import { discoverSettings, nextTarget, seasonThemes } from '@/lib/collect/discover';
 import { PREFECTURES } from '@/lib/prefectures';
 import { autoMapBatch } from '../actions';
@@ -18,6 +19,7 @@ const fmt = (t: number) => new Date(t).toLocaleString('ja-JP', { timeZone: 'Asia
 export default async function CollectPage({ searchParams }: { searchParams: Promise<{ ran?: string; automap?: string; discovered?: string }> }) {
   const { ran, automap, discovered } = await searchParams;
   const ds = await discoverSettings();
+  const sw = await sweepStatus();
   const next = await nextTarget();
   const dlog = JSON.parse(await getSetting('discover_log', '[]')) as { at: number; message: string }[];
   const [enabled, runs, counts] = await Promise.all([
@@ -42,19 +44,28 @@ export default async function CollectPage({ searchParams }: { searchParams: Prom
       {discovered && <div className="flash">🔎 {discovered}</div>}
       <div className="panel">
         <h2>AIで探す（情報源の登録は不要）</h2>
+        <div className="small" style={{ margin: '0 0 8px', padding: '8px 10px', background: '#f6f3ff', borderRadius: 10 }}>
+          <strong>まとめ探し（月1回・自動）</strong>：対象の都道府県 × 季節のテーマを全部まとめて検索します（{ds.prefs.length * 2}通り・見積もり約{ds.prefs.length * 2 * 5}円）。
+          毎月はじめの定期実行で送り、翌日までに結果を受け取って読み込みます。<br />
+          今月：{sw.month === new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 7) ? (sw.pending ? '送信済み・結果待ち' : '済み') : '未送信（次の定期実行で送ります）'}
+          ・取得待ち {sw.new}件・読み込み済み {sw.queued}件
+          ・<strong>今月の使用額 約{Math.round(sw.spend)}円 ／ 上限 {ds.budgetYen}円</strong>
+          <form action={runSweepNow} style={{ marginTop: 6 }}><button className="btn sm ghost">まとめ探しを今すぐ送る</button></form>
+        </div>
         <p className="muted small" style={{ marginTop: 0 }}>
           毎日の自動収集の前に、季節に合わせて「都道府県 × テーマ」（いまの季節は {seasonThemes(new Date(Date.parse(next.from) + 30 * 86400_000).getUTCMonth() + 1).join('・')}）でAIがWeb検索し、
           イベントの<strong>公式サイト</strong>（主催者・自治体・観光協会）を見つけて読み込みます。まとめサイト・ポータル・SNSは使いません。
-          見つかったイベントは「収集した候補」に入ります（確認して承認）。費用の目安：1回 約5円（検索3回＋AI）。1日3回で月 約450円。
+          見つかったイベントは「収集した候補」に入ります（確認して承認）。費用の目安：1回 約5円（検索3回＋AI）。上限を超えそうなときは自動で止まります。
         </p>
         <div className="small">次に探す：<strong>{next.pref}の「{next.theme}」</strong>（{next.index + 1} / {next.total}）・{next.from}〜{next.to} に開催</div>
         <form action={saveDiscoverSettings} className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'end', margin: '10px 0' }}>
-          <label className="small">1日に探す回数（0で停止）<br /><input className="input" type="number" name="per_day" min={0} max={20} defaultValue={ds.perDay} style={{ width: 90 }} /></label>
+          <label className="small">毎日の追加分（回／日・0で停止）<br /><input className="input" type="number" name="per_day" min={0} max={20} defaultValue={ds.perDay} style={{ width: 90 }} /></label>
+          <label className="small">月の上限（円）<br /><input className="input" type="number" name="budget_yen" min={0} max={100000} defaultValue={ds.budgetYen} style={{ width: 110 }} /></label>
           <label className="small" style={{ flex: 1, minWidth: 220 }}>対象の都道府県（空欄＝全国。例：千葉県, 東京都）<br />
             <input className="input" name="prefs" defaultValue={ds.prefs.length === PREFECTURES.length ? '' : ds.prefs.join(', ')} style={{ width: '100%' }} /></label>
           <button className="btn sm ghost">保存</button>
         </form>
-        <form action={runDiscoverNow}><button className="btn sm">今すぐ1回探す</button></form>
+        <form action={runDiscoverNow}><button className="btn sm ghost">今すぐ1回だけ探す（次の組み合わせ）</button></form>
         {dlog.length > 0 && (
           <details className="small" style={{ marginTop: 8 }} open><summary>最近の結果</summary>
             {dlog.slice(0, 10).map((l) => <div key={l.at}>{new Date(l.at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}　{l.message}</div>)}

@@ -65,7 +65,6 @@ export default function EventLive(p: Props) {
   // 投稿完了パネル（お礼・投稿内容・共有）
   const [thanks, setThanks] = useState<{ id: number; spotId: number; spot: string; label: string; level: number; at: number } | null>(null);
   const [highlight, setHighlight] = useState<number | null>(null);
-  const [flagged, setFlagged] = useState<Set<number>>(new Set());
 
   const catById = useMemo(() => new Map(p.categories.map((c) => [c.id, c])), [p.categories]);
   const visibleSpots = useMemo(() => p.spots.filter((s) => catById.has(s.category_id)), [p.spots, catById]);
@@ -149,13 +148,6 @@ export default function EventLive(p: Props) {
     }
   }
 
-  async function flag(reportId: number) {
-    if (!confirm('この投稿を不適切な投稿として通報しますか？')) return;
-    const res = await fetch(`/api/reports/${reportId}/flag`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    const data = await res.json();
-    setFlagged((s) => new Set(s).add(reportId));
-    setToast(data.ok ? { msg: '通報を受け付けました' } : { msg: data.error ?? '通報できませんでした', error: true });
-  }
 
   const sel = selected != null ? spotById.get(selected) : undefined;
   const selCat = sel ? catById.get(sel.category_id) : undefined;
@@ -303,7 +295,6 @@ export default function EventLive(p: Props) {
                       <div key={r.id} className={`feed-item ${freshness(r.created_at, now) !== 'fresh' ? 'stale' : ''}`}>
                         <span className="time">{clockTime(r.created_at)}</span>
                         <span className="what"><strong style={{ color: levelColor(r.level) }}>{r.label}</strong>{r.mine && <span className="mine-tag">あなたの投稿</span>}</span>
-                        {!r.mine && !flagged.has(r.id) && <button className="flag-btn" onClick={() => flag(r.id)} aria-label="通報">通報</button>}
                       </div>
                     ))}
                   </div>

@@ -14,14 +14,21 @@ async function setStatus(f: FormData) {
   revalidatePath('/admin/inquiries');
 }
 
-export default async function Inquiries({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
-  const { all } = await searchParams;
-  const rows = await q<Row>(`SELECT * FROM inquiries WHERE kind <> 'removal' ${all ? '' : "AND status = 'new'"} ORDER BY created_at DESC LIMIT 200`);
+const PER_PAGE = 10;
+
+export default async function Inquiries({ searchParams }: { searchParams: Promise<{ all?: string; page?: string }> }) {
+  const { all, page: pg } = await searchParams;
+  const where = `kind <> 'removal' ${all ? '' : "AND status = 'new'"}`;
+  const [{ n: total }] = await q<{ n: number }>(`SELECT COUNT(*)::int AS n FROM inquiries WHERE ${where}`);
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const page = Math.min(Math.max(Number(pg) || 1, 1), pages);
+  const rows = await q<Row>(`SELECT * FROM inquiries WHERE ${where} ORDER BY created_at DESC LIMIT $1 OFFSET $2`, [PER_PAGE, (page - 1) * PER_PAGE]);
+  const pageHref = (n: number) => `/admin/inquiries?${new URLSearchParams({ ...(all ? { all: '1' } : {}), ...(n > 1 ? { page: String(n) } : {}) })}`;
   const mailOn = !!(process.env.CONTACT_EMAIL && process.env.RESEND_API_KEY);
   return (
     <>
       <div className="section-head">
-        <h2>{all ? '問い合わせ（すべて）' : '未対応の問い合わせ'}（{rows.length}件）</h2>
+        <h2>{all ? '問い合わせ（すべて）' : '未対応の問い合わせ'}（{total}件）</h2>
         <span className="small" style={{ display: 'flex', gap: 12 }}>
           <Link href="/admin/removals">削除依頼へ →</Link>
           <Link href={all ? '/admin/inquiries' : '/admin/inquiries?all=1'}>{all ? '未対応だけ表示' : 'すべて表示'}</Link>
@@ -60,6 +67,13 @@ export default async function Inquiries({ searchParams }: { searchParams: Promis
           </div>
         ))}
       </div>
+      {pages > 1 && (
+        <nav className="small" style={{ display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', margin: '16px 0' }} aria-label="ページ">
+          {page > 1 ? <Link href={pageHref(page - 1)}>← 前の10件</Link> : <span className="muted">← 前の10件</span>}
+          <span>{page} / {pages}ページ</span>
+          {page < pages ? <Link href={pageHref(page + 1)}>次の10件 →</Link> : <span className="muted">次の10件 →</span>}
+        </nav>
+      )}
     </>
   );
 }

@@ -400,7 +400,19 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS automap_at BIGINT NOT NULL DEFAULT 0
 INSERT INTO app_settings (key, value) VALUES ('collect_enabled', '1') ON CONFLICT (key) DO NOTHING
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20];
+/** v21: まとめ探し（月1回のバッチ検索）で見つけた公式ページの一覧。定期実行のたびに少しずつ取得する */
+const V21 = `
+CREATE TABLE IF NOT EXISTS sweep_queue (
+  url TEXT PRIMARY KEY,
+  pref TEXT NOT NULL DEFAULT '',
+  theme TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'new',     -- new（取得待ち）/ queued（AI整理待ちへ）/ known（取得済み）/ blocked（robots.txt・取得失敗）
+  found_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sweep_queue_status ON sweep_queue(status, found_at)
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

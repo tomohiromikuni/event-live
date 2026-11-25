@@ -38,7 +38,8 @@ export function seasonThemes(month: number): string[] {
 export async function discoverSettings() {
   const prefs = (await getSetting('discover_prefs', '')).split(/[,、\s]+/).filter((p) => PREFECTURES.includes(p));
   return {
-    perDay: Math.min(Math.max(Number(await getSetting('discover_per_day', '3')) || 0, 0), 20),
+    perDay: Math.min(Math.max(Number(await getSetting('discover_per_day', '0')) || 0, 0), 20),
+    budgetYen: Math.min(Math.max(Number(await getSetting('discover_budget_yen', '1000')) || 0, 0), 100000),
     prefs: prefs.length ? prefs : PREFECTURES,
   };
 }
@@ -55,7 +56,7 @@ export async function nextTarget() {
 
 let client: Anthropic | null = null;
 
-async function ensureSource() {
+export async function ensureSource() {
   const s = await one<{ id: number }>("SELECT id FROM sources WHERE url = 'discover://ai'");
   if (s) return s.id;
   // ふだんの巡回（enabled=1 の情報源）には含めない専用の行
@@ -65,37 +66,31 @@ async function ensureSource() {
   return r.id;
 }
 
-/** AI に検索させ、公式ページの URL を返してもらう（本文に書かれた URL だけを使う） */
-async function searchOfficialPages(t: { pref: string; theme: string; from: string; to: string }) {
-  client ??= new Anthropic();
-  const messages: Anthropic.MessageParam[] = [{
-    role: 'user',
-    content: `${t.pref}で ${t.from}〜${t.to} の間に開催予定の「${t.theme}」を探し、それぞれの**公式サイト**のページを見つけてください。
+export type Target = { pref: string; theme: string; from: string; to: string };
+
+/** 検索の依頼（毎日の探索・まとめ探しで共通） */
+export function searchParams(t: Target): Anthropic.MessageCreateParamsNonStreaming {
+  return {
+    model: collectModel(),
+    max_tokens: 4000,
+    tools: [{
+      type: 'web_search_20250305', name: 'web_search', max_uses: MAX_SEARCHES, blocked_domains: BLOCKED_DOMAINS,
+      user_location: { type: 'approximate', country: 'JP', timezone: 'Asia/Tokyo' },
+    }],
+    messages: [{
+      role: 'user',
+      content: `${t.pref}で ${t.from}〜${t.to} の間に開催予定の「${t.theme}」を探し、それぞれの**公式サイト**のページを見つけてください。
 - 公式サイト＝主催者・実行委員会・自治体・観光協会のページ。まとめサイト・ポータル・ブログ・SNS・ニュースは使わない。
 - 今年（${t.from.slice(0, 4)}年）以降の開催情報が載っているページだけ。過去の開催報告は除く。
 - 最大8件。見つからなければ「なし」とだけ答える。
 最後に、1行に1件ずつ「URL<タブ>イベント名」の形で書いてください（説明は不要）。`,
-  }];
-  const usage = { input: 0, output: 0, searches: 0 };
-  let res: Anthropic.Message | null = null;
-  for (let i = 0; i < 3; i++) {
-    res = await client.messages.create({
-      model: collectModel(),
-      max_tokens: 4000,
-      tools: [{
-        type: 'web_search_20250305', name: 'web_search', max_uses: MAX_SEARCHES, blocked_domains: BLOCKED_DOMAINS,
-        user_location: { type: 'approximate', country: 'JP', timezone: 'Asia/Tokyo' },
-      }],
-      messages,
-    } as Anthropic.MessageCreateParamsNonStreaming);
-    usage.input += res.usage.input_tokens + (res.usage.cache_read_input_tokens ?? 0);
-    usage.output += res.usage.output_tokens;
-    usage.searches += (res.usage as { server_tool_use?: { web_search_requests?: number } }).server_tool_use?.web_search_requests ?? 0;
-    if (res.stop_reason !== 'pause_turn') break;
-    messages.push({ role: 'assistant', content: res.content }); // 長い検索が一時停止したら、そのまま続けてもらう
-  }
-  if (!res || res.stop_reason === 'refusal') throw new Error('AIが処理を断りました');
-  const text = res.content.map((b) => (b.type === 'text' ? b.text : '')).join('\n');
+    }],
+  } as Anthropic.MessageCreateParamsNonStreaming;
+}
+
+/** AI の答え（本文）から公式ページの URL だけを取り出す（除外ドメインは捨てる） */
+export function parseUrls(content: Anthropic.ContentBlock[]): string[] {
+  const text = content.map((b) => (b.type === 'text' ? b.text : '')).join('\n');
   const urls: string[] = [];
   for (const m of text.matchAll(/https?:\/\/[^\s<>"'）)\]]+/g)) {
     const u = m[0].replace(/[。、.,]+$/, '');
@@ -104,33 +99,80 @@ async function searchOfficialPages(t: { pref: string; theme: string; from: strin
     if (BLOCKED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`))) continue;
     if (!urls.includes(u)) urls.push(u);
   }
-  return { urls: urls.slice(0, 8), usage };
+  return urls.slice(0, 8);
 }
 
-/** 1回分の探索：次の「都道府県 × テーマ」を探し、見つけた公式ページを「AI整理待ち」に入れる */
+/** 費用の見積もり（円）：Web検索 $10/1,000回 ＋ Haiku のトークン。batch=true は AI の利用料が半額 */
+export const YEN_PER_USD = 150;
+export function costYen(u: { searches: number; input: number; output: number }, batch = false) {
+  const k = batch ? 0.5 : 1;
+  return (u.searches * 0.01 + (u.input * 0.10 + u.output * 0.50) / 1e6 * k) * YEN_PER_USD;
+}
+
+/** 今月の使用額（円）に足す */
+export async function addSpend(yen: number) {
+  const key = `discover_spend_${todayJST().slice(0, 7)}`;
+  await setSetting(key, String((Number(await getSetting(key, '0')) || 0) + yen));
+}
+export async function monthSpend() {
+  return Number(await getSetting(`discover_spend_${todayJST().slice(0, 7)}`, '0')) || 0;
+}
+
+/** AI に検索させ、公式ページの URL を返してもらう（本文に書かれた URL だけを使う） */
+async function searchOfficialPages(t: Target) {
+  client ??= new Anthropic();
+  const params = searchParams(t);
+  const messages = [...params.messages];
+  const usage = { input: 0, output: 0, searches: 0 };
+  let res: Anthropic.Message | null = null;
+  for (let i = 0; i < 3; i++) {
+    res = await client.messages.create({ ...params, messages });
+    usage.input += res.usage.input_tokens + (res.usage.cache_read_input_tokens ?? 0);
+    usage.output += res.usage.output_tokens;
+    usage.searches += (res.usage as { server_tool_use?: { web_search_requests?: number } }).server_tool_use?.web_search_requests ?? 0;
+    if (res.stop_reason !== 'pause_turn') break;
+    messages.push({ role: 'assistant', content: res.content }); // 長い検索が一時停止したら、そのまま続けてもらう
+  }
+  if (!res || res.stop_reason === 'refusal') throw new Error('AIが処理を断りました');
+  return { urls: parseUrls(res.content), usage };
+}
+
+/** 見つけた公式ページを（robots.txt を守って）取得し、「AI整理待ち」に入れる。取得済み（30日以内）は飛ばす */
+export async function queuePage(url: string): Promise<'queued' | 'known' | 'blocked'> {
+  const sourceId = await ensureSource();
+  const prev = await one<{ fetched_at: number }>('SELECT fetched_at FROM crawl_pages WHERE url = $1', [url]);
+  if (prev && Number(prev.fetched_at) > Date.now() - RECHECK_DAYS * 86400_000) return 'known';
+  const page = await fetchPage(url).catch(() => null);
+  if (!page) return 'blocked'; // robots.txt で禁止・取得失敗
+  await q(`INSERT INTO crawl_pages (source_id, url, title, text_hash, text, links, status, attempts, error, fetched_at)
+    VALUES ($1, $2, $3, $4, $5, $6, 'pending', 0, '', $7)
+    ON CONFLICT (url) DO UPDATE SET title = $3, text_hash = $4, text = $5, links = $6, status = 'pending', attempts = 0, error = '', fetched_at = $7`,
+    [sourceId, url, page.title.slice(0, 200), page.hash, page.text, JSON.stringify(page.links), Date.now()]);
+  return 'queued';
+}
+
+export async function addLog(message: string) {
+  const log = JSON.parse(await getSetting('discover_log', '[]')) as { at: number; message: string }[];
+  await setSetting('discover_log', JSON.stringify([{ at: Date.now(), message }, ...log].slice(0, 30)));
+}
+
+/** 1回分の探索（毎日の追加分）：次の「都道府県 × テーマ」を探し、見つけた公式ページを「AI整理待ち」に入れる */
 export async function runDiscover() {
   if (!extractorReady()) return { ok: false, message: 'ANTHROPIC_API_KEY が未設定のため、AIで探すことはできません' };
+  const { budgetYen } = await discoverSettings();
+  if ((await monthSpend()) + 6 > budgetYen) return { ok: false, message: `今月の上限（${budgetYen}円）に達したため、探していません` };
   const t = await nextTarget();
   await setSetting('discover_cursor', String(t.cursor + 1)); // 失敗しても次は別の組み合わせへ
-  const sourceId = await ensureSource();
   const { urls, usage } = await searchOfficialPages(t);
-  const since = Date.now() - RECHECK_DAYS * 86400_000;
+  await addSpend(costYen(usage));
   let queued = 0, known = 0, blocked = 0;
   for (const url of urls) {
     if (queued >= MAX_PAGES) break;
-    const prev = await one<{ fetched_at: number }>('SELECT fetched_at FROM crawl_pages WHERE url = $1', [url]);
-    if (prev && Number(prev.fetched_at) > since) { known++; continue; }
-    const page = await fetchPage(url).catch(() => null);
-    if (!page) { blocked++; continue; } // robots.txt で禁止・取得失敗
-    await q(`INSERT INTO crawl_pages (source_id, url, title, text_hash, text, links, status, attempts, error, fetched_at)
-      VALUES ($1, $2, $3, $4, $5, $6, 'pending', 0, '', $7)
-      ON CONFLICT (url) DO UPDATE SET title = $3, text_hash = $4, text = $5, links = $6, status = 'pending', attempts = 0, error = '', fetched_at = $7`,
-      [sourceId, url, page.title.slice(0, 200), page.hash, page.text, JSON.stringify(page.links), Date.now()]);
-    queued++;
+    const r = await queuePage(url);
+    if (r === 'queued') queued++; else if (r === 'known') known++; else blocked++;
   }
   const message = `${t.pref}の「${t.theme}」：公式ページ ${urls.length}件を発見 → ${queued}件をAI整理待ちへ`
-    + `${known ? `（取得済み ${known}件）` : ''}${blocked ? `（取得できない ${blocked}件）` : ''}・検索${usage.searches}回`;
-  const log = JSON.parse(await getSetting('discover_log', '[]')) as { at: number; message: string }[];
-  await setSetting('discover_log', JSON.stringify([{ at: Date.now(), message }, ...log].slice(0, 30)));
+    + `${known ? `（取得済み ${known}件）` : ''}${blocked ? `（取得できない ${blocked}件）` : ''}・検索${usage.searches}回・約${Math.round(costYen(usage))}円`;
+  await addLog(message);
   return { ok: true, message, queued, usage };
 }

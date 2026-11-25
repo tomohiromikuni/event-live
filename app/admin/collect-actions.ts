@@ -7,6 +7,7 @@ import { PREFECTURES } from '@/lib/prefectures';
 import { todayJST } from '@/lib/dates';
 import { runCollect, setSetting } from '@/lib/collect/run';
 import { runDiscover } from '@/lib/collect/discover';
+import { collectSweepResults, submitMonthlySweep } from '@/lib/collect/sweep';
 import type { Extracted } from '@/lib/collect/extract';
 import { enableSimpleMode, syncSimpleItems } from '@/lib/simple';
 import { mergeColumns } from '@/lib/collect/merge';
@@ -144,6 +145,7 @@ export async function saveDiscoverSettings(f: FormData) {
   const n = Math.min(Math.max(Math.round(Number(f.get('per_day')) || 0), 0), 20);
   await setSetting('discover_per_day', String(n));
   await setSetting('discover_prefs', String(f.get('prefs') ?? '').split(/[,、\s]+/).filter((p) => PREFECTURES.includes(p)).join(','));
+  await setSetting('discover_budget_yen', String(Math.min(Math.max(Math.round(Number(f.get('budget_yen')) || 0), 0), 100000)));
   revalidatePath('/admin/collect');
 }
 
@@ -151,6 +153,16 @@ export async function runDiscoverNow() {
   await requireAdmin();
   let msg: string;
   try { msg = (await runDiscover()).message; } catch (e) { msg = e instanceof Error ? e.message : String(e); }
+  revalidatePath('/admin/collect');
+  redirect(`/admin/collect?discovered=${encodeURIComponent(msg)}`);
+}
+
+export async function runSweepNow() {
+  await requireAdmin();
+  let msg: string;
+  try {
+    msg = (await submitMonthlySweep(true)) ?? (await collectSweepResults()) ?? '前のまとめ探しの結果を受け取ってから送ります';
+  } catch (e) { msg = e instanceof Error ? e.message : String(e); }
   revalidatePath('/admin/collect');
   redirect(`/admin/collect?discovered=${encodeURIComponent(msg)}`);
 }
