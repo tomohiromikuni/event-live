@@ -181,6 +181,25 @@ export default function EventLive(p: Props) {
           : <>まだ直近の投稿はありません。項目をタップして、いまの状況を投稿できます（登録不要）</>}
       </div>
 
+      <div className="status-tiles" role="list" aria-label="いまの状況">
+        {TOPICS.map((t) => {
+          const spots = visibleSpots.filter((s) => (t.cats as readonly string[]).includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0);
+          if (!spots.length && !p.official?.[t.id]?.trim() && !t.always) return null;
+          const cat = p.categories.find((c) => (t.cats as readonly string[]).includes(c.slug));
+          // 最新の状況（複数か所なら一番新しく投稿があった場所）
+          const best = spots.map((s) => latestBySpot.get(s.id)).filter(Boolean).sort((a, b) => b!.created_at - a!.created_at)[0];
+          const stale = best && freshness(best.created_at, now) === 'stale';
+          return (
+            <a key={t.id} role="listitem" href={`#topic-${t.id}`} className="status-tile" style={{ ['--c' as string]: cat?.color ?? '#64748b' }}>
+              <span className="st-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={20} />}</span>
+              <span className="st-name">{t.title}</span>
+              {best ? <span className={`st-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{best.label}</span>
+                : <span className="st-val none">投稿なし</span>}
+            </a>
+          );
+        })}
+      </div>
+
       {TOPICS.map((t) => {
         const spots = visibleSpots.filter((s) => (t.cats as readonly string[]).includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0);
         const official = p.official?.[t.id]?.trim() ?? '';
@@ -193,7 +212,7 @@ export default function EventLive(p: Props) {
         const single = spots.length === 1 ? spots[0] : undefined;
         const singleLatest = single ? latestBySpot.get(single.id) : undefined;
         return (
-          <div key={t.id} className="topic-card" id={`topic-${t.id}`}>
+          <div key={t.id} className="topic-card colored" id={`topic-${t.id}`} style={{ ['--c' as string]: cat?.color ?? '#64748b', scrollMarginTop: 70 }}>
             <div className="tc-head">
               <span className="tc-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={20} />}</span>
               <h3>{t.title}</h3>
@@ -219,13 +238,26 @@ export default function EventLive(p: Props) {
                 {!open && <button className="tc-more" onClick={() => setExpanded((x) => new Set(x).add(t.id))}>ほかの{sorted.length - 3}か所を表示</button>}
               </div>
             )}
-            <div className="tc-off">
-              <span className="src-tag official">公式情報</span>
-              <div style={{ whiteSpace: 'pre-wrap' }}>{official || <span className="none">未確認</span>}</div>
-              {t.id === 'parking' && p.official?.traffic?.trim() && <div className="tc-traffic">🚧 交通規制：{p.official.traffic.trim()}</div>}
-            </div>
+            {(() => {
+              const traffic = t.id === 'parking' ? p.official?.traffic?.trim() ?? '' : '';
+              const long = official.length + traffic.length > 70;
+              const body = (
+                <>
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{official || <span className="none">未確認</span>}</div>
+                  {traffic && <div className="tc-traffic">🚧 交通規制：{traffic}</div>}
+                </>
+              );
+              return long ? (
+                <details className="tc-off">
+                  <summary><span className="src-tag official">公式情報</span><span className="tc-off-preview">{official.slice(0, 34)}…</span><span className="tc-off-more">続きを見る</span></summary>
+                  {body}
+                </details>
+              ) : (
+                <div className="tc-off"><span className="src-tag official">公式情報</span>{body}</div>
+              );
+            })()}
             {single && (
-              <button className="tc-btn spot-item" onClick={() => setSelected(single.id)}>
+              <button className={`tc-btn spot-item ${p.postable ? 'primary' : ''}`} onClick={() => setSelected(single.id)}>
                 {t.title}{p.postable ? 'のいまを投稿する' : 'の状況を見る'}
               </button>
             )}
