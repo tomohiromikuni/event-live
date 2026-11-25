@@ -21,6 +21,8 @@ type Props = {
   /** 管理画面の作図ツールが地図を直接操作するためのフック */
   onReady?: (map: L.Map, lib: typeof L) => void;
   focus?: { lat: number; lng: number } | null;
+  /** geo のとき「現在地」ボタンを出す（位置はこの端末の画面に表示するだけ。サーバーには送らない・保存しない） */
+  locate?: boolean;
 };
 
 /**
@@ -55,7 +57,7 @@ export default function LeafletMap(props: Props) {
         map = lib.map(el.current, { minZoom: 5, maxZoom: 18, zoomSnap: 0.25, zoomDelta: 0.5 });
         map.attributionControl.setPrefix(false);
         lib.tileLayer(GSI_TILE, { maxZoom: 18, maxNativeZoom: 18, attribution: GSI_ATTR }).addTo(map);
-        if (pts.length > 1) map.fitBounds(lib.latLngBounds(pts), { padding: [16, 16] });
+        if (pts.length > 1) map.fitBounds(lib.latLngBounds(pts), { padding: [36, 36] });
         else map.setView(pts[0] ?? cbRef.current.center ?? [36.5, 138], pts.length || cbRef.current.center ? 16 : 5);
       } else {
         const { w, h } = cbRef.current.canvas;
@@ -86,6 +88,7 @@ export default function LeafletMap(props: Props) {
       mapRef.current = map;
       renderShapes();
       renderMarkers();
+      if (cbRef.current.geo && cbRef.current.locate) addLocateControl(map, lib);
       cbRef.current.onReady?.(map, lib);
     });
     return () => {
@@ -95,6 +98,41 @@ export default function LeafletMap(props: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** 現在地ボタン：押すと端末の位置を地図に表示（もう一度押すと止める）。位置はどこにも送らない */
+  function addLocateControl(map: L.Map, lib: typeof L) {
+    let watch: number | null = null;
+    let dot: L.CircleMarker | null = null, ring: L.Circle | null = null, first = true;
+    const Ctl = lib.Control.extend({
+      onAdd() {
+        const b = lib.DomUtil.create('button', 'locate-btn');
+        b.type = 'button'; b.textContent = '📍 現在地'; b.title = '現在地を表示（位置は送信・保存されません）';
+        lib.DomEvent.disableClickPropagation(b);
+        b.onclick = () => {
+          if (watch != null) {
+            navigator.geolocation.clearWatch(watch); watch = null; dot?.remove(); ring?.remove(); dot = ring = null; first = true;
+            b.classList.remove('on'); return;
+          }
+          if (!('geolocation' in navigator)) { alert('この端末では現在地を使えません'); return; }
+          b.classList.add('on');
+          watch = navigator.geolocation.watchPosition((pos) => {
+            const ll: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+            if (!dot) {
+              ring = lib.circle(ll, { radius: pos.coords.accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.12, interactive: false }).addTo(map);
+              dot = lib.circleMarker(ll, { radius: 8, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1, interactive: false }).addTo(map);
+            } else { dot.setLatLng(ll); ring!.setLatLng(ll).setRadius(pos.coords.accuracy); }
+            if (first) { first = false; map.panTo(ll); }
+          }, (err) => {
+            alert(err.code === 1 ? '位置情報の利用が許可されていません（端末の設定で許可してください）' : '現在地を取得できませんでした');
+            if (watch != null) navigator.geolocation.clearWatch(watch);
+            watch = null; b.classList.remove('on');
+          }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
+        };
+        return b;
+      },
+    });
+    new Ctl({ position: 'topright' }).addTo(map);
+  }
 
   function renderShapes() {
     const lib = libRef.current, layer = shapeLayer.current;

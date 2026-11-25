@@ -115,7 +115,7 @@ export default function EventLive(p: Props) {
 
   // 公開マップは簡易表示：施設は決まった種類だけ、エリアは四角に簡略化、線は出さない（lib/shapes.ts）
   const mapShapes = useMemo(() => simplifyShapes(p.shapes), [p.shapes]);
-  const markers: MapMarker[] = useMemo(() => visibleSpots.filter((s) => PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '')).map((s) => {
+  const markers: MapMarker[] = useMemo(() => visibleSpots.filter((s) => !s.generic && PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '')).map((s) => {
     const c = catById.get(s.category_id)!;
     const latest = latestBySpot.get(s.id);
     const stale = latest && freshness(latest.created_at, now) === 'stale';
@@ -241,12 +241,17 @@ export default function EventLive(p: Props) {
           <p className="muted small" style={{ margin: '0 0 8px' }}>位置の目安を示す簡易マップです。地点をタップしても、状況の確認・投稿ができます。</p>
           <div className="live-map">
             <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes}
-              onMarkerClick={setSelected} focus={sel ? { lat: sel.lat, lng: sel.lng } : null} />
+              onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} />
             <div className="legend">
               {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l}><i style={{ background: LEVEL_COLORS[i] }} />{l}</span>)}
               <span><i style={{ background: '#94a3b8' }} />情報なし</span>
               <span>点線＝{FRESH_MIN}分以上前</span>
             </div>
+            {visibleSpots.some((s) => s.source === 'osm') && (
+              <div className="muted small" style={{ padding: '0 12px 10px' }}>
+                トイレ・駐車場の一部は <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> のデータです（常設の施設のみ）
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -259,6 +264,11 @@ export default function EventLive(p: Props) {
             <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{selCat.name}</div>
             <h3>{sel.name}</h3>
             {sel.note && <div className="muted small">{sel.note}</div>}
+            {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
+              <a className="gmap-link" href={`https://www.google.com/maps/search/?api=1&query=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer">
+                Googleマップで場所を開く ↗
+              </a>
+            ) : null}
             {selCat.options.length > 0 ? (
               <>
                 <div className="current">

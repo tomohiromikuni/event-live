@@ -382,7 +382,13 @@ CREATE INDEX IF NOT EXISTS idx_sns_posts_status ON sns_posts(status, created_at)
 CREATE INDEX IF NOT EXISTS idx_sns_posts_event ON sns_posts(event_id, kind, created_at)
 `;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17];
+/** v18: 施設の出どころ（'' = 手で登録・'osm' = OpenStreetMap から自動取得 など）と、元データのID（重複取り込みの防止） */
+const V18 = `
+ALTER TABLE spots ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT '';
+ALTER TABLE spots ADD COLUMN IF NOT EXISTS ext_id TEXT NOT NULL DEFAULT ''
+`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

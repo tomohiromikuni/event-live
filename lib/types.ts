@@ -33,7 +33,9 @@ export type EventRow = {
 
 export type EventCard = EventRow & { genre_name: string; genre_icon: string; genre_slug: string; genre_color: string; live_count?: number };
 
-export type Spot = { id: number; event_id: number; category_id: number; name: string; note: string; lat: number; lng: number; sort: number; generic?: number };
+export type Spot = { id: number; event_id: number; category_id: number; name: string; note: string; lat: number; lng: number; sort: number; generic?: number;
+  /** 出どころ：'' = 手で登録、'osm' = OpenStreetMap から自動取得 */
+  source?: string };
 
 export type Report = {
   id: number; event_id: number; spot_id: number; value: string; label: string; level: number;

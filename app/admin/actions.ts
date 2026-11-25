@@ -1,4 +1,5 @@
 'use server';
+import { importOsmFacilities } from '@/lib/osm';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { timingSafeEqual } from 'node:crypto';
@@ -267,8 +268,10 @@ const PUBLISH_RULE_MSG = '公開するには、会場マップを作る（施設
  * - かんたん表示：開催場所と情報元（公式サイトまたは情報元URL）が確認できていること
  */
 async function publishBlocker(eventId: number, v: { venue_name: string; address: string; city: string; official_url: string; source_url: string }): Promise<string | null> {
-  const ev = await one<{ map_mode: string }>('SELECT map_mode FROM events WHERE id = $1', [eventId]);
-  if (ev?.map_mode === 'simple') {
+  const ev = await one<{ map_mode: string; generic: number }>(
+    'SELECT map_mode, (SELECT COUNT(*)::int FROM spots WHERE event_id = $1 AND generic = 1) AS generic FROM events WHERE id = $1', [eventId]);
+  // かんたん表示、または自動で用意した項目があるイベント（自動取得の地図）は、開催場所と情報元の確認で公開できる
+  if (ev?.map_mode === 'simple' || (ev?.generic ?? 0) > 0) {
     if (!v.venue_name && !v.address) return 'かんたん表示で公開するには、開催場所（会場名か住所）を確認して入力してください';
     if (!v.official_url && !v.source_url) return 'かんたん表示で公開するには、公式サイトか情報元のURLを入力してください（情報の確認のため）';
     return null;
@@ -296,4 +299,18 @@ function cleanHashtags(raw: string): string {
     if (t && t !== OFFICIAL_TAG && !out.includes(t)) out.push(t);
   }
   return out.slice(0, 3).join(' ');
+}
+
+/** 会場の周りの常設トイレ・駐車場を OpenStreetMap から自動で取り込む（人の手での位置合わせはしない） */
+export async function autoMapFromOsm(f: FormData) {
+  await requireAdmin();
+  const id = Number(f.get('id'));
+  let msg: string;
+  try {
+    msg = (await importOsmFacilities(q, id)).message;
+  } catch (e) {
+    msg = e instanceof Error ? e.message : String(e);
+  }
+  revalidatePath('/', 'layout');
+  redirect(`/admin/events/${id}?osm=${encodeURIComponent(msg)}`);
 }

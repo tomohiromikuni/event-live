@@ -579,3 +579,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .map-card .live-map { margin: 0 -14px -12px; border-top: 1.5px solid var(--border); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
 .sheet-posts { margin-top: 12px; border-top: 1.5px solid var(--border); padding-top: 8px; }
 .sheet-posts .feed-item { padding: 6px 0; }
+.locate-btn { font: inherit; font-weight: 800; font-size: 13px; padding: 6px 10px; border-radius: 10px; border: 2px solid var(--ink); background: #fff; color: var(--ink); cursor: pointer; box-shadow: 0 2px 0 var(--ink); }
+.locate-btn.on { background: #2563eb; color: #fff; }
+.gmap-link { display: inline-block; margin-top: 8px; font-weight: 800; font-size: 14px; color: #1d4ed8; text-decoration: underline; }
