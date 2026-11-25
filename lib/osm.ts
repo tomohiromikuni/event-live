@@ -12,6 +12,7 @@ const GSI_SEARCH = process.env.GSI_SEARCH_URL || 'https://msearch.gsi.go.jp/addr
 // Overpass API はよく混雑するので、だめなら別のサーバーで試す（どれも無料の公開サーバー）
 const OVERPASS = process.env.OSM_OVERPASS_URL ? [process.env.OSM_OVERPASS_URL] : [
   'https://overpass-api.de/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
 ];
@@ -67,7 +68,7 @@ export async function fetchFacilities(center: Geo, o: { patient?: boolean } = {}
     try {
       const res = await fetch(url, {
         method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': UA, Accept: 'application/json' },
-        body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(o.patient ? (i === 0 ? 25000 : 10000) : (i === 0 ? 12000 : 6000)), cache: 'no-store',
+        body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(o.patient ? (i === 0 ? 20000 : 10000) : (i === 0 ? 10000 : 5000)), cache: 'no-store',
       });
       if (!res.ok) { errs.push(`${host}:${res.status}`); continue; }
       els = ((await res.json()) as { elements: OsmEl[] }).elements ?? [];
