@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { one, q } from '@/lib/db';
 import { getSetting } from '@/lib/collect/run';
+import { collectModel } from '@/lib/collect/extract';
 import { runCollectNow, setCollectEnabled } from '../collect-actions';
 
 type Run = { id: number; trigger: string; started_at: number; finished_at: number; fetched: number; changed: number; extracted: number;
@@ -21,7 +22,7 @@ export default async function CollectPage({ searchParams }: { searchParams: Prom
       (SELECT COUNT(*)::int FROM event_candidates WHERE status = 'pending') AS candidates`),
   ]);
   const keyOk = !!process.env.ANTHROPIC_API_KEY;
-  const model = process.env.COLLECT_MODEL || 'claude-opus-5-5';
+  const model = collectModel();
   const last = runs[0];
   const month = runs.filter((r) => r.started_at > Date.now() - 30 * 86400_000);
   return (

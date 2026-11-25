@@ -5,7 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
  * AI（Claude API）でページ本文からイベント情報を抜き出す。
  * - 構造化出力（JSON Schema）で決まった形だけを返させる
  * - 書かれていない項目は null（推測で埋めない）。主要項目には根拠となる本文の引用を付けさせる
- * - モデルは環境変数 COLLECT_MODEL で切り替え（既定 claude-opus-5-5。費用を抑えるなら claude-haiku-5-5）
+ * - モデルは環境変数 COLLECT_MODEL で切り替え（既定 claude-haiku-5-5：費用優先。精度が足りなければ claude-opus-5-5）
  * - 共通の指示文はプロンプトキャッシュで再利用し、費用を抑える
  */
 export const GENRES = ['fireworks', 'festival', 'music', 'marche', 'food', 'expo', 'anime_game', 'sports', 'local', 'seasonal', 'other'] as const;
@@ -65,13 +65,17 @@ const SYSTEM = `あなたは日本のイベント情報を整理する担当者�
 - 過去の開催報告、ニュース、観光スポットの紹介（日付のない常設の施設）、募集要項だけのページはイベントに含めない。該当がなければ events は空配列。`;
 
 let client: Anthropic | null = null;
+/** 使うモデル（運営者の判断で費用優先の Haiku 5.5 を既定にしている） */
+export function collectModel() {
+  return process.env.COLLECT_MODEL || 'claude-haiku-5-5';
+}
 export function extractorReady() {
   return !!process.env.ANTHROPIC_API_KEY;
 }
 
 export async function extractEvents(page: { url: string; title: string; text: string }, today: string) {
   client ??= new Anthropic();
-  const model = process.env.COLLECT_MODEL || 'claude-opus-5-5';
+  const model = collectModel();
   const isOpus55 = model === 'claude-opus-5-5';
   const res = await client.beta.messages.create({
     model,

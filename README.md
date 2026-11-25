@@ -63,7 +63,7 @@ npm run build && npm start   # http://localhost:3000
 
 1. Vercel の環境変数に追加して Redeploy
    - `ANTHROPIC_API_KEY`：Claude API のキー（Sensitive）。未設定ならページの取得だけ行い、AIでの整理はしない
-   - `COLLECT_MODEL`（任意）：既定は `claude-opus-5-5`。費用を抑えるなら `claude-haiku-5-5`
+   - `COLLECT_MODEL`（任意）：既定は `claude-haiku-5-5`（費用優先）。精度が足りないときだけ `claude-opus-5-5`
    - `CRON_SECRET`：16文字以上のランダムな文字列（Sensitive）
 2. GitHub のリポジトリ → Settings → Secrets and variables → Actions に `CRON_SECRET`（同じ値）を登録
    （`.github/workflows/collect.yml` が毎日 4:17 に収集を実行。Actions タブから手動実行も可）
