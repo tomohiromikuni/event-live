@@ -43,3 +43,5 @@ jobs:
             echo "$res" | grep -q '"done":true' && break
             sleep 3
           done
+          # 新しく公開・更新したイベントを検索エンジン（IndexNow）に知らせる（鍵が未設定なら何もしない）
+          echo "indexnow: $(curl -sS -X POST -H "Authorization: Bearer $CRON_SECRET" --max-time 30 "$SITE/api/cron/indexnow" || echo '{}')"

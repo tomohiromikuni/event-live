@@ -1,6 +1,6 @@
 'use server';
 import 'server-only';
-import { one, q } from '@/lib/db';
+import { mapFingerprint, one, q, touchIfMapChanged } from '@/lib/db';
 import { ipHash } from '@/lib/posting';
 import { redirectedSlug } from '@/lib/queries';
 import { CONTACT_TOPICS, KIND_LABEL, RELATIONS, REMOVAL_REASONS } from '@/lib/inquiry';
@@ -82,8 +82,10 @@ async function submitGuideMap(f: FormData, slug: string): Promise<ContactResult>
   const recent = await one<{ n: number }>("SELECT COUNT(*)::int AS n FROM inquiries WHERE ip_hash = $1 AND created_at >= $2 AND reason LIKE 'ガイドマップ%'", [iph, Date.now() - 3600_000]);
   if ((recent?.n ?? 0) >= 3) return { ok: false, message: '短時間の送信が多すぎます。時間をおいてお試しください' };
   const upload = hasFile ? { name: (file as File).name.slice(0, 80), type: (file as File).type || 'application/octet-stream', data: Buffer.from(await (file as File).arrayBuffer()) } : undefined;
+  const before = await mapFingerprint(ev.id);
   const r = await importGuideMap(q, ev.id, { upload, url: upload ? undefined : url }).catch((e) => ({ ok: false, added: 0, message: e instanceof Error ? e.message : String(e) }));
   const added = 'added' in r ? r.added ?? 0 : 0;
+  await touchIfMapChanged(ev.id, before).catch(() => {});
   await q(`INSERT INTO inquiries (kind, event_id, event_name, reason, relation, message, name, email, ip_hash, created_at)
     VALUES ('contact', $1, $2, $3, '', $4, '', '', $5, $6)`,
     [ev.id, ev.name, 'ガイドマップ（会場図）を送る', `【来場者から届いたガイドマップ】${upload ? `ファイル：${upload.name}` : `URL：${url}`}\n読み取りの結果：${r.message}（画像は保存していません）`, iph, Date.now()]);

@@ -4,7 +4,7 @@ import { importGuideMap } from '@/lib/guidemap';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { timingSafeEqual } from 'node:crypto';
-import { one, q, tx, type Param } from '@/lib/db';
+import { mapFingerprint, one, q, touchIfMapChanged, tx, type Param } from '@/lib/db';
 import { adminPassword, endSession, requireAdmin, startSession } from '@/lib/admin';
 import { PREFECTURES } from '@/lib/prefectures';
 import { seedSamples } from '@/lib/seed';
@@ -326,7 +326,9 @@ export async function importGuideMapAction(f: FormData) {
     upload = { name: file.name.slice(0, 80), type: file.type || 'application/octet-stream', data: Buffer.from(await file.arrayBuffer()) };
   }
   if (!upload && !/^https?:\/\//.test(url)) redirect(`/admin/events/${id}?osm=${encodeURIComponent('ガイドマップのファイルを選ぶか、URLを入れてください')}`);
+  const before = await mapFingerprint(id);
   const r = await importGuideMap(q, id, { upload, url: upload ? undefined : url });
+  await touchIfMapChanged(id, before);
   revalidatePath('/', 'layout');
   redirect(`/admin/events/${id}?osm=${encodeURIComponent(`ガイドマップ：${r.message}`)}`);
 }

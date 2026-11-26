@@ -595,6 +595,20 @@ function driver(): Promise<Driver> {
 
 export const q: Q = async (sql, params) => (await driver()).q(sql, params);
 
+/**
+ * 会場マップ（施設・エリア）の中身の指紋。変わったら events.updated_at を進めて、サイトマップの lastmod に反映する。
+ * 来場者の投稿（混雑）は数えない（常に変わるため lastmod には使わない）。
+ */
+export async function mapFingerprint(eventId: number): Promise<string> {
+  const [r] = await q<{ f: string }>(`SELECT
+    (SELECT COUNT(*) || ':' || COALESCE(SUM(id), 0) || ':' || COALESCE(SUM(ROUND(lat * 1e5) + ROUND(lng * 1e5)), 0) FROM spots WHERE event_id = $1 AND source <> 'user') || '/' ||
+    (SELECT COUNT(*) || ':' || COALESCE(SUM(id), 0) FROM map_shapes WHERE event_id = $1) AS f`, [eventId]);
+  return r?.f ?? '';
+}
+export async function touchIfMapChanged(eventId: number, before: string) {
+  if ((await mapFingerprint(eventId)) !== before) await q('UPDATE events SET updated_at = $1 WHERE id = $2', [Date.now(), eventId]);
+}
+
 export async function one<T = Record<string, unknown>>(sql: string, params?: Param[]): Promise<T | undefined> {
   return (await q<T>(sql, params))[0];
 }

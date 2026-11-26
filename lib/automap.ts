@@ -1,5 +1,5 @@
 import 'server-only';
-import { q } from './db';
+import { q, mapFingerprint, touchIfMapChanged } from './db';
 import { importOsmFacilities } from './osm';
 import { importGuideMap } from './guidemap';
 import { settleAutoPublish } from './collect/publish';
@@ -16,6 +16,7 @@ import { addDays } from './dates';
  */
 export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): Promise<string> {
   const msgs: string[] = [];
+  const before = await mapFingerprint(eventId).catch(() => '');
   // 先に公式情報を補う（会場の市区町村・住所が分かれば、地図の位置を正しく決められる）
   try { const m = await enrichOfficialInfo(eventId); if (m) msgs.push(m); } catch (e) { msgs.push(`公式情報の補完に失敗：${e instanceof Error ? e.message : e}`); }
   const steps = opts.guide === false ? [importOsmFacilities] : [importOsmFacilities, importGuideMap];
@@ -35,6 +36,7 @@ export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): 
       if (again?.message) msgs.push(`範囲の周りで探し直し：${again.message}`);
     }
   } catch { /* 囲めなくても地図は使える */ }
+  await touchIfMapChanged(eventId, before).catch(() => {}); // 地図が変わったらサイトマップの lastmod も新しく
   return msgs.join(' ／ ');
 }
 
