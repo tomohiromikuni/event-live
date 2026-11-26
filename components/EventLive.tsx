@@ -249,6 +249,9 @@ export default function EventLive(p: Props) {
   // 下から出る画面（地点の投稿・お礼）を開いている間は、後ろのページをスクロールさせない。
   // iPhone の Safari は overflow:hidden だけでは止まらないので、body を固定して、閉じたら元の位置に戻す
   const sheetOpen = selected != null || !!thanks;
+  // 下にスワイプして閉じる
+  const swipeSel = useSwipeClose(() => setSelected(null));
+  const swipeThanks = useSwipeClose(() => setThanks(null));
   useEffect(() => {
     if (!sheetOpen) return;
     const y = window.scrollY;
@@ -496,7 +499,7 @@ export default function EventLive(p: Props) {
       {sel && selCat && (
         <>
           <div className="sheet-backdrop" onClick={() => setSelected(null)} />
-          <div className="sheet" role="dialog" aria-label={t('{x}の状況', { x: nm(sel.name) })}>
+          <div className="sheet" role="dialog" aria-label={t('{x}の状況', { x: nm(sel.name) })} {...swipeSel}>
             <div className="sheet-grip" />
             <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{t(selCat.name)}</div>
             <h3>{nameOf(sel)}</h3>
@@ -578,7 +581,7 @@ export default function EventLive(p: Props) {
           <>
             <div className="sheet-backdrop" onClick={() => setThanks(null)} />
             <Confetti key={thanks.id} />
-            <div className="sheet thanks" role="dialog" aria-label="投稿ありがとうございます" onPointerDown={() => setThanksHold(true)}>
+            <div className="sheet thanks" role="dialog" aria-label="投稿ありがとうございます" onPointerDown={() => setThanksHold(true)} {...swipeThanks}>
               <div className="sheet-grip" />
               {!thanksHold && <div className="thanks-timer" aria-hidden />}
               <h3><span className="pop">🎉</span>{t('投稿ありがとうございます！')}</h3>
@@ -660,4 +663,38 @@ function LocateButton({ t }: { t: T }) {
       {state.error && <div className="locate-err" role="alert">{state.error}</div>}
     </div>
   );
+}
+
+/**
+ * 下から出る画面を、下にスワイプして閉じる（いちばん上までスクロールしているときだけ。地図の上の操作は除く）。
+ * 指に合わせて画面が下がり、100px 以上か速く下げたら閉じる。
+ */
+function useSwipeClose(onClose: () => void) {
+  const st = useRef<{ y: number; t: number; dy: number; on: boolean } | null>(null);
+  return {
+    onTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+      const el = e.currentTarget;
+      if (el.scrollTop > 0 || (e.target as HTMLElement).closest('.leaflet-container')) { st.current = null; return; }
+      st.current = { y: e.touches[0].clientY, t: Date.now(), dy: 0, on: false };
+    },
+    onTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+      const s = st.current;
+      if (!s) return;
+      const dy = e.touches[0].clientY - s.y;
+      if (!s.on && dy < 8) { if (dy < -4) st.current = null; return; } // 上へ動かしたときは中身のスクロール
+      s.on = true; s.dy = Math.max(0, dy);
+      const el = e.currentTarget;
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${s.dy}px)`;
+    },
+    onTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+      const s = st.current, el = e.currentTarget;
+      st.current = null;
+      if (!s?.on) return;
+      const fast = s.dy > 40 && s.dy / Math.max(1, Date.now() - s.t) > 0.6;
+      el.style.transition = 'transform .18s ease-out';
+      if (s.dy > 100 || fast) { el.style.transform = 'translateY(100%)'; setTimeout(onClose, 160); }
+      else el.style.transform = '';
+    },
+  };
 }
