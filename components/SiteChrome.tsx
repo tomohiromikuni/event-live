@@ -8,7 +8,9 @@ import { LANG_META, LANGS, lp, makeTx, type Lang } from '@/lib/i18n';
 function LangMenu({ lang, path }: { lang: Lang; path: string }) {
   return (
     <details className="lang-menu">
-      <summary className="header-link header-lang" aria-label="Language / 言語">🌐 {lang === 'ja' ? 'EN' : LANG_META[lang].short}</summary>
+      <summary className="header-link header-lang" aria-label={`Language / 言語（${LANG_META[lang].label}）`} title="Language / 言語">
+        <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" /></svg>
+      </summary>
       <div className="lang-list">
         {LANGS.map((l) => (
           <a key={l} href={langPath(path, l)} hrefLang={LANG_META[l].hreflang} lang={LANG_META[l].html} className={l === lang ? 'on' : ''}>{LANG_META[l].label}</a>
@@ -34,9 +36,9 @@ export async function SiteHeader() {
         <div className="header-actions">
           <LangMenu lang={lang} path={path} />
           {!en && <Link href="/me" className="header-link header-me" aria-label="この端末の貢献実績">実績</Link>}
-          <Link href={en ? `${lp(lang)}/search` : '/search'} className="header-link">
+          <Link href={en ? `${lp(lang)}/search` : '/search'} className="header-link" aria-label={en ? tx('Search') : '探す'}>
             <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
-            {en ? tx('Search') : '探す'}
+            <span className="hl-text">{en ? tx('Search') : '探す'}</span>
           </Link>
         </div>
       </div>

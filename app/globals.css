@@ -889,7 +889,8 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 
 .origin-tag.temp.official { background: #fff7ed; color: #9a3412; border: 1.5px solid #ea580c; }
 /* 言語の切り替え（小さめ） */
-.header-link.header-lang { padding: 0 10px; font-size: 13px; }
+.header-link.header-lang { padding: 0; width: 44px; justify-content: center; }
+@media (max-width: 480px) { .header-link.header-lang { width: 40px; } }
 @media (max-width: 400px) { .header-actions { gap: 6px; } .header-link { padding: 0 10px; } }
 
 /* 英語版：初めての日本のイベントの案内 */
@@ -936,3 +937,10 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .lang-list a.on { background: #fff3c4; }
 .footer-langs { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .footer-langs a { text-decoration: underline; }
+
+/* 小さな画面（iPhone SE など）：ヘッダーがはみ出さないよう「探す」はアイコンだけに */
+@media (max-width: 370px) {
+  .header-link .hl-text { display: none; }
+  .header-link { padding: 0 9px; }
+  .logo { font-size: 17px; gap: 4px; }
+}
