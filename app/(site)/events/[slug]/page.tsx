@@ -12,8 +12,9 @@ import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
 import ShareButtons from '@/components/ShareButtons';
+import XTalk from '@/components/XTalk';
 import ViewBeacon from '@/components/ViewBeacon';
-import { hashtagsFor, type TagContext } from '@/lib/hashtags';
+import { eventTag, hashtagsFor, type TagContext } from '@/lib/hashtags';
 import { composePost, shareUrl } from '@/lib/share';
 import { q } from '@/lib/db';
 import { currentClientId, MIN_VIEWS_TO_SHOW, myViewsInEvent, recordViews } from '@/lib/contrib';
@@ -156,6 +157,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const shareLines = [e.name, `📅 ${fmtRange(e.start_date, e.end_date)}`, `📍 ${e.prefecture}${e.city}`, 'トイレ・駐車場の混雑や待ち時間をチェック！'];
   const eventPath = `/events/${e.slug}`;
   const liveTags = hashtagsFor({ ...e, genre_slug: genre.slug }, 'live');
+  const talkTag = eventTag(e); // X で会話するときのイベント名のタグ
   const ongoing = isOngoing(e.start_date, e.end_date);
   const postable = e.status === 'scheduled' && ongoing;
   const blocked = e.status === 'canceled' ? 'このイベントは中止のため、投稿を受け付けていません。'
@@ -227,6 +229,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}
         official={{ parking: e.parking_info, shuttle: e.shuttle_info, traffic: e.traffic_info, toilet: e.toilet_info, food: e.food_info }}
         share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined} />
+
+      {!e.is_sample && e.published && talkTag && <XTalk tag={talkTag} tags={liveTags} url={shareUrl(base, eventPath, 'x_talk')} />}
 
       <section className="section" id="info" style={{ scrollMarginTop: 70 }}>
         <div className="section-head"><h2>開催概要</h2></div>

@@ -34,6 +34,22 @@ export function regionTag(prefecture: string): string | null {
   return cleanTag(`${p}イベント`);
 }
 
+/**
+ * イベント名のタグ（X で同じイベントの話題を探せるように）。括弧の中・年・「第○回」を外す。
+ * 長すぎる名前（20文字超）は付けない。管理画面でタグを上書きしているときは、#イベナウ 以外の最初のタグを使う。
+ */
+export function eventTag(e: { name?: string; hashtags?: string | null }): string | null {
+  if (e.hashtags?.trim()) {
+    const own = e.hashtags.split(/[\s,、]+/).map(cleanTag).find((t) => t && t !== OFFICIAL_TAG);
+    if (own) return own;
+  }
+  if (!e.name) return null;
+  const n = e.name
+    .replace(/【[^】]*】|［[^］]*］|\[[^\]]*\]|（[^）]*）|\([^)]*\)|「|」/g, ' ')
+    .replace(/第\s*\d+\s*回|20\d\d(\s*-\s*\d\d)?年?/g, ' ');
+  return cleanTag(n);
+}
+
 export type TagContext = 'default' | 'weekend' | 'today' | 'tomorrow' | 'live';
 
 type EventLike = { prefecture: string; start_date: string; hashtags?: string | null; genre_slug?: string; name?: string };
@@ -56,7 +72,8 @@ export function hashtagsFor(e: EventLike, context: TagContext = 'default'): stri
     : autoHashtags(e);
   const ctx = { weekend: '#週末イベント', today: '#今日のイベント', tomorrow: '#明日のイベント', live: '#現地情報', default: null }[context];
   const [official, ...rest] = base;
-  return dedupe([official, ctx, ...rest]).slice(0, MAX_TAGS);
+  // イベント名のタグを #イベナウ の次に入れる（同じイベントに行く人が X で話題を探せるように）
+  return dedupe([official, eventTag(e), ctx, ...rest]).slice(0, MAX_TAGS);
 }
 
 function dedupe(tags: (string | null | undefined)[]): string[] {

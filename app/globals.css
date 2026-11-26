@@ -703,3 +703,13 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .locate-big-btn.on { background: #dbeafe; border-color: #2563eb; color: #1e3a8a; }
 .locate-err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 10px; padding: 8px 10px; font-size: 14px; line-height: 1.5; }
 @media (prefers-color-scheme: dark) { .locate-big-btn.on { background: #1e3a8a; color: #dbeafe; } .locate-err { background: #450a0a; border-color: #7f1d1d; color: #fecaca; } }
+
+/* X でみんなと情報交換（会話は X に任せる） */
+.x-talk { margin: 16px 0; padding: 16px; border: var(--pop-border); border-radius: var(--radius); background: #0f1419; color: #fff; box-shadow: var(--shadow); }
+.x-talk h2 { margin: 0 0 6px; font-size: 20px; }
+.x-talk p { margin: 0 0 10px; color: #e7e9ea; line-height: 1.6; }
+.x-talk .muted { color: #8b98a5; }
+.x-tag { display: inline-block; margin: 2px 0 12px; padding: 6px 12px; border-radius: 999px; background: #1d9bf0; color: #fff; font-weight: 900; font-size: 18px; word-break: break-all; }
+.x-btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; margin-top: 8px; padding: 8px 12px; border-radius: 999px; border: 2px solid #536471; color: #fff; font-weight: 900; text-decoration: none; text-align: center; word-break: break-all; }
+.x-btn.primary { background: #fff; color: #0f1419; border-color: #fff; }
+.x-logo { font-size: 20px; line-height: 1; }
