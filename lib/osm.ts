@@ -71,7 +71,7 @@ type TileRow = [string, number, number, number, string?, string?, string?, strin
 
 async function fromTiles(center: Geo): Promise<OsmEl[] | null> {
   const get = async (path: string) => {
-    const res = await fetch(`${TILES_BASE}/${path}`, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } });
+    const res = await fetch(`${TILES_BASE}/${path}`, { signal: AbortSignal.timeout(8000), next: { revalidate: path === 'meta.json' ? 3600 : 86400 } });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`tiles ${res.status}`);
     return res.json();

@@ -51,7 +51,9 @@ async function fromAreaTiles(center: Geo, venueName: string): Promise<Geo[] | nu
     const res = await fetch(`${TILES_BASE}/${path}`, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } });
     return res.ok ? res.json() : null;
   };
-  const meta = (await get('meta.json').catch(() => null)) as { area_tiles?: string[] } | null;
+  // 一覧（meta.json）は月1回しか変わらないが、作り直した直後に古い一覧を使わないよう1時間で読み直す
+  const res = await fetch(`${TILES_BASE}/meta.json?areas`, { signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }).catch(() => null);
+  const meta = (res?.ok ? await res.json() : null) as { area_tiles?: string[] } | null;
   if (!meta?.area_tiles?.length) return null;
   const have = new Set(meta.area_tiles);
   const [la, lo] = [Math.floor(center[0] * 10), Math.floor(center[1] * 10)];

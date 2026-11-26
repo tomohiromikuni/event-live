@@ -484,7 +484,9 @@ const V32 = `UPDATE events SET automap_at = 0 WHERE is_sample = 0 AND map_mode =
 /** 会場の範囲を公園・広場の抽出データから探せるようにしたので、もう一度やり直す */
 const V33 = V32;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33];
+const V34 = V32;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33, V34];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
