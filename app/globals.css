@@ -1045,3 +1045,4 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .home-about p { line-height: 1.7; }
 .home-more { font-weight: 900; color: var(--brand); }
 @media (min-width: 720px) { .home-info { grid-template-columns: repeat(4, 1fr); } .home-steps { flex-direction: row; } .home-steps li { flex: 1; } }
+.hero-pitch.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; font-size: min(12.5px, 3.2vw); }

@@ -310,7 +310,7 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
           </div>
         </div>
         {/* 何のサービスかを一言で */}
-        <p className="hero-pitch">{isEn ? tx('🚗 Parking & 🚻 toilet crowds, shared live by visitors (no sign-up)') : '🚗 駐車場・🚻 トイレの混み具合を、来場者がリアルタイムで共有（登録不要）'}</p>
+        <p className={`hero-pitch ${isEn ? '' : 'one'}`}>{isEn ? tx('🚗 Parking & 🚻 toilet crowds, shared live by visitors (no sign-up)') : '駐車場・トイレの混雑を、来場者がリアルタイムで共有'}</p>
       </div>
 
       {!isEn && myViews >= MIN_VIEWS_TO_SHOW && (
