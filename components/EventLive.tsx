@@ -556,10 +556,20 @@ export default function EventLive(p: Props) {
             )}
             {selCat.options.length > 0 && selCat.slug !== 'food' ? (
               <>
-                <div className="sheet-now">
-                  <span>{t(p.postable ? 'いま見た状況をタップ' : '現在の状況')}</span>
-                  <span className="sheet-now-val">{p.postable && t('現在：')}{selLatest ? <strong style={{ color: levelColor(selLatest.level) }}>{lab(selLatest.label)}</strong> : t('投稿なし')}</span>
-                </div>
+                {/* いまの状況と「何分前の投稿か」を大きく（古い情報で動かないように、時間をいちばん目立たせる） */}
+                {(() => {
+                  const c = statusBySpot.get(sel.id);
+                  if (!selLatest) return <div className="now-card none">{t('まだ投稿はありません')}</div>;
+                  const old = freshness(selLatest.created_at, now) === 'stale';
+                  return (
+                    <div className={`now-card ${old ? 'old' : ''}`}>
+                      <span className="now-pill" style={{ background: old ? '#94a3b8' : levelColor(selLatest.level) }}>{lab(selLatest.label)}</span>
+                      <span className="now-ago"><strong>{old && '⚠️ '}{rel(selLatest.created_at, now)}</strong>
+                        <small>{old ? t('古い情報') : c ? consensusNote(c, lang, lab) : ''}</small></span>
+                    </div>
+                  );
+                })()}
+                {p.postable && <div className="sheet-now"><span>{t('いま見た状況をタップ')}</span></div>}
                 {p.postable ? (
                   <>
                     {/* 信号機の帯：色だけで分かるように横一列（緑→オレンジ→赤） */}
@@ -576,9 +586,6 @@ export default function EventLive(p: Props) {
                       })}
                     </div>
                     <p className="muted small band-note">{t('実際に見た状況を選んでください・匿名で時刻とともに公開')}</p>
-                    {selLatest && statusBySpot.get(sel.id) && (
-                      <p className="muted small current-ref">{t('参考：いまの表示は「{x}」（{t}）', { x: lab(selLatest.label), t: `${rel(selLatest.created_at, now)}・${consensusNote(statusBySpot.get(sel.id)!, lang, lab) || (lang === 'en' ? 'old' : '古い情報')}` })}</p>
-                    )}
                   </>
                 ) : <p className="muted small">{t(p.postBlockedReason)}</p>}
                 {selPosts.length > 0 && (

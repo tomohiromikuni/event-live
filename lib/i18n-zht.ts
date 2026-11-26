@@ -86,6 +86,8 @@ export const ZHT: Record<string, string> = {
  "📍 Go near here": "📍 前往這附近",
  "Blue dot = you": "藍點是你",
  "Tap what you see now": "點選你現在看到的情況",
+ "No reports yet": "還沒有報告",
+ "old info": "舊資訊",
  "Status now": "現在的情況",
  "Choose what you actually see · anonymous, shown with the time": "請選擇實際看到的情況・匿名並附時間公開",
  "{x} status": "{x}的情況",

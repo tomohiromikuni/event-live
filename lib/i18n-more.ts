@@ -89,6 +89,8 @@ export const MORE: Record<'vi', Record<string, string>> = {
     "📍 Go near here": "📍 Đi đến gần đây",
     "Blue dot = you": "Chấm xanh = bạn",
     "Tap what you see now": "Chạm vào điều bạn thấy lúc này",
+    "No reports yet": "Chưa có báo cáo",
+    "old info": "thông tin cũ",
     "Status now": "Tình hình hiện tại",
     "Choose what you actually see · anonymous, shown with the time": "Hãy chọn điều bạn thực sự thấy · ẩn danh, hiển thị kèm thời gian",
     "{x} status": "Tình hình {x}",

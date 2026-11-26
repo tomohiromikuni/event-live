@@ -958,3 +958,12 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .et-val.multi { background: #fff !important; color: var(--ink) !important; border: 1.5px solid var(--border); display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; max-width: 100%; overflow: hidden; }
 .et-val.multi span { display: inline-flex; align-items: center; gap: 3px; }
 .et-val.multi i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--ink); display: inline-block; flex: none; }
+/* 施設の画面：いまの状況と「何分前」 */
+.now-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0 4px; padding: 10px 12px; border: 2.5px solid var(--ink); border-radius: 16px; background: #fff; }
+.now-card.none { justify-content: center; color: var(--muted); font-weight: 800; font-size: 14px; border-style: dashed; }
+.now-card.old { background: #f8fafc; }
+.now-pill { color: #fff; font-weight: 900; font-size: 15px; padding: 5px 12px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.now-ago { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; flex: none; }
+.now-ago strong { font-size: 20px; font-weight: 900; }
+.now-card.old .now-ago strong { color: #b45309; }
+.now-ago small { font-size: 11px; color: var(--muted); font-weight: 700; }
