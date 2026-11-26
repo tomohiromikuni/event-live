@@ -64,6 +64,7 @@ export const ZHT: Record<string, string> = {
  "Very busy": "非常擁擠",
  "Closed": "無法使用",
  "No info": "無資訊",
+ "{n}+ min ago": "{n}分鐘以前",
  "Dotted = {n}+ min ago": "虛線＝{n}分鐘以前",
  "Dashed = approx. location": "虛線框＝大致位置",
  "Some places & venue area: ": "部分設施・會場範圍：",

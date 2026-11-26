@@ -4,12 +4,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { one, q } from './db';
 import { collectModel, extractorReady } from './collect/extract';
 import { addSpend, costYen, discoverSettings, monthSpend } from './collect/discover';
-import { trAuto, type Lang } from './i18n';
+import { FOREIGN, trAuto, type Lang } from './i18n';
 import * as OpenCC from 'opencc-js';
 import { todayJST } from './dates';
 
 /**
- * イベントの中身（名前・公式情報・施設名）を英語・中国語（簡体字）・韓国語・ベトナム語・ポルトガル語・フィリピノ語にする（外国語版のため）。
+ * イベントの中身（名前・公式情報・施設名）を英語・中国語（簡体字）・韓国語・ベトナム語にする（外国語版のため）。
  * 繁体字（台湾）は簡体字の訳から自動で変換する（AI を使わない・0円）。
  * 公開中のイベントを1回だけ AI（Haiku）で訳して event_i18n に保存し、元の文が変わったときだけ訳し直す（1件1円未満・月の上限金額の中）。
  * 自動で作った施設名（「トイレ（会場から北へ約200m）」など）は AI に送らず、決まった言い方で訳す（lib/i18n.ts の trAuto）。
@@ -21,14 +21,12 @@ type Field = (typeof TR_FIELDS)[number];
 export type EventEn = Partial<Record<Field, string>> & { spots?: Record<string, string> };
 
 /** AI で訳す言語（繁体字は簡体字から変換） */
-export const AI_LANGS = ['en', 'zh', 'ko', 'vi', 'pt', 'tl'] as const;
+export const AI_LANGS = ['en', 'zh', 'ko', 'vi'] as const;
 export type ForeignLang = Exclude<Lang, 'ja'>;
 const TARGET: Record<(typeof AI_LANGS)[number], string> = {
   en: `natural, concise English. Event and place names: use the official English name if it is well known (e.g. 大通公園 → Odori Park); otherwise romanize (Hepburn) and add a short English word for the type (e.g. 〇〇駐車場 → Maruyama Parking).`,
   zh: `natural, concise Simplified Chinese (简体中文) for visitors from mainland China. Event and place names: keep the Japanese kanji name converted to Simplified Chinese characters (e.g. 大通公園 → 大通公园); write kana-only names in their usual Chinese name if well known, otherwise keep them as they are.`,
   vi: `natural, concise Vietnamese (Tiếng Việt). Event and place names: use the official English name if well known, otherwise romanize the Japanese name (Hepburn) and add a short Vietnamese word for the type (e.g. 〇〇駐車場 → Bãi đỗ xe Maruyama).`,
-  pt: `natural, concise Brazilian Portuguese. Event and place names: use the official English name if well known, otherwise romanize the Japanese name (Hepburn) and add a short Portuguese word for the type (e.g. 〇〇駐車場 → Estacionamento Maruyama).`,
-  tl: `natural, concise Filipino (Tagalog), using common English loanwords where Filipinos normally would. Event and place names: use the official English name if well known, otherwise romanize the Japanese name (Hepburn) and add a short word for the type (e.g. 〇〇駐車場 → Maruyama Parking).`,
   ko: `natural, concise Korean (한국어). Event and place names: use the usual Korean name if well known (e.g. 大通公園 → 오도리 공원); otherwise transcribe the Japanese reading into Hangul and add a short Korean word for the type (e.g. 〇〇駐車場 → 마루야마 주차장).`,
 };
 const system = (l: (typeof AI_LANGS)[number]) => `You translate Japanese event information for a Japanese website into ${TARGET[l]}
@@ -48,7 +46,7 @@ export async function eventI18n(eventId: number, lang: Lang): Promise<EventEn | 
 export const eventEn = (eventId: number) => eventI18n(eventId, 'en');
 /** 訳がある言語（hreflang・サイトマップ用） */
 export async function translatedLangs(eventId: number): Promise<ForeignLang[]> {
-  return (await q<{ lang: ForeignLang }>('SELECT lang FROM event_i18n WHERE event_id = $1', [eventId]).catch(() => [])).map((x) => x.lang);
+  return (await q<{ lang: ForeignLang }>('SELECT lang FROM event_i18n WHERE event_id = $1', [eventId]).catch(() => [])).map((x) => x.lang).filter((l) => (FOREIGN as string[]).includes(l));
 }
 
 /** 訳す（元の文が前回と同じなら何もしない）。訳したら true。中国語（簡体字）を訳したら繁体字も作る */

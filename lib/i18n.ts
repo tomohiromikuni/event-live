@@ -8,10 +8,10 @@ import { DICT } from './i18n-dict';
 import { ZHT } from './i18n-zht';
 import { MORE } from './i18n-more';
 
-export type Lang = 'ja' | 'en' | 'zh' | 'zh-tw' | 'ko' | 'vi' | 'pt' | 'tl';
-export const LANGS: Lang[] = ['ja', 'en', 'zh', 'zh-tw', 'ko', 'vi', 'pt', 'tl'];
-/** 外国語版（URL の頭に /en・/zh・/zh-tw・/ko・/vi・/pt・/tl） */
-export const FOREIGN: Exclude<Lang, 'ja'>[] = ['en', 'zh', 'zh-tw', 'ko', 'vi', 'pt', 'tl'];
+export type Lang = 'ja' | 'en' | 'zh' | 'zh-tw' | 'ko' | 'vi';
+export const LANGS: Lang[] = ['ja', 'en', 'zh', 'zh-tw', 'ko', 'vi'];
+/** 外国語版（URL の頭に /en・/zh・/zh-tw・/ko・/vi） */
+export const FOREIGN: Exclude<Lang, 'ja'>[] = ['en', 'zh', 'zh-tw', 'ko', 'vi'];
 export { LANG_PATH_RE } from './langPath';
 export const LANG_META: Record<Lang, { label: string; short: string; hreflang: string; html: string; og: string; locale: string }> = {
   ja: { label: '日本語', short: '日本語', hreflang: 'ja', html: 'ja', og: 'ja_JP', locale: 'ja-JP' },
@@ -20,8 +20,6 @@ export const LANG_META: Record<Lang, { label: string; short: string; hreflang: s
   'zh-tw': { label: '繁體中文', short: '繁體', hreflang: 'zh-Hant', html: 'zh-Hant', og: 'zh_TW', locale: 'zh-TW' },
   ko: { label: '한국어', short: '한국어', hreflang: 'ko', html: 'ko', og: 'ko_KR', locale: 'ko-KR' },
   vi: { label: 'Tiếng Việt', short: 'VI', hreflang: 'vi', html: 'vi', og: 'vi_VN', locale: 'vi-VN' },
-  pt: { label: 'Português', short: 'PT', hreflang: 'pt-BR', html: 'pt-BR', og: 'pt_BR', locale: 'pt-BR' },
-  tl: { label: 'Filipino', short: 'FIL', hreflang: 'tl', html: 'tl', og: 'tl_PH', locale: 'fil-PH' },
 };
 export const isLang = (x: string | null | undefined): x is Lang => !!x && (LANGS as string[]).includes(x);
 /** URL の頭（日本語は ''） */
@@ -51,7 +49,7 @@ const EN: Record<string, string> = {
   '＋ ここにトイレ・駐車場がある（現在地で報告）': '+ There is a toilet/parking here (report at my location)',
   'いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）': 'What is here? (Your location is sent only this once. Shown separately from official info.)',
   '🚻 トイレ': '🚻 Toilet', '🅿️ 駐車場': '🅿️ Parking', '🚌 乗り場': '🚌 Bus stop', 'やめる': 'Cancel',
-  '良好': 'Good', 'やや': 'Fair', '混雑': 'Busy', '非常に': 'Very busy', '利用不可': 'Closed', '情報なし': 'No info', '点線＝{n}分以上前': 'Dotted = {n}+ min ago', '破線の枠＝位置は目安': 'Dashed = approx. location',
+  '良好': 'Good', 'やや': 'Fair', '混雑': 'Busy', '非常に': 'Very busy', '利用不可': 'Closed', '情報なし': 'No info', '点線＝{n}分以上前': 'Dotted = {n}+ min ago', '{n}分以上前': '{n}+ min ago', '破線の枠＝位置は目安': 'Dashed = approx. location',
   '施設・会場の範囲の一部：': 'Some places & venue area: ',
   '📍 自分から近い順': '📍 Nearest to you', '🎪 会場から近い順': '🎪 Nearest to the venue',
   '会場から離れているので、会場からの方角で表示しています': 'You are far from the venue, so directions are from the venue.',
@@ -99,7 +97,7 @@ function fromEn(en: string, lang: Lang): string {
   if (lang === 'zh') return DICT[en]?.[0] ?? en;
   if (lang === 'ko') return DICT[en]?.[1] ?? en;
   if (lang === 'zh-tw') return ZHT[en] ?? en;
-  if (lang === 'vi' || lang === 'pt' || lang === 'tl') return MORE[lang][en] ?? en;
+  if (lang === 'vi') return MORE.vi[en] ?? en;
   return en;
 }
 
@@ -138,7 +136,7 @@ const ZHT_WORDS: [RegExp, string][] = ZH_WORDS.map(([r, w]) => [r, w.replace('�
   .replace('接驳巴士乘车处', '接駁巴士乘車處').replace('根据名称推测的大致位置', '依名稱推測的大致位置').replace('位置未确认', '位置未確認').replace('按名称定位', '依名稱定位').replace('到场者报告', '到場者回報')
   .replace('到场者在现场报告的地点（非官方信息）', '到場者在現場回報的地點（非官方資訊）')]);
 const AUTO: Record<Exclude<Lang, 'ja'>, Auto> = {
-  vi: undefined as unknown as Auto, pt: undefined as unknown as Auto, tl: undefined as unknown as Auto,
+  vi: undefined as unknown as Auto,
   en: {
     dir: { 北: 'north', 北東: 'northeast', 東: 'east', 南東: 'southeast', 南: 'south', 南西: 'southwest', 西: 'west', 北西: 'northwest' },
     ofYou: (n, u, d) => `about ${n} ${u} ${d} of you`, near: 'right near you', ofVenue: (m, d) => `about ${m} m ${d} of the venue`, within: (d) => `within 100 m ${d} of the venue`,
@@ -176,7 +174,7 @@ const AUTO: Record<Exclude<Lang, 'ja'>, Auto> = {
     ], sep: ' · ',
   },
 };
-/** ベトナム語・ポルトガル語・フィリピノ語の自動の名前・説明 */
+/** ベトナム語の自動の名前・説明 */
 function AUTO_MORE() {
   const official = (t: string, p: string, s: string, a: string, nf: string, bn: string, vr: string, vrl: string): [RegExp, string][] => [
     [/臨時駐車場（公式・(公式サイト|ガイドマップ)）/g, t], [/仮設トイレ（公式・(公式サイト|ガイドマップ)）/g, p], [/シャトルバス乗り場（公式・(公式サイト|ガイドマップ)）/g, s],
@@ -191,23 +189,7 @@ function AUTO_MORE() {
       words: [[/立体/g, 'Nhiều tầng'], [/地下/g, 'Ngầm'], [/平面/g, 'Ngoài trời'], [/有料/g, 'Có phí'], [/無料/g, 'Miễn phí'], [/車いす対応/g, 'Cho xe lăn'], [/おむつ替え台/g, 'Bàn thay tã'], [/男女共用/g, 'Dùng chung nam nữ'],
         ...official('Bãi đỗ xe tạm (chính thức)', 'Nhà vệ sinh tạm (chính thức)', 'Điểm đón xe buýt đưa đón (chính thức)', 'vị trí gần đúng', 'chưa xác nhận vị trí', 'xác định theo tên', ' (khách báo cáo)', 'Khách báo cáo tại chỗ (không chính thức)')], sep: ' · ',
     },
-    pt: {
-      dir: { 北: 'ao norte', 北東: 'a nordeste', 東: 'a leste', 南東: 'a sudeste', 南: 'ao sul', 南西: 'a sudoeste', 西: 'a oeste', 北西: 'a noroeste' },
-      ofYou: (n, u, d) => `cerca de ${n} ${u} ${d} de você`, near: 'bem perto de você', ofVenue: (m, d) => `cerca de ${m} m ${d} do local`, within: (d) => `a menos de 100 m ${d} do local`,
-      paren: (a, b) => `${a} (${b})`, toilet: 'Banheiro', toilets: 'Banheiros', parking: 'Estacionamento', nearby: 'arredores',
-      size: { 大: 'Grande', 中: 'Médio', 小: 'Pequeno' }, cars: (z, n) => `${z} (~${n} carros)`, approx: (z) => `${z} (aprox.)`,
-      words: [[/立体/g, 'Edifício-garagem'], [/地下/g, 'Subsolo'], [/平面/g, 'Ao ar livre'], [/有料/g, 'Pago'], [/無料/g, 'Grátis'], [/車いす対応/g, 'Acessível'], [/おむつ替え台/g, 'Trocador'], [/男女共用/g, 'Unissex'],
-        ...official('Estacionamento temporário (oficial)', 'Banheiros temporários (oficial)', 'Ponto do traslado (oficial)', 'local aproximado', 'local não confirmado', 'localizado pelo nome', ' (relato de visitante)', 'Relatado por um visitante (não oficial)')], sep: ' · ',
-    },
-    tl: {
-      dir: { 北: 'hilaga', 北東: 'hilagang-silangan', 東: 'silangan', 南東: 'timog-silangan', 南: 'timog', 南西: 'timog-kanluran', 西: 'kanluran', 北西: 'hilagang-kanluran' },
-      ofYou: (n, u, d) => `mga ${n} ${u} sa ${d} mo`, near: 'malapit lang sa iyo', ofVenue: (m, d) => `mga ${m} m sa ${d} ng venue`, within: (d) => `wala pang 100 m sa ${d} ng venue`,
-      paren: (a, b) => `${a} (${b})`, toilet: 'Banyo', toilets: 'Banyo', parking: 'Paradahan', nearby: 'paligid',
-      size: { 大: 'Malaki', 中: 'Katamtaman', 小: 'Maliit' }, cars: (z, n) => `${z} (~${n} sasakyan)`, approx: (z) => `${z} (tantiya)`,
-      words: [[/立体/g, 'Multi-level'], [/地下/g, 'Underground'], [/平面/g, 'Open-air'], [/有料/g, 'May bayad'], [/無料/g, 'Libre'], [/車いす対応/g, 'Pang-wheelchair'], [/おむつ替え台/g, 'Palitan ng diaper'], [/男女共用/g, 'Unisex'],
-        ...official('Pansamantalang paradahan (opisyal)', 'Pansamantalang banyo (opisyal)', 'Sakayan ng shuttle (opisyal)', 'tinatayang lokasyon', 'hindi pa kumpirmado ang lokasyon', 'nahanap ayon sa pangalan', ' (ulat ng bisita)', 'Iniulat ng bisita (hindi opisyal)')], sep: ' · ',
-    },
-  } satisfies Record<'vi' | 'pt' | 'tl', Auto>);
+  } satisfies Record<'vi', Auto>);
 }
 AUTO_MORE();
 const D = '(北東|北西|南東|南西|北|東|南|西)';

@@ -23,6 +23,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       { url: `${base}${lp(l)}`, changeFrequency: 'hourly' as const, priority: 0.7 },
       { url: `${base}${lp(l)}/guide`, changeFrequency: 'monthly' as const, priority: 0.5 },
     ]),
-    ...translated.map((r) => ({ url: `${base}/${r.lang}/events/${r.slug}`, changeFrequency: 'hourly' as const, priority: 0.6 })),
+    ...translated.filter((r) => (FOREIGN as string[]).includes(r.lang)).map((r) => ({ url: `${base}/${r.lang}/events/${r.slug}`, changeFrequency: 'hourly' as const, priority: 0.6 })),
   ];
 }

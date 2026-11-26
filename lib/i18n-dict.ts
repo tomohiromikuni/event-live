@@ -71,6 +71,7 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "Very busy": ["非常拥挤", "매우 혼잡"],
   "Closed": ["无法使用", "이용 불가"],
   "No info": ["无信息", "정보 없음"],
+  "{n}+ min ago": ["{n}分钟以前", "{n}분 이상 전"],
   "Dotted = {n}+ min ago": ["虚线＝{n}分钟以前", "점선 = {n}분 이상 전"],
   "Dashed = approx. location": ["虚线框＝大致位置", "파선 테두리 = 대략적인 위치"],
   "Some places & venue area: ": ["部分设施・会场范围：", "일부 시설·행사장 범위: "],

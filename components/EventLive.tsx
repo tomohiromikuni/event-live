@@ -478,14 +478,15 @@ export default function EventLive(p: Props) {
             <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes}
               onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} lang={lang} />
             <div className="legend">
-              {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l}><i style={{ background: LEVEL_COLORS[i] }} />{t(l)}</span>)}
-              <span><i style={{ background: '#94a3b8' }} />{t('情報なし')}</span>
-              <span>{t('点線＝{n}分以上前', { n: FRESH_MIN })}</span>
+              {/* 1行に収める：日本語は短い言い方（押さえると正式な言い方） */}
+              {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l} title={t(l)}><i style={{ background: LEVEL_COLORS[i] }} />{lang === 'ja' && l === '利用不可' ? '不可' : t(l)}</span>)}
+              <span title={t('情報なし')}><i style={{ background: '#94a3b8' }} />{lang === 'ja' ? 'なし' : t('情報なし')}</span>
+              <span title={t('点線＝{n}分以上前', { n: FRESH_MIN })}><i className="stale-i" />{lang === 'ja' ? `${FRESH_MIN}分前〜` : t('{n}分以上前', { n: FRESH_MIN })}</span>
               {visibleSpots.some((s) => s.source === 'guide') && <span><i className="est-i" />{t('破線の枠＝位置は目安')}</span>}
-              {(visibleSpots.some((s) => s.source === 'osm') || p.shapes.some((sh) => sh.style === 'venue')) && (
-                <span className="legend-credit">{t('施設・会場の範囲の一部：')}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></span>
-              )}
             </div>
+            {(visibleSpots.some((s) => s.source === 'osm') || p.shapes.some((sh) => sh.style === 'venue')) && (
+              <div className="legend-credit">{t('施設・会場の範囲の一部：')}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></div>
+            )}
           </div>
         </div>
       )}

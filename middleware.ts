@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { LANG_PATH_RE } from '@/lib/langPath';
+import { DROPPED_LANG_RE, LANG_PATH_RE } from '@/lib/langPath';
 
 /**
  * 管理画面の入り口を、推測されにくい URL に分ける。
@@ -13,12 +13,15 @@ function entryPath() {
 }
 
 /**
- * 外国語版（/en・/zh・/zh-tw・/ko・/vi・/pt・/tl）かどうかと、いまのパスをページに伝える（<html lang>・言語の切り替えリンクに使う）。
+ * 外国語版（/en・/zh・/zh-tw・/ko・/vi）かどうかと、いまのパスをページに伝える（<html lang>・言語の切り替えリンクに使う）。
  * 中国語・韓国語のページは英語版のページ（app/(site)/en/…）を同じ作りで使う（中で言語を切り替える）。
  */
 function withLang(req: NextRequest) {
   const h = new Headers(req.headers);
   const path = req.nextUrl.pathname;
+  // やめた言語のページは日本語の同じページへ（恒久的な転送）
+  const dropped = path.match(DROPPED_LANG_RE);
+  if (dropped) { const url = req.nextUrl.clone(); url.pathname = path.slice(dropped[0].length) || '/'; return NextResponse.redirect(url, 301); }
   const m = path.match(LANG_PATH_RE);
   h.set('x-evenow-lang', m ? m[1] : 'ja');
   h.set('x-evenow-path', path);
