@@ -501,7 +501,10 @@ CREATE TABLE IF NOT EXISTS pin_votes (
 );
 CREATE INDEX IF NOT EXISTS idx_pin_votes_spot ON pin_votes(spot_id)`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33, V34, V35, V36];
+/** 駐車場・トイレの改善（会場の範囲の周りから探す・種類・規模・設備）を入れたので、地図のある実イベントをやり直す */
+const V37 = `UPDATE events SET automap_at = 0 WHERE is_sample = 0 AND map_mode = 'geo'`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33, V34, V35, V36, V37];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

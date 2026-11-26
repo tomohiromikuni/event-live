@@ -25,7 +25,15 @@ export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): 
   // 公式の仮設トイレ・臨時駐車場・乗り場（名前つき）
   try { const m = await importTempFacilities(eventId); if (m) msgs.push(m); } catch (e) { msgs.push(`仮設・臨時の読み取りに失敗：${e instanceof Error ? e.message : e}`); }
   // 会場の範囲（公園・広場の外形）を薄く囲う
-  try { const m = await importVenueArea(q, eventId); if (m) msgs.push(m); } catch { /* 囲めなくても地図は使える */ }
+  try {
+    const m = await importVenueArea(q, eventId);
+    if (m) {
+      msgs.push(m);
+      // 会場の範囲が分かったので、範囲の周りからトイレ・駐車場を探し直す（広い会場で端の方も拾う）
+      const again = await importOsmFacilities(q, eventId).catch(() => null);
+      if (again?.message) msgs.push(`範囲の周りで探し直し：${again.message}`);
+    }
+  } catch { /* 囲めなくても地図は使える */ }
   return msgs.join(' ／ ');
 }
 

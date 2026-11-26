@@ -320,6 +320,13 @@ export default function EventLive(p: Props) {
                 現地の投稿・{when(single, singleLatest)}{singleLatest.mine && <span className="mine-tag">あなたの投稿</span>}
               </div>
             )}
+            {t.id === 'toilet' && (() => {
+              // 会場まわりのトイレの「多い・少ない」（地図上の数から。仮設・常設を合わせて、来場者の報告は数えない）
+              const n = visibleSpots.filter((s) => catById.get(s.category_id)?.slug === 'toilet' && !s.generic && s.source !== 'user').length;
+              if (!n || p.simple) return null;
+              const level = n >= 9 ? '多め' : n >= 4 ? 'ふつう' : '少なめ';
+              return <div className={`tc-amount ${level === '少なめ' ? 'few' : ''}`}>会場まわりのトイレ：<strong>{level}</strong>（地図上で{n}か所）</div>;
+            })()}
             {spots.length > 1 && (
               <div className="tc-rows">
                 {shown.map((s) => {
@@ -327,7 +334,7 @@ export default function EventLive(p: Props) {
                   return (
                     <button key={s.id} id={`spot-${s.id}`} className={`tc-row spot-item ${highlight === s.id ? 'highlight' : ''}`} onClick={() => setSelected(s.id)}>
                       <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id]); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{s.name}</span>
-                        <span className="tc-sub">{latest ? when(s, latest) : s.source === 'official_temp' ? `投稿なし・${s.generic ? '地図の位置は未確認' : '位置は目安'}` : '投稿なし'}{latest?.mine && <span className="mine-tag">あなたの投稿</span>}</span></span>
+                        <span className="tc-sub">{latest ? when(s, latest) : s.source === 'official_temp' ? `投稿なし・${s.generic ? '地図の位置は未確認' : '位置は目安'}` : s.source === 'osm' && s.note ? `投稿なし・${s.note.replace(/・?会場から.+$/, '')}` : '投稿なし'}{latest?.mine && <span className="mine-tag">あなたの投稿</span>}</span></span>
                       {latest && pill(latest)}<span className="tc-arrow" aria-hidden>›</span>
                     </button>
                   );
