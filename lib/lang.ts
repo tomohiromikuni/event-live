@@ -1,6 +1,6 @@
 import 'server-only';
 import { headers } from 'next/headers';
-import { isLang, lp, type Lang } from './i18n';
+import { isLang, LANG_PATH_RE, lp, type Lang } from './i18n';
 
 /** いまのページの言語（/en/… は英語、/zh/… は中国語など）。middleware.ts が伝える */
 export async function getLang(): Promise<Lang> {
@@ -15,7 +15,7 @@ export async function currentPath(): Promise<string> {
 
 /** 別の言語の同じページ（/events/x ⇔ /en/events/x ⇔ /ko/events/x）。外国語版が無いページはその言語のトップへ */
 export function langPath(path: string, to: Lang): string {
-  const bare = path.replace(/^\/(en|zh-tw|zh|ko)(?=\/|$)/, '') || '/';
+  const bare = path.replace(LANG_PATH_RE, '') || '/';
   if (to === 'ja') return bare;
   if (bare === '/' || bare.startsWith('/events/') || bare === '/search' || bare === '/guide') return `${lp(to)}${bare === '/' ? '' : bare}`;
   return lp(to);

@@ -6,17 +6,22 @@
  */
 import { DICT } from './i18n-dict';
 import { ZHT } from './i18n-zht';
+import { MORE } from './i18n-more';
 
-export type Lang = 'ja' | 'en' | 'zh' | 'zh-tw' | 'ko';
-export const LANGS: Lang[] = ['ja', 'en', 'zh', 'zh-tw', 'ko'];
-/** 外国語版（URL の頭に /en・/zh・/zh-tw・/ko） */
-export const FOREIGN: Exclude<Lang, 'ja'>[] = ['en', 'zh', 'zh-tw', 'ko'];
+export type Lang = 'ja' | 'en' | 'zh' | 'zh-tw' | 'ko' | 'vi' | 'pt' | 'tl';
+export const LANGS: Lang[] = ['ja', 'en', 'zh', 'zh-tw', 'ko', 'vi', 'pt', 'tl'];
+/** 外国語版（URL の頭に /en・/zh・/zh-tw・/ko・/vi・/pt・/tl） */
+export const FOREIGN: Exclude<Lang, 'ja'>[] = ['en', 'zh', 'zh-tw', 'ko', 'vi', 'pt', 'tl'];
+export { LANG_PATH_RE } from './langPath';
 export const LANG_META: Record<Lang, { label: string; short: string; hreflang: string; html: string; og: string; locale: string }> = {
   ja: { label: '日本語', short: '日本語', hreflang: 'ja', html: 'ja', og: 'ja_JP', locale: 'ja-JP' },
   en: { label: 'English', short: 'EN', hreflang: 'en', html: 'en', og: 'en_US', locale: 'en-US' },
   zh: { label: '简体中文', short: '简体', hreflang: 'zh-Hans', html: 'zh-Hans', og: 'zh_CN', locale: 'zh-CN' },
   'zh-tw': { label: '繁體中文', short: '繁體', hreflang: 'zh-Hant', html: 'zh-Hant', og: 'zh_TW', locale: 'zh-TW' },
   ko: { label: '한국어', short: '한국어', hreflang: 'ko', html: 'ko', og: 'ko_KR', locale: 'ko-KR' },
+  vi: { label: 'Tiếng Việt', short: 'VI', hreflang: 'vi', html: 'vi', og: 'vi_VN', locale: 'vi-VN' },
+  pt: { label: 'Português', short: 'PT', hreflang: 'pt-BR', html: 'pt-BR', og: 'pt_BR', locale: 'pt-BR' },
+  tl: { label: 'Filipino', short: 'FIL', hreflang: 'tl', html: 'tl', og: 'tl_PH', locale: 'fil-PH' },
 };
 export const isLang = (x: string | null | undefined): x is Lang => !!x && (LANGS as string[]).includes(x);
 /** URL の頭（日本語は ''） */
@@ -94,6 +99,7 @@ function fromEn(en: string, lang: Lang): string {
   if (lang === 'zh') return DICT[en]?.[0] ?? en;
   if (lang === 'ko') return DICT[en]?.[1] ?? en;
   if (lang === 'zh-tw') return ZHT[en] ?? en;
+  if (lang === 'vi' || lang === 'pt' || lang === 'tl') return MORE[lang][en] ?? en;
   return en;
 }
 
@@ -132,6 +138,7 @@ const ZHT_WORDS: [RegExp, string][] = ZH_WORDS.map(([r, w]) => [r, w.replace('�
   .replace('接驳巴士乘车处', '接駁巴士乘車處').replace('根据名称推测的大致位置', '依名稱推測的大致位置').replace('位置未确认', '位置未確認').replace('按名称定位', '依名稱定位').replace('到场者报告', '到場者回報')
   .replace('到场者在现场报告的地点（非官方信息）', '到場者在現場回報的地點（非官方資訊）')]);
 const AUTO: Record<Exclude<Lang, 'ja'>, Auto> = {
+  vi: undefined as unknown as Auto, pt: undefined as unknown as Auto, tl: undefined as unknown as Auto,
   en: {
     dir: { 北: 'north', 北東: 'northeast', 東: 'east', 南東: 'southeast', 南: 'south', 南西: 'southwest', 西: 'west', 北西: 'northwest' },
     ofYou: (n, u, d) => `about ${n} ${u} ${d} of you`, near: 'right near you', ofVenue: (m, d) => `about ${m} m ${d} of the venue`, within: (d) => `within 100 m ${d} of the venue`,
@@ -169,6 +176,40 @@ const AUTO: Record<Exclude<Lang, 'ja'>, Auto> = {
     ], sep: ' · ',
   },
 };
+/** ベトナム語・ポルトガル語・フィリピノ語の自動の名前・説明 */
+function AUTO_MORE() {
+  const official = (t: string, p: string, s: string, a: string, nf: string, bn: string, vr: string, vrl: string): [RegExp, string][] => [
+    [/臨時駐車場（公式・(公式サイト|ガイドマップ)）/g, t], [/仮設トイレ（公式・(公式サイト|ガイドマップ)）/g, p], [/シャトルバス乗り場（公式・(公式サイト|ガイドマップ)）/g, s],
+    [/位置は名前からの目安/g, a], [/地図の位置は未確認/g, nf], [/位置は地図データの同じ名前の施設/g, bn], [/（来場者の報告）/g, vr], [/来場者が現地から報告した場所（公式の情報ではありません）/g, vrl],
+  ];
+  Object.assign(AUTO, {
+    vi: {
+      dir: { 北: 'phía bắc', 北東: 'phía đông bắc', 東: 'phía đông', 南東: 'phía đông nam', 南: 'phía nam', 南西: 'phía tây nam', 西: 'phía tây', 北西: 'phía tây bắc' },
+      ofYou: (n, u, d) => `cách bạn khoảng ${n} ${u} về ${d}`, near: 'ngay gần bạn', ofVenue: (m, d) => `cách địa điểm khoảng ${m} m về ${d}`, within: (d) => `trong vòng 100 m về ${d} địa điểm`,
+      paren: (a, b) => `${a} (${b})`, toilet: 'Nhà vệ sinh', toilets: 'Nhà vệ sinh', parking: 'Bãi đỗ xe', nearby: 'xung quanh',
+      size: { 大: 'Lớn', 中: 'Vừa', 小: 'Nhỏ' }, cars: (z, n) => `${z} (~${n} xe)`, approx: (z) => `${z} (ước tính)`,
+      words: [[/立体/g, 'Nhiều tầng'], [/地下/g, 'Ngầm'], [/平面/g, 'Ngoài trời'], [/有料/g, 'Có phí'], [/無料/g, 'Miễn phí'], [/車いす対応/g, 'Cho xe lăn'], [/おむつ替え台/g, 'Bàn thay tã'], [/男女共用/g, 'Dùng chung nam nữ'],
+        ...official('Bãi đỗ xe tạm (chính thức)', 'Nhà vệ sinh tạm (chính thức)', 'Điểm đón xe buýt đưa đón (chính thức)', 'vị trí gần đúng', 'chưa xác nhận vị trí', 'xác định theo tên', ' (khách báo cáo)', 'Khách báo cáo tại chỗ (không chính thức)')], sep: ' · ',
+    },
+    pt: {
+      dir: { 北: 'ao norte', 北東: 'a nordeste', 東: 'a leste', 南東: 'a sudeste', 南: 'ao sul', 南西: 'a sudoeste', 西: 'a oeste', 北西: 'a noroeste' },
+      ofYou: (n, u, d) => `cerca de ${n} ${u} ${d} de você`, near: 'bem perto de você', ofVenue: (m, d) => `cerca de ${m} m ${d} do local`, within: (d) => `a menos de 100 m ${d} do local`,
+      paren: (a, b) => `${a} (${b})`, toilet: 'Banheiro', toilets: 'Banheiros', parking: 'Estacionamento', nearby: 'arredores',
+      size: { 大: 'Grande', 中: 'Médio', 小: 'Pequeno' }, cars: (z, n) => `${z} (~${n} carros)`, approx: (z) => `${z} (aprox.)`,
+      words: [[/立体/g, 'Edifício-garagem'], [/地下/g, 'Subsolo'], [/平面/g, 'Ao ar livre'], [/有料/g, 'Pago'], [/無料/g, 'Grátis'], [/車いす対応/g, 'Acessível'], [/おむつ替え台/g, 'Trocador'], [/男女共用/g, 'Unissex'],
+        ...official('Estacionamento temporário (oficial)', 'Banheiros temporários (oficial)', 'Ponto do traslado (oficial)', 'local aproximado', 'local não confirmado', 'localizado pelo nome', ' (relato de visitante)', 'Relatado por um visitante (não oficial)')], sep: ' · ',
+    },
+    tl: {
+      dir: { 北: 'hilaga', 北東: 'hilagang-silangan', 東: 'silangan', 南東: 'timog-silangan', 南: 'timog', 南西: 'timog-kanluran', 西: 'kanluran', 北西: 'hilagang-kanluran' },
+      ofYou: (n, u, d) => `mga ${n} ${u} sa ${d} mo`, near: 'malapit lang sa iyo', ofVenue: (m, d) => `mga ${m} m sa ${d} ng venue`, within: (d) => `wala pang 100 m sa ${d} ng venue`,
+      paren: (a, b) => `${a} (${b})`, toilet: 'Banyo', toilets: 'Banyo', parking: 'Paradahan', nearby: 'paligid',
+      size: { 大: 'Malaki', 中: 'Katamtaman', 小: 'Maliit' }, cars: (z, n) => `${z} (~${n} sasakyan)`, approx: (z) => `${z} (tantiya)`,
+      words: [[/立体/g, 'Multi-level'], [/地下/g, 'Underground'], [/平面/g, 'Open-air'], [/有料/g, 'May bayad'], [/無料/g, 'Libre'], [/車いす対応/g, 'Pang-wheelchair'], [/おむつ替え台/g, 'Palitan ng diaper'], [/男女共用/g, 'Unisex'],
+        ...official('Pansamantalang paradahan (opisyal)', 'Pansamantalang banyo (opisyal)', 'Sakayan ng shuttle (opisyal)', 'tinatayang lokasyon', 'hindi pa kumpirmado ang lokasyon', 'nahanap ayon sa pangalan', ' (ulat ng bisita)', 'Iniulat ng bisita (hindi opisyal)')], sep: ' · ',
+    },
+  } satisfies Record<'vi' | 'pt' | 'tl', Auto>);
+}
+AUTO_MORE();
 const D = '(北東|北西|南東|南西|北|東|南|西)';
 /** 自動で作った施設名・説明（「トイレ（会場から北へ約200m）」「立体・有料・規模：中（目安）」など）を各言語に */
 export function trAuto(text: string, lang: Lang): string {
@@ -200,7 +241,7 @@ const PREF_KO: Record<string, string> = {
 };
 export const prefEn = (p: string) => PREF_EN[p] ?? p;
 /** 都道府県名（中国語は漢字のまま） */
-export const prefName = (p: string, lang: Lang) => (lang === 'en' ? prefEn(p) : lang === 'ko' ? PREF_KO[p] ?? p : p);
+export const prefName = (p: string, lang: Lang) => (lang === 'ja' || lang === 'zh' || lang === 'zh-tw' ? p : lang === 'ko' ? PREF_KO[p] ?? p : prefEn(p));
 
 /** 日付の範囲：Nov 20 – Dec 25, 2026 ／ 2026年11月20日～12月25日 ／ 2026년 11월 20일 ~ 12월 25일 */
 export function fmtRangeL(start: string, end: string, lang: Lang): string {
