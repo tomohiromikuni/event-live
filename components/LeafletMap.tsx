@@ -151,23 +151,32 @@ export default function LeafletMap(props: Props) {
   }
 
   /** 現在地がうまく使えないときの案内（端末・アプリ別） */
-  function locateHelp(kind: 'denied' | 'failed' | 'unsupported') {
+  /**
+   * 現在地がうまく使えないときの案内（端末・ブラウザ・止まっている場所ごと）。
+   * iPhone は「このサイトだけ拒否」（Safari のサイトごとの設定）と「Safari 全体が拒否」（iPhone の位置情報サービス）が別。
+   * サイトの許可の状態（permissions）が denied ならサイトごとの設定、そうでなければ iPhone 側の設定で止まっている。
+   */
+  function locateHelp(kind: 'denied-site' | 'denied-os' | 'failed' | 'unsupported') {
     const ua = navigator.userAgent;
     const lang = cbRef.current.lang ?? 'ja';
+    const ios = /iPhone|iPad|iPod/.test(ua), chromeIos = /CriOS/.test(ua), android = /Android/.test(ua);
+    const inApp = /Line\/|FBAN|FBAV|Instagram|Twitter/i.test(ua);
     if (lang !== 'ja') {
       const tx = makeTx(lang);
-      if (/Line\/|FBAN|FBAV|Instagram|Twitter/i.test(ua)) return tx('Location may not work inside apps. Open this page in Safari or your browser from the app menu.');
+      if (inApp) return tx('Location may not work inside apps. Open this page in Safari or your browser from the app menu.');
       if (kind === 'unsupported') return tx('Location is not available on this device or browser.');
       if (kind === 'failed') return tx('Could not get your location. Try again where the signal is better.');
-      if (/iPhone|iPad|iPod/.test(ua)) return tx('Location is not allowed. On iPhone: Settings → Privacy & Security → Location Services → turn on, and set “Safari Websites” to “While Using”. Then tap again.');
-      if (/Android/.test(ua)) return tx('Location is not allowed. Tap the lock (or ⓘ) icon in the address bar → Permissions → Location → Allow. Then tap again.');
+      if (ios) return tx('Location is not allowed. On iPhone: Settings → Privacy & Security → Location Services → turn on, and set “Safari Websites” to “While Using”. Then tap again.');
+      if (android) return tx('Location is not allowed. Tap the lock (or ⓘ) icon in the address bar → Permissions → Location → Allow. Then tap again.');
       return tx('Location is not allowed. Allow location for this site from the lock icon in the address bar.');
     }
-    if (/Line\/|FBAN|FBAV|Instagram|Twitter/i.test(ua)) return 'アプリの中のブラウザでは現在地を使えないことがあります。右上（または右下）のメニューから「Safari／ブラウザで開く」を選んで、開き直してください。';
+    if (inApp) return 'アプリの中のブラウザでは現在地を使えないことがあります。右上（または右下）のメニューから「Safari／ブラウザで開く」を選んで、開き直してください。';
     if (kind === 'unsupported') return 'この端末・ブラウザでは現在地を使えません。';
     if (kind === 'failed') return '現在地を取得できませんでした。電波の良い場所で、もう一度お試しください。';
-    if (/iPhone|iPad|iPod/.test(ua)) return '位置情報が許可されていません。iPhone の「設定」→「プライバシーとセキュリティ」→「位置情報サービス」をオンにし、「Safari の Web サイト」を「使用中のみ」にしてから、もう一度押してください。';
-    if (/Android/.test(ua)) return '位置情報が許可されていません。アドレスバー左の鍵（またはⓘ）のマーク →「権限」→「位置情報」を許可にしてから、もう一度押してください（端末の位置情報がオフのときはオンにしてください）。';
+    if (ios && chromeIos) return '位置情報が許可されていません。iPhone の「設定」→「アプリ」→「Chrome」→「位置情報」を「このAppの使用中」にしてから、ページを再読み込みして、もう一度押してください。';
+    if (ios && kind === 'denied-site') return 'このサイトの位置情報が「拒否」になっています。アドレスバーの「ぁあ」（または ≡）→「Webサイトの設定」→「位置情報」を「確認」か「許可」にしてから、ページを再読み込みして、もう一度押してください。（「設定」→「アプリ」→「Safari」→「位置情報」が「拒否」のときも同じく変えてください）';
+    if (ios) return '位置情報が許可されていません。iPhone の「設定」→「プライバシーとセキュリティ」→「位置情報サービス」→「Safari の Web サイト」を「このAppの使用中」にしてください。すでにそうなっているときは、「設定」→「アプリ」→「Safari」→「位置情報」を「確認」にして、ページを再読み込みしてから、もう一度押してください。';
+    if (android) return '位置情報が許可されていません。アドレスバー左の鍵（またはⓘ）のマーク →「権限」→「位置情報」を許可にしてから、もう一度押してください（端末の位置情報がオフのときはオンにしてください）。';
     return '位置情報が許可されていません。ブラウザのアドレスバーの鍵のマークから、このサイトの位置情報を許可してください。';
   }
 
@@ -223,7 +232,10 @@ export default function LeafletMap(props: Props) {
             }
           }, (err) => {
             stop();
-            tell(false, locateHelp(err.code === 1 ? 'denied' : 'failed'));
+            if (err.code !== 1) { tell(false, locateHelp('failed')); return; }
+            // どこで止まっているか（このサイトだけ拒否／iPhone・ブラウザ全体で拒否）を見分けて案内を変える
+            const perm = navigator.permissions?.query ? navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((r) => r.state).catch(() => 'unknown') : Promise.resolve('unknown');
+            perm.then((st) => tell(false, locateHelp(st === 'denied' ? 'denied-site' : 'denied-os')));
           }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
         };
         return b;
