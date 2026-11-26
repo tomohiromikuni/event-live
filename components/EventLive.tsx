@@ -102,14 +102,19 @@ export default function EventLive(p: Props) {
 
   // 現在地（「📍 自分の位置」を押したときだけ。端末の画面の中で距離を計算するだけで、送信・保存しない）
   const [meRaw, setMeRaw] = useState<Geo | null>(null);
-  const [locErr, setLocErr] = useState('');
-  const [locating, setLocating] = useState(false);
   useEffect(() => {
-    const onMe = (e: Event) => { setMeRaw((e as CustomEvent<Geo | null>).detail); setLocating(false); };
-    const onState = (e: Event) => { const d = (e as CustomEvent<{ on: boolean; error: string }>).detail; setLocErr(d.error || ''); if (!d.on) setLocating(false); };
+    const onMe = (e: Event) => setMeRaw((e as CustomEvent<Geo | null>).detail);
     window.addEventListener('evenow:me', onMe);
-    window.addEventListener('evenow:locate-state', onState);
-    return () => { window.removeEventListener('evenow:me', onMe); window.removeEventListener('evenow:locate-state', onState); };
+    // 位置情報がすでに許可されていれば、自動で「自分から近い順」にする（許可を求める画面は出さない・地図は会場のまま）
+    if (p.geo && !p.simple && navigator.permissions?.query) {
+      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((st) => {
+        if (st.state !== 'granted') return;
+        const W = window as unknown as { __evenowWantLocate?: boolean; __evenowQuiet?: boolean };
+        W.__evenowWantLocate = true; W.__evenowQuiet = true;
+        window.dispatchEvent(new Event('evenow:locate'));
+      }).catch(() => { /* 使えない端末は会場からの順のまま */ });
+    }
+    return () => window.removeEventListener('evenow:me', onMe);
   }, []);
   const placed = (s: Spot) => !s.generic && !!(s.lat || s.lng);
   // 会場から遠い（いちばん近い施設まで3km超）ときは「自分から」の表示にしない（会場からの表示のまま）
@@ -119,12 +124,13 @@ export default function EventLive(p: Props) {
     return pts.length ? Math.min(...pts.map((x) => distM(meRaw, x))) > 3000 : true;
   }, [meRaw, p.geo, visibleSpots]);
   const me = meRaw && p.geo && !meFar ? meRaw : null;
-  const myDist = (s: Spot) => (me && placed(s) ? distM(me, [s.lat, s.lng]) : Infinity);
   /** 名前（現在地があれば「（会場から…）」を「（あなたから…）」に） */
   const nameOf = (s: Spot) => nm((me && placed(s) && nameFromMe(s.name, me, [s.lat, s.lng])) || s.name);
   /** 名前に方角が入っていない施設は、説明の行の先頭に「あなたから…」 */
   const fromMe = (s: Spot) => (me && placed(s) && !/（会場から[^）]*）/.test(s.name) ? trAuto(fromMeText(me, [s.lat, s.lng]), lang) : '');
-  function startLocate() { setLocErr(''); setLocating(true); (window as unknown as { __evenowWantLocate?: boolean }).__evenowWantLocate = true; window.dispatchEvent(new Event('evenow:locate')); }
+  // 現在地が無いときは会場（地図の中心）から近い順
+  const venueAt: Geo | null = p.geo && p.center && (p.center[0] || p.center[1]) ? p.center : null;
+  const distOf = (s: Spot) => (!placed(s) ? Infinity : me ? distM(me, [s.lat, s.lng]) : venueAt ? distM(venueAt, [s.lat, s.lng]) : Infinity);
 
   // タブ：駐車場・（シャトルバス）・トイレ・地図・概要。最初は駐車場（検索でいちばん探される）。#toilet などで開くタブを指定できる
   const spotsOf = useCallback((cats: readonly string[]) => visibleSpots.filter((s) => cats.includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0), [visibleSpots, catById]);
@@ -346,7 +352,7 @@ export default function EventLive(p: Props) {
         const cat = p.categories.find((c) => (tp.cats as readonly string[]).includes(c.slug));
         // 並び：投稿がある場所（新しい順）→ 投稿がない場所（登録順）。多いときは3か所まで出して残りは畳む
         // 現在地があれば、自分から近い順（位置が分からないものは最後）
-        const sorted = me ? [...spots].sort((a, b) => myDist(a) - myDist(b) || a.sort - b.sort)
+        const sorted = me || venueAt ? [...spots].sort((a, b) => distOf(a) - distOf(b) || a.sort - b.sort)
           : [...spots].sort((a, b) => (latestBySpot.get(b.id)?.created_at ?? 0) - (latestBySpot.get(a.id)?.created_at ?? 0) || a.sort - b.sort);
         const nearestId = me && sorted[0] && placed(sorted[0]) ? sorted[0].id : null;
         const open = expanded.has(tp.id) || sorted.length <= 4;
@@ -372,13 +378,10 @@ export default function EventLive(p: Props) {
               const level = n >= 9 ? '多め' : n >= 4 ? 'ふつう' : '少なめ';
               return <div className={`tc-amount ${level === '少なめ' ? 'few' : ''}`}>{t('会場まわりのトイレ：')}<strong>{t(level)}</strong>{t('（地図上で{n}か所）', { n })}</div>;
             })()}
-            {spots.length > 1 && p.geo && !p.simple && spots.some(placed) && (
+            {spots.length > 1 && (me || venueAt) && spots.some(placed) && (
               <div className="near-bar">
-                {me ? <span className="near-on">{t('📍 自分から近い順')}</span>
-                  : meRaw ? null : <button type="button" className="chip-btn near-btn" onClick={startLocate} disabled={locating}>{t(locating ? '現在地を確認中…' : '📍 自分から近い順にする')}</button>}
+                {me ? <span className="near-on">{t('📍 自分から近い順')}</span> : <span className="near-on venue">{t('🎪 会場から近い順')}</span>}
                 {!me && meFar && <span className="muted small">{t('会場から離れているので、会場からの方角で表示しています')}</span>}
-                {!me && !meFar && !locErr && <span className="muted small">{t('位置は送信・保存しません')}</span>}
-                {locErr && <span className="locate-err small" role="alert">{locErr}</span>}
               </div>
             )}
             {spots.length > 1 && (

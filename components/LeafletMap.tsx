@@ -183,6 +183,9 @@ export default function LeafletMap(props: Props) {
             window.dispatchEvent(new CustomEvent('evenow:me', { detail: ll })); // 一覧を「自分から近い順」にする（画面の中だけ）
             if (first) {
               first = false;
+              // 自動で始めたとき（位置情報が許可済み）は地図を動かさない
+              const W = window as unknown as { __evenowQuiet?: boolean };
+              if (W.__evenowQuiet) { W.__evenowQuiet = false; tell(true); return; }
               const venue = venueRef.current;
               const d = venue ? map.distance(last, venue) : 0;
               // 会場から遠い（3km超）ときは地図を会場のままにして、距離と道順を案内する（遠くの自分の位置へ飛ばない）
