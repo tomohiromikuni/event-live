@@ -7,7 +7,7 @@ import type { ReportOption } from './types';
 
 /** 投稿制限のルール */
 export const LIMITS = {
-  sameSpotIntervalMin: 3, // 同じ地点への連続投稿の間隔
+  anyIntervalMin: 5, // 同じ人の連続投稿の間隔（ほかの地点・トイレなども含めて。運営者の判断）
   perClientWindowMin: 10, // ブラウザ単位の投稿数制限（10分で最大10件）
   perClientMax: 10,
   perIpMax: 40, // 同一IP（会場Wi-Fiなどで共有され得るため緩め）
@@ -52,9 +52,11 @@ export async function createReport(spotId: number, value: string): Promise<PostR
   const iph = await ipHash();
   const now = Date.now();
 
-  const lastSame = await one<{ created_at: number }>('SELECT created_at FROM reports WHERE client_id = $1 AND spot_id = $2 ORDER BY created_at DESC LIMIT 1', [cid, spotId]);
-  if (lastSame && now - lastSame.created_at < LIMITS.sameSpotIntervalMin * 60000) {
-    return { ok: false, error: `同じ地点への投稿は${LIMITS.sameSpotIntervalMin}分以上あけてください` };
+  // 同じ人（この端末）の投稿は、どの地点でも前の投稿から5分あける
+  const last = await one<{ created_at: number }>('SELECT created_at FROM reports WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1', [cid]);
+  if (last && now - last.created_at < LIMITS.anyIntervalMin * 60000) {
+    const left = Math.max(1, Math.ceil((LIMITS.anyIntervalMin * 60000 - (now - last.created_at)) / 60000));
+    return { ok: false, error: `続けての投稿は${LIMITS.anyIntervalMin}分あけてください（あと約${left}分）` };
   }
   const since = now - LIMITS.perClientWindowMin * 60000;
   const byClient = (await one<{ n: number }>('SELECT COUNT(*)::int AS n FROM reports WHERE client_id = $1 AND created_at >= $2', [cid, since]))!;

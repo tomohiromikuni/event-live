@@ -246,7 +246,7 @@ export default function LeafletMap(props: Props) {
       onAdd() {
         const b = lib.DomUtil.create('button', 'locate-btn home-btn');
         b.type = 'button'; const tx = makeTx(cbRef.current.lang ?? 'ja'), ja = (cbRef.current.lang ?? 'ja') === 'ja';
-        b.type = 'button'; b.textContent = ja ? '🎪 会場へ' : tx('🎪 Venue'); b.title = ja ? '会場の表示に戻る' : tx('Back to the venue');
+        b.type = 'button'; b.textContent = ja ? '🚩 会場へ' : tx('🚩 Venue'); b.title = ja ? '会場の表示に戻る' : tx('Back to the venue');
         lib.DomEvent.disableClickPropagation(b);
         b.onclick = () => homeRef.current?.();
         return b;

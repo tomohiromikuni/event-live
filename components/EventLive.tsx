@@ -238,7 +238,8 @@ export default function EventLive(p: Props) {
         setThanksHold(false);
         setThanks({ id: data.report.id, spotId, spot: sp?.name ?? '', label: data.report.label, level: data.report.level, at: data.report.created_at });
       } else {
-        setToast({ msg: t(data.error ?? '投稿できませんでした'), error: true });
+        const wait = (data.error ?? '').match(/続けての投稿は(\d+)分あけてください（あと約(\d+)分）/);
+        setToast({ msg: wait ? t('続けての投稿は{m}分あけてください（あと約{n}分）', { m: wait[1], n: wait[2] }) : t(data.error ?? '投稿できませんでした'), error: true });
       }
     } catch {
       setToast({ msg: t('通信エラーが発生しました'), error: true });
@@ -416,7 +417,7 @@ export default function EventLive(p: Props) {
             })()}
             {spots.length > 1 && (me || venueAt) && spots.some(placed) && (
               <div className="near-bar">
-                {me ? <span className="near-on">{t('📍 自分から近い順')}</span> : <span className="near-on venue">{t('🎪 会場から近い順')}</span>}
+                {me ? <span className="near-on">{t('📍 自分から近い順')}</span> : <span className="near-on venue">{t('🚩 会場から近い順')}</span>}
                 {!me && meFar && <span className="muted small">{t('会場から離れているので、会場からの方角で表示しています')}</span>}
               </div>
             )}

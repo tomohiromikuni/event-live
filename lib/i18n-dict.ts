@@ -51,7 +51,7 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "1 visitor report": ["1人报告", "1명 제보"],
   "{n} confirmed": ["{n}人确认", "{n}명 확인"],
   "📍 Nearest to you": ["📍 离你最近的顺序", "📍 내 위치에서 가까운 순"],
-  "🎪 Nearest to the venue": ["🎪 离会场最近的顺序", "🎪 행사장에서 가까운 순"],
+  "🚩 Nearest to the venue": ["🚩 离会场最近的顺序", "🚩 행사장에서 가까운 순"],
   "You are far from the venue, so directions are from the venue.": ["你离会场较远，因此显示从会场出发的方向。", "행사장에서 멀리 있어 행사장 기준 방향으로 표시합니다."],
   "Nearest": ["最近", "가장 가까움"],
   " (blue dot = you)": ["（蓝点是你）", " (파란 점이 나)"],
@@ -84,7 +84,7 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "Show me": ["查看我的位置", "내 위치 보기"],
   "about {km}": ["约{km}", "약 {km}"],
   "📍 My location": ["📍 当前位置", "📍 현재 위치"],
-  "🎪 Venue": ["🎪 回到会场", "🎪 행사장으로"],
+  "🚩 Venue": ["🚩 回到会场", "🚩 행사장으로"],
   "Show my location (never sent or saved)": ["显示当前位置（不会发送或保存）", "현재 위치 표시 (전송·저장되지 않음)"],
   "Back to the venue": ["回到会场显示", "행사장 표시로 돌아가기"],
   // 地点の画面
@@ -125,6 +125,7 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "My contributions": ["本设备的贡献记录", "이 기기의 기여 기록"],
   "Tell other visitors": ["告诉其他到场者", "다른 방문자에게도 알리기"],
   // メッセージ
+  "Please wait {m} minutes between reports (about {n} min left)": ["连续报告请间隔{m}分钟（还需约{n}分钟）", "연속 제보는 {m}분 간격을 두어 주세요 (약 {n}분 남음)"],
   "Could not post": ["无法发送", "제보하지 못했어요"],
   "Network error": ["网络错误", "통신 오류"],
   "Thanks for confirming": ["感谢确认", "확인해 주셔서 감사합니다"],
