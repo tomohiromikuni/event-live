@@ -29,6 +29,7 @@ jobs:
               await p.goto('https://www.evenow.jp' + path, { waitUntil: 'networkidle', timeout: 60000 });
               await p.waitForTimeout(1500);
               await p.screenshot({ path: `shot-${++i}-top.png` });
+              await p.screenshot({ path: `shot-${i}-top.jpg`, type: 'jpeg', quality: 55 });
               await p.screenshot({ path: `shot-${i}-full.png`, fullPage: true });
               console.log(i, path, await p.title());
             }
@@ -36,6 +37,8 @@ jobs:
           })();
           JS
           node shot.js
+      - name: Print top screenshots (base64, for environments that cannot download artifacts)
+        run: cd s && for f in shot-*-top.jpg; do echo "BEGIN $f"; base64 -w0 "$f"; echo; echo "END $f"; done
       - uses: actions/upload-artifact@v4
         with:
           name: screenshots
