@@ -15,7 +15,8 @@ import { currentClientId } from './contrib';
  * spots.source = 'user'、票は pin_votes（端末は塩付きハッシュで記録し、匿名IDそのものは保存しない）
  */
 export const USER_SOURCE = 'user';
-const KINDS = { toilet: 'トイレ', parking: '駐車場', shuttle: 'シャトルバス乗り場' } as const;
+// 報告できるのはトイレと駐車場だけ（「乗り場」はタクシー乗り場などと紛らわしいため運営者の判断でやめた）
+const KINDS = { toilet: 'トイレ', parking: '駐車場' } as const;
 type Kind = keyof typeof KINDS;
 const MAX_KM = 1.5;
 const PER_DAY = 5;

@@ -272,7 +272,7 @@ export default function EventLive(p: Props) {
       else setToast({ msg: t(d.error ?? '送れませんでした'), error: true });
     } catch { setToast({ msg: t('通信エラーが発生しました'), error: true }); }
   }
-  async function reportPin(kind: 'toilet' | 'parking' | 'shuttle') {
+  async function reportPin(kind: 'toilet' | 'parking') {
     setPinMenu(false);
     if (!('geolocation' in navigator)) { setToast({ msg: t('この端末では現在地を使えません'), error: true }); return; }
     setToast({ msg: t('現在地を確認しています…') });
@@ -462,7 +462,6 @@ export default function EventLive(p: Props) {
                   <div className="pin-btns">
                     <button type="button" className="chip-btn" onClick={() => reportPin('toilet')}>{t('🚻 トイレ')}</button>
                     <button type="button" className="chip-btn" onClick={() => reportPin('parking')}>{t('🅿️ 駐車場')}</button>
-                    <button type="button" className="chip-btn" onClick={() => reportPin('shuttle')}>{t('🚌 乗り場')}</button>
                     <button type="button" className="chip-btn ghost" onClick={() => setPinMenu(false)}>{t('やめる')}</button>
                   </div>
                 </div>
