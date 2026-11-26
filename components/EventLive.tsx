@@ -116,6 +116,17 @@ export default function EventLive(p: Props) {
     }
     return () => window.removeEventListener('evenow:me', onMe);
   }, []);
+  // 「地図にないトイレ・駐車場を報告」は現在地で報告するため、位置情報を使えない人には出さない：
+  // 端末が非対応・このサイトの位置情報を拒否している・現在地が会場から遠い（1.5km超＝報告できない）とき。
+  // まだ聞かれていない人（初めての人）には出す（押したときに許可を聞く）
+  const [geoDenied, setGeoDenied] = useState(false);
+  useEffect(() => {
+    if (!('geolocation' in navigator)) { setGeoDenied(true); return; }
+    navigator.permissions?.query({ name: 'geolocation' as PermissionName }).then((st) => {
+      setGeoDenied(st.state === 'denied');
+      st.onchange = () => setGeoDenied(st.state === 'denied');
+    }).catch(() => { /* 分からないときは出す */ });
+  }, []);
   const placed = (s: Spot) => !s.generic && !!(s.lat || s.lng);
   // 会場から遠い（いちばん近い施設まで3km超）ときは「自分から」の表示にしない（会場からの表示のまま）
   const meFar = useMemo(() => {
@@ -141,6 +152,7 @@ export default function EventLive(p: Props) {
     if (!me || !venueAt || !p.postable || tabChosen.current || tab !== topics[0]?.id) return;
     if (distM(me, venueAt) <= 1000) { tabChosen.current = true; setTab('toilet'); }
   }, [me]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pinUsable = !geoDenied && !(meRaw && venueAt && distM(meRaw, venueAt) > 1500);
   const distOf = (s: Spot) => (!placed(s) ? Infinity : me ? distM(me, [s.lat, s.lng]) : venueAt ? distM(venueAt, [s.lat, s.lng]) : Infinity);
 
   // タブ：駐車場・（シャトルバス）・トイレ・地図・概要。最初は駐車場（検索でいちばん探される）。#toilet などで開くタブを指定できる
@@ -398,7 +410,7 @@ export default function EventLive(p: Props) {
           </div>
           {p.geo && <LocateNote t={t} />}
           {/* 来場者の場所の報告（地図のすぐ下） */}
-          {p.geo && p.postable && (
+          {p.geo && p.postable && pinUsable && (
             <div className="pin-report">
               {!pinMenu ? (
                 <button type="button" className="pin-cta" onClick={() => setPinMenu(true)}>
