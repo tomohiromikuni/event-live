@@ -81,6 +81,7 @@ export const ZHT: Record<string, string> = {
  "Show my location (never sent or saved)": "顯示當前位置（不會傳送或儲存）",
  "Back to the venue": "回到會場顯示",
  "Go": "前往",
+ "Tap the map to move it": "點選地圖後即可拖動",
  "📍 Go here": "📍 前往這裡",
  "📍 Go near here": "📍 前往這附近",
  "Blue dot = you": "藍點是你",

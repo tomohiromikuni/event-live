@@ -348,6 +348,27 @@ export default function EventLive(p: Props) {
         )}
       </div>
 
+      {/* 地図（タブのすぐ下・選んだ種類だけ）。最初はページのスクロールを妨げないよう固定し、地図をタップすると動かせる */}
+      {!p.simple && (
+        <div className="topic-card map-card map-top" id="map" style={{ scrollMarginTop: 70 }}>
+          <div className="live-map">
+            <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes} lockUntilTap
+              onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} lang={lang} />
+            <div className="legend">
+              {/* 1行に収める：日本語は短い言い方（押さえると正式な言い方） */}
+              {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l} title={t(l)}><i style={{ background: LEVEL_COLORS[i] }} />{lang === 'ja' && l === '利用不可' ? '不可' : t(l)}</span>)}
+              <span title={t('情報なし')}><i style={{ background: '#94a3b8' }} />{lang === 'ja' ? 'なし' : t('情報なし')}</span>
+              <span title={t('点線＝{n}分以上前', { n: FRESH_MIN })}><i className="stale-i" />{lang === 'ja' ? `${FRESH_MIN}分前〜` : t('{n}分以上前', { n: FRESH_MIN })}</span>
+              {visibleSpots.some((s) => s.source === 'guide') && <span><i className="est-i" />{t('破線の枠＝位置は目安')}</span>}
+            </div>
+            {(visibleSpots.some((s) => s.source === 'osm') || p.shapes.some((sh) => sh.style === 'venue')) && (
+              <div className="legend-credit">{t('施設・会場の範囲の一部：')}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></div>
+            )}
+          </div>
+          {p.geo && <LocateNote t={t} />}
+        </div>
+      )}
+
       {TOPICS.map((tp) => {
         const spots = visibleSpots.filter((s) => (tp.cats as readonly string[]).includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0);
         const official = p.official?.[tp.id]?.trim() ?? '';
@@ -430,6 +451,24 @@ export default function EventLive(p: Props) {
         );
       })}
 
+      {/* 来場者の場所の報告（一覧の下） */}
+      {p.geo && p.postable && !p.simple && (
+            <div className="pin-report">
+              {!pinMenu ? (
+                <button type="button" className="chip-btn" onClick={() => setPinMenu(true)}>{t('＋ ここにトイレ・駐車場がある（現在地で報告）')}</button>
+              ) : (
+                <div className="pin-menu">
+                  <div className="small">{t('いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）')}</div>
+                  <div className="pin-btns">
+                    <button type="button" className="chip-btn" onClick={() => reportPin('toilet')}>{t('🚻 トイレ')}</button>
+                    <button type="button" className="chip-btn" onClick={() => reportPin('parking')}>{t('🅿️ 駐車場')}</button>
+                    <button type="button" className="chip-btn" onClick={() => reportPin('shuttle')}>{t('🚌 乗り場')}</button>
+                    <button type="button" className="chip-btn ghost" onClick={() => setPinMenu(false)}>{t('やめる')}</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
       {hasFood && (
         <div className={`topic-card colored ${tab === 'food' ? '' : 'tab-off'}`} role="tabpanel" id="topic-food" style={{ ['--c' as string]: '#ea580c', scrollMarginTop: 70 }}>
           <div className="tc-head">
@@ -449,45 +488,6 @@ export default function EventLive(p: Props) {
           )}
           {foodAreas.length > 0 && <div className="tc-when">{t('地図のオレンジの範囲が、屋台・飲食エリアです')}</div>}
           {p.official?.food?.trim() && <div className="tc-off"><span className="src-tag official">{t('公式情報')}</span><div style={{ whiteSpace: 'pre-wrap' }}>{p.official.food.trim()}</div></div>}
-        </div>
-      )}
-
-      {!p.simple && (
-        <div className="topic-card map-card" id="map" style={{ scrollMarginTop: 70 }}>
-          <div className="tc-head"><h3>{t('{x}の地図', { x: t(tab === 'food' ? '屋台' : TOPICS.find((x) => x.id === tab)?.title ?? '会場') })}</h3></div>
-          <p className="muted small one-line" style={{ margin: '0 0 8px' }}>{t('地点をタップで、状況の確認・投稿ができます')}</p>
-          {p.geo && <LocateButton t={t} />}
-          {p.geo && p.postable && (
-            <div className="pin-report">
-              {!pinMenu ? (
-                <button type="button" className="chip-btn" onClick={() => setPinMenu(true)}>{t('＋ ここにトイレ・駐車場がある（現在地で報告）')}</button>
-              ) : (
-                <div className="pin-menu">
-                  <div className="small">{t('いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）')}</div>
-                  <div className="pin-btns">
-                    <button type="button" className="chip-btn" onClick={() => reportPin('toilet')}>{t('🚻 トイレ')}</button>
-                    <button type="button" className="chip-btn" onClick={() => reportPin('parking')}>{t('🅿️ 駐車場')}</button>
-                    <button type="button" className="chip-btn" onClick={() => reportPin('shuttle')}>{t('🚌 乗り場')}</button>
-                    <button type="button" className="chip-btn ghost" onClick={() => setPinMenu(false)}>{t('やめる')}</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          <div className="live-map">
-            <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes}
-              onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} lang={lang} />
-            <div className="legend">
-              {/* 1行に収める：日本語は短い言い方（押さえると正式な言い方） */}
-              {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l} title={t(l)}><i style={{ background: LEVEL_COLORS[i] }} />{lang === 'ja' && l === '利用不可' ? '不可' : t(l)}</span>)}
-              <span title={t('情報なし')}><i style={{ background: '#94a3b8' }} />{lang === 'ja' ? 'なし' : t('情報なし')}</span>
-              <span title={t('点線＝{n}分以上前', { n: FRESH_MIN })}><i className="stale-i" />{lang === 'ja' ? `${FRESH_MIN}分前〜` : t('{n}分以上前', { n: FRESH_MIN })}</span>
-              {visibleSpots.some((s) => s.source === 'guide') && <span><i className="est-i" />{t('破線の枠＝位置は目安')}</span>}
-            </div>
-            {(visibleSpots.some((s) => s.source === 'osm') || p.shapes.some((sh) => sh.style === 'venue')) && (
-              <div className="legend-credit">{t('施設・会場の範囲の一部：')}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></div>
-            )}
-          </div>
         </div>
       )}
 
@@ -652,8 +652,8 @@ function Confetti() {
   );
 }
 
-/** 地図の上の大きな「現在地」ボタン。押したときだけ端末に位置情報の許可を求める（位置は画面に出すだけで、送信・保存しない） */
-function LocateButton({ t }: { t: T }) {
+/** 現在地の案内（地図の右上の「📍 現在地」を押したときだけ）：会場から遠いとき・使えないときに1〜2行で知らせる。位置は送信・保存しない */
+function LocateNote({ t }: { t: T }) {
   const [state, setState] = useState<{ on: boolean; error: string; far: number }>({ on: false, error: '', far: 0 });
   useEffect(() => {
     const h = (e: Event) => setState({ far: 0, ...(e as CustomEvent<{ on: boolean; error: string; far?: number }>).detail } as { on: boolean; error: string; far: number });
@@ -661,21 +661,14 @@ function LocateButton({ t }: { t: T }) {
     return () => window.removeEventListener('evenow:locate-state', h);
   }, []);
   const km = state.far >= 10_000 ? `${Math.round(state.far / 1000)}km` : `${(state.far / 1000).toFixed(1)}km`;
+  if (state.error) return <div className="locate-err" role="alert">{state.error}</div>;
+  if (!(state.on && state.far > 0)) return null;
   return (
-    <div className="locate-big">
-      <button type="button" className={`tc-btn locate-big-btn ${state.on ? 'on' : ''}`} onClick={() => { setState((s) => ({ ...s, error: '' })); window.dispatchEvent(new Event('evenow:locate')); }}>
-        {t(state.on ? '📍 現在地の表示をやめる' : '📍 自分の位置を地図に表示する')}
-      </button>
-      {state.on && state.far > 0 ? (
-        <div className="locate-far">
-          <div className="one-line">{t('いまの場所は会場から')}<strong>{t('約{km}', { km })}</strong>{t('。地図は会場付近のままです')}</div>
-          <div>{t('行きたい駐車場などの地点をタップ →「📍 この場所に行く」で、そこまでの道順が出ます')}</div>
-          <div className="locate-far-btns">
-            <button type="button" className="chip-btn" onClick={() => window.dispatchEvent(new Event('evenow:show-me'))}>{t('自分の位置を見る')}</button>
-          </div>
-        </div>
-      ) : <div className="muted small one-line">{t('位置は画面に出すだけで、送信・保存しません')}</div>}
-      {state.error && <div className="locate-err" role="alert">{state.error}</div>}
+    <div className="locate-far">
+      <div className="one-line">{t('いまの場所は会場から')}<strong>{t('約{km}', { km })}</strong>{t('。地図は会場付近のままです')}</div>
+      <div className="locate-far-btns">
+        <button type="button" className="chip-btn" onClick={() => window.dispatchEvent(new Event('evenow:show-me'))}>{t('自分の位置を見る')}</button>
+      </div>
     </div>
   );
 }

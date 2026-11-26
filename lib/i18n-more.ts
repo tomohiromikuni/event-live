@@ -84,6 +84,7 @@ export const MORE: Record<'vi', Record<string, string>> = {
     "Show my location (never sent or saved)": "Hiện vị trí của tôi (không gửi hay lưu)",
     "Back to the venue": "Quay lại địa điểm",
     "Go": "Đi",
+    "Tap the map to move it": "Chạm vào bản đồ để di chuyển",
     "📍 Go here": "📍 Đi đến đây",
     "📍 Go near here": "📍 Đi đến gần đây",
     "Blue dot = you": "Chấm xanh = bạn",

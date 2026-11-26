@@ -89,6 +89,7 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "Back to the venue": ["回到会场显示", "행사장 표시로 돌아가기"],
   // 地点の画面
   "Go": ["前往", "가기"],
+  "Tap the map to move it": ["点击地图后即可拖动", "지도를 누르면 움직일 수 있어요"],
   "📍 Go here": ["📍 前往这里", "📍 여기로 가기"],
   "📍 Go near here": ["📍 前往这附近", "📍 이 근처로 가기"],
   "Blue dot = you": ["蓝点是你", "파란 점이 나"],

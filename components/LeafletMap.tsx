@@ -32,6 +32,8 @@ type Props = {
   me?: [number, number] | null;
   /** 動かせない地図（小さな見本。押すと大きくする側で扱う） */
   still?: boolean;
+  /** 最初は動かさない（指1本でページをスクロールできる）。地図をタップすると動かせるようになる */
+  lockUntilTap?: boolean;
 };
 
 /**
@@ -111,6 +113,7 @@ export default function LeafletMap(props: Props) {
       renderMarkers();
       if (cbRef.current.geo && cbRef.current.locate) addLocateControl(map, lib);
       if (cbRef.current.mini) showMini(map, lib);
+      if (cbRef.current.lockUntilTap) lockUntilTap(map, lib);
       cbRef.current.onReady?.(map, lib);
     });
     return () => {
@@ -120,6 +123,21 @@ export default function LeafletMap(props: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** 最初は地図を固定（ページのスクロールが地図に吸われない）。地図をタップすると動かせる */
+  function lockUntilTap(map: L.Map, lib: typeof L) {
+    const parts = [map.dragging, map.touchZoom, map.scrollWheelZoom, map.doubleClickZoom];
+    parts.forEach((h) => h.disable());
+    const c = map.getContainer();
+    c.classList.add('map-locked');
+    const hint = lib.DomUtil.create('div', 'map-lock-hint', c);
+    const lang = cbRef.current.lang ?? 'ja';
+    hint.textContent = lang === 'ja' ? '👆 地図をタップすると動かせます' : `👆 ${makeTx(lang)('Tap the map to move it')}`;
+    const unlock = () => { parts.forEach((h) => h.enable()); c.classList.remove('map-locked'); hint.remove(); };
+    map.once('click', unlock);
+    lib.DomEvent.on(hint, 'click', (e) => { lib.DomEvent.stop(e); unlock(); });
+    window.addEventListener('evenow:locate', () => { if (!(window as unknown as { __evenowQuiet?: boolean }).__evenowQuiet) unlock(); }, { once: true }); // 現在地ボタンを押したら自由に動かせるように（自動の現在地では固定のまま）
+  }
 
   /** 小さな地図：施設を真ん中に。自分が2km以内なら自分と施設の両方が入るように */
   function showMini(map: L.Map, lib: typeof L) {

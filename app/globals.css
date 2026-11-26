@@ -581,6 +581,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tc-traffic { margin-top: 4px; font-size: 13px; color: #4b4560; }
 .tc-btn { display: block; width: 100%; text-align: center; margin-top: 8px; padding: 10px; border: 2px solid var(--ink); border-radius: 12px; background: #fff; font: inherit; font-weight: 900; font-size: 15px; cursor: pointer; color: inherit; }
 .tc-btn .spot-name { font-weight: 900; }
+.map-card.map-top { padding: 0; overflow: hidden; }
+.map-card.map-top .live-map { margin: 0; border-top: 0; }
+.map-card.map-top .live-map .map { height: 36vh; min-height: 230px; max-height: 340px; border-top: 0; }
+.map-card.map-top .locate-far, .map-card.map-top .locate-err { margin: 0 12px 10px; }
+.map-lock-hint { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 800; background: rgba(28,23,48,.78); color: #fff; font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 999px; white-space: nowrap; cursor: pointer; }
 .map-card .live-map { margin: 0 -14px -12px; border-top: 1.5px solid var(--border); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
 .sheet-posts { margin-top: 12px; border-top: 1.5px solid var(--border); padding-top: 8px; }
 .sheet-posts .feed-item { padding: 6px 0; }
@@ -948,3 +953,4 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 }
 .sb-me { display: block; text-align: center; margin-top: 10px; font-size: 12px; font-weight: 800; color: var(--muted); text-decoration: underline; }
 .go-round-l { font-size: 10px; white-space: nowrap; }
+.map-top ~ .pin-report, .topic-card + .pin-report { margin-top: 14px; }
