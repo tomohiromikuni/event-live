@@ -886,3 +886,5 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .tc-amount { margin: 8px 14px 0; font-size: 13px; font-weight: 700; color: var(--muted); }
 .tc-amount strong { color: var(--ink); }
 .tc-amount.few strong { color: #c2410c; }
+
+.origin-tag.temp.official { background: #fff7ed; color: #9a3412; border: 1.5px solid #ea580c; }

@@ -92,7 +92,21 @@ export function distToRing(p: Geo, ring: Geo[]): number {
 /** 会場の範囲から、この距離までを探す（範囲が分かるとき） */
 export const RING_MARGIN_M = 300;
 
-async function fromTiles(center: Geo, ring?: Geo[]): Promise<OsmEl[] | null> {
+/** 全国の抽出データから、名前が一致するトイレ・駐車場を探す（会場から3km以内）。公式が案内する駐車場の位置合わせに使う */
+export async function findFacilityByName(center: Geo, name: string, kind: 'toilet' | 'parking'): Promise<Geo | null> {
+  const n = (s: string) => s.normalize('NFKC').replace(/[\s・()（）「」]/g, '').toLowerCase();
+  const want = n(name).replace(/(臨時|仮設|特設)/g, '');
+  if (want.length < 3) return null;
+  const els = await fromTiles(center, undefined, 3000).catch(() => null);
+  if (!els) return null;
+  const amen = kind === 'toilet' ? 'toilets' : 'parking';
+  const hits = els.filter((e) => e.tags?.amenity === amen && e.tags?.name && (n(e.tags.name) === want || n(e.tags.name).includes(want) || (want.includes(n(e.tags.name)) && n(e.tags.name).length >= 4)));
+  if (!hits.length) return null;
+  hits.sort((a, b) => distanceM(center, [a.lat!, a.lon!]) - distanceM(center, [b.lat!, b.lon!]));
+  return [hits[0].lat!, hits[0].lon!];
+}
+
+async function fromTiles(center: Geo, ring?: Geo[], radius = WIDE_M): Promise<OsmEl[] | null> {
   const get = async (path: string) => {
     const res = await fetch(`${TILES_BASE}/${path}`, { signal: AbortSignal.timeout(8000), next: { revalidate: path === 'meta.json' ? 3600 : 86400 } });
     if (res.status === 404) return null;
@@ -105,7 +119,7 @@ async function fromTiles(center: Geo, ring?: Geo[]): Promise<OsmEl[] | null> {
   const [lat, lng] = center;
   // 探す四角：会場の範囲が分かればその外側300mまで、無ければ中心から1.5km
   const pts: Geo[] = ring?.length ? ring : [center];
-  const m = ring?.length ? RING_MARGIN_M : WIDE_M;
+  const m = ring?.length ? RING_MARGIN_M : radius;
   const dLat = m / 111_000, dLng = m / (111_000 * Math.cos(lat * Math.PI / 180));
   const la0 = Math.min(...pts.map((p) => p[0])) - dLat, la1 = Math.max(...pts.map((p) => p[0])) + dLat;
   const lo0 = Math.min(...pts.map((p) => p[1])) - dLng, lo1 = Math.max(...pts.map((p) => p[1])) + dLng;
@@ -115,7 +129,7 @@ async function fromTiles(center: Geo, ring?: Geo[]): Promise<OsmEl[] | null> {
   for (const k of keys) if (have.has(k)) rows.push(...((await get(`t/${k}.json`)) as TileRow[] ?? []));
   const TYPES: Record<string, string> = { n: 'node', w: 'way', r: 'relation' };
   return rows
-    .filter((r) => (ring?.length ? distToRing([r[2], r[3]], ring) <= RING_MARGIN_M : distanceM(center, [r[2], r[3]]) <= WIDE_M))
+    .filter((r) => (ring?.length ? distToRing([r[2], r[3]], ring) <= RING_MARGIN_M : distanceM(center, [r[2], r[3]]) <= radius))
     .map(([k, id, la, lo, name = '', fee = '', capacity = '', wheelchair = '', x = {}]) => {
       const ex = (x || {}) as TileExtra;
       const tags: Record<string, string> = { amenity: k[0] === 't' ? 'toilets' : 'parking' };

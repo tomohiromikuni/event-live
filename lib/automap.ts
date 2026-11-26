@@ -6,7 +6,7 @@ import { settleAutoPublish } from './collect/publish';
 import { todayJST } from './dates';
 import { enrichOfficialInfo } from './collect/enrich';
 import { importVenueArea } from './venueArea';
-import { importTempFacilities } from './tempFacilities';
+import { importTempFacilities, relocateTempItems } from './tempFacilities';
 import { addDays } from './dates';
 
 /**
@@ -24,6 +24,7 @@ export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): 
   }
   // 公式の仮設トイレ・臨時駐車場・乗り場（名前つき）
   try { const m = await importTempFacilities(eventId); if (m) msgs.push(m); } catch (e) { msgs.push(`仮設・臨時の読み取りに失敗：${e instanceof Error ? e.message : e}`); }
+  try { const n = await relocateTempItems(eventId); if (n) msgs.push(`公式の案内 ${n}件 の位置を地図データの名前から合わせました`); } catch { /* 一覧のまま */ }
   // 会場の範囲（公園・広場の外形）を薄く囲う
   try {
     const m = await importVenueArea(q, eventId);

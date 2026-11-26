@@ -56,7 +56,12 @@ const TOPICS = [
 
 /** 公式の臨時・仮設、来場者の報告の目印（常設の施設と見分けるため） */
 function originTag(s: Spot, catSlug: string | undefined, pin?: { yes: number }): { text: string; cls: string } | null {
-  if (s.source === 'official_temp') return { text: catSlug === 'toilet' ? '仮設' : catSlug === 'parking' ? '臨時' : '公式', cls: 'temp' };
+  if (s.source === 'official_temp') {
+    const txt = s.name + s.note;
+    if (/仮設/.test(txt) && catSlug === 'toilet') return { text: '仮設', cls: 'temp' };
+    if (/臨時|特設/.test(txt)) return { text: '臨時', cls: 'temp' };
+    return { text: '公式案内', cls: 'temp official' };
+  }
   if (s.source === 'user') return (pin?.yes ?? 1) >= 2 ? { text: `${pin!.yes}人が確認`, cls: 'user ok' } : { text: '1人の報告', cls: 'user' };
   return null;
 }

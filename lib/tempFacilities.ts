@@ -1,7 +1,7 @@
 import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 import { one, q, type Q } from './db';
-import { distanceM } from './osm';
+import { distanceM, findFacilityByName } from './osm';
 import { todayJST, addDays } from './dates';
 import { gatherOfficialTexts } from './collect/enrich';
 import { collectModel, extractorReady } from './collect/extract';
@@ -57,7 +57,8 @@ export async function saveTempItems(tq: Q, eventId: number, items: TempItem[], f
     const ext = `temp:${it.kind}:${norm(name)}`;
     if (have.has(ext)) continue;
     have.add(ext);
-    const pos = await locateByName(name, ev, center).catch(() => null);
+    const pos = (it.kind !== 'shuttle' && center ? await findFacilityByName(center, name, it.kind).catch(() => null) : null)
+      ?? await locateByName(name, ev, center).catch(() => null);
     const note = [`${KIND_LABEL[it.kind]}（公式・${from}）`, it.note.trim().slice(0, 60), pos ? '位置は名前からの目安' : '地図の位置は未確認'].filter(Boolean).join('・');
     await tq(`INSERT INTO spots (event_id, category_id, name, note, lat, lng, sort, generic, source, ext_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [eventId, catId, name, note.slice(0, 140), pos?.[0] ?? 0, pos?.[1] ?? 0, -50 + i, pos ? 0 : 1, TEMP_SOURCE, ext]);
@@ -83,7 +84,8 @@ const SYSTEM = `あなたはイベントの公式ページから、イベント�
 - 本文に、そのイベントのために用意されると書かれていて、場所の名前があるものだけ（例：「臨時駐車場：○○小学校グラウンド」「仮設トイレ：西4丁目」「シャトルバス乗り場：○○駅東口」）。
 - name は場所の名前（例：「○○小学校グラウンド」「西4丁目 仮設トイレ」「○○駅東口」）。kind は toilet / parking / shuttle。
 - note は台数・料金・時間など書かれている補足を短く（無ければ空文字）。
-- 常設の駐車場・常設トイレ、場所の名前が無いもの（「臨時駐車場あり」だけ）、別のイベント・別の年のものは入れない。推測しない。無ければ items は空配列。`;
+- 公式が来場者に案内している常設の駐車場（「お車の方は○○駐車場をご利用ください」）も入れてよい。その場合 note に「常設」と書く。臨時・仮設のものは name か note に「臨時」「仮設」の言葉を残す。
+- 場所の名前が無いもの（「臨時駐車場あり」だけ）、別のイベント・別の年のものは入れない。推測しない。無ければ items は空配列。`;
 
 let client: Anthropic | null = null;
 
@@ -91,6 +93,22 @@ let client: Anthropic | null = null;
  * 公式サイトから仮設トイレ・臨時駐車場・乗り場を読み取って取り込む。
  * ガイドマップや案内は開催の1〜2週間前に出ることが多いので、開催2週間前からは2日に1回、それ以外は7日に1回まで。
  */
+/** 位置がまだ分からない公式の案内（一覧のみ）を、地図データの名前で探し直す（費用0円・毎回） */
+export async function relocateTempItems(eventId: number): Promise<number> {
+  const ev = await one<{ lat: number; lng: number }>('SELECT lat, lng FROM events WHERE id = $1', [eventId]);
+  if (!ev || !(ev.lat || ev.lng)) return 0;
+  const rows = await q<{ id: number; name: string; note: string; slug: string }>(`SELECT s.id, s.name, s.note, c.slug FROM spots s JOIN spot_categories c ON c.id = s.category_id
+    WHERE s.event_id = $1 AND s.source = $2 AND s.generic = 1 AND c.slug IN ('toilet', 'parking')`, [eventId, TEMP_SOURCE]);
+  let n = 0;
+  for (const r of rows) {
+    const pos = await findFacilityByName([ev.lat, ev.lng], r.name, r.slug as 'toilet' | 'parking').catch(() => null);
+    if (!pos) continue;
+    await q('UPDATE spots SET lat = $1, lng = $2, generic = 0, note = $3 WHERE id = $4', [pos[0], pos[1], r.note.replace('地図の位置は未確認', '位置は地図データの同じ名前の施設'), r.id]);
+    n++;
+  }
+  return n;
+}
+
 export async function importTempFacilities(eventId: number): Promise<string> {
   const ev = await one<{ name: string; official_url: string; source_url: string; start_date: string; temp_at: number }>(
     'SELECT name, official_url, source_url, start_date, temp_at FROM events WHERE id = $1', [eventId]);
