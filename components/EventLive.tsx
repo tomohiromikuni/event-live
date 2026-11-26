@@ -52,6 +52,12 @@ const TOPICS = [
   { id: 'toilet', title: 'トイレ', cats: ['toilet'], always: true },
 ] as const;
 
+/** 公式の臨時・仮設、来場者の報告の目印（常設の施設と見分けるため） */
+function originTag(s: Spot, catSlug: string | undefined): { text: string; cls: string } | null {
+  if (s.source === 'official_temp') return { text: catSlug === 'toilet' ? '仮設' : catSlug === 'parking' ? '臨時' : '公式', cls: 'temp' };
+  return null;
+}
+
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
@@ -158,7 +164,7 @@ export default function EventLive(p: Props) {
     const badge = latest && !stale ? `<span class="mk-badge" style="background:${levelColor(latest.level)}">${escapeHtml(latest.label)}</span>` : '';
     return {
       id: s.id, lat: s.lat, lng: s.lng, title: s.name,
-      html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}${s.source === 'guide' ? ' est' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge}</div>`,
+      html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}${s.source === 'guide' ? ' est' : ''}${s.source === 'official_temp' ? ' temp' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge || (originTag(s, c.slug) ? `<span class="mk-tag">${originTag(s, c.slug)!.text}</span>` : '')}</div>`,
     };
   }), [visibleSpots, catById, latestBySpot, selected, now, tabCats, tab]);
 
@@ -285,8 +291,8 @@ export default function EventLive(p: Props) {
                   const latest = latestBySpot.get(s.id);
                   return (
                     <button key={s.id} id={`spot-${s.id}`} className={`tc-row spot-item ${highlight === s.id ? 'highlight' : ''}`} onClick={() => setSelected(s.id)}>
-                      <span className="tc-name"><span className="spot-name">{s.name}</span>
-                        <span className="tc-sub">{latest ? when(s, latest) : '投稿なし'}{latest?.mine && <span className="mine-tag">あなたの投稿</span>}</span></span>
+                      <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{s.name}</span>
+                        <span className="tc-sub">{latest ? when(s, latest) : s.source === 'official_temp' ? `投稿なし・${s.generic ? '地図の位置は未確認' : '位置は目安'}` : '投稿なし'}{latest?.mine && <span className="mine-tag">あなたの投稿</span>}</span></span>
                       {latest && pill(latest)}<span className="tc-arrow" aria-hidden>›</span>
                     </button>
                   );

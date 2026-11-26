@@ -486,7 +486,10 @@ const V33 = V32;
 
 const V34 = V32;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33, V34];
+/** 公式の仮設トイレ・臨時駐車場・乗り場を読み取った時刻（開催2週間前からは2日に1回） */
+const V35 = `ALTER TABLE events ADD COLUMN IF NOT EXISTS temp_at BIGINT NOT NULL DEFAULT 0`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33, V34, V35];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

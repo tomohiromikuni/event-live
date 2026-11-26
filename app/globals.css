@@ -839,3 +839,9 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 /* タブの状況を大きく（混んでる・空いてるが一目で分かるように） */
 .ev-tabs.seg .et-val { font-size: 12px; padding: 1px 8px; margin-top: 2px; }
 .ev-tabs.seg .et-val:not(.none) { border: 1.5px solid #fff; }
+
+/* 公式の臨時・仮設（オレンジの目印） */
+.origin-tag { display: inline-block; font-size: 11px; font-weight: 900; padding: 0 7px; border-radius: 999px; margin-right: 6px; vertical-align: 2px; }
+.origin-tag.temp { background: #ea580c; color: #fff; }
+.mk.temp { box-shadow: 0 0 0 2px var(--ink), 0 0 0 5px #ea580c; }
+.mk .mk-tag { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); font-size: 10px; font-weight: 900; color: #fff; background: #ea580c; padding: 0 5px; border-radius: 999px; white-space: nowrap; }

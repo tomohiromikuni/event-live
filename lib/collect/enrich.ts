@@ -44,22 +44,9 @@ function infoPages(html: string, base: string, limit = 3): string[] {
   return out.sort((a, b) => b.score - a.score).slice(0, limit).map((o) => o.url);
 }
 
-let client: Anthropic | null = null;
-
-export async function enrichOfficialInfo(eventId: number): Promise<string> {
-  const ev = await one<Info & { name: string; official_url: string; source_url: string; enrich_at: number }>(
-    'SELECT name, official_url, source_url, enrich_at, parking_info, shuttle_info, traffic_info, toilet_info, city, address FROM events WHERE id = $1', [eventId]);
-  if (!ev) return '';
-  const empty = FIELDS.filter((f) => !ev[f]?.trim());
-  if (!empty.length) return '';
-  if (Date.now() - ev.enrich_at < 30 * 86400_000) return '';
-  if (!extractorReady()) return '';
-  const { budgetYen } = await discoverSettings();
-  if ((await monthSpend()) + 3 > budgetYen) return '公式情報の補完：今月の上限金額に達したため見送りました';
-  await q('UPDATE events SET enrich_at = $1 WHERE id = $2', [Date.now(), eventId]);
-
-  // 公式ページ（と情報元）＋その中の「アクセス・駐車場・トイレ」などのページ
-  const roots = [ev.official_url, ev.source_url].filter((u, i, a) => u && /^https?:/.test(u) && a.indexOf(u) === i);
+/** 公式ページ（と情報元）＋その中の「アクセス・駐車場・トイレ・シャトル」などのページの本文（robots.txt を守る・最大5ページ） */
+export async function gatherOfficialTexts(urls: string[]): Promise<{ texts: string[]; pages: number }> {
+  const roots = urls.filter((u, i, a) => u && /^https?:/.test(u) && a.indexOf(u) === i);
   const texts: string[] = [];
   const seen = new Set<string>();
   for (const root of roots) {
@@ -74,6 +61,25 @@ export async function enrichOfficialInfo(eventId: number): Promise<string> {
       if (h) texts.push(`【${sub}】\n${htmlToPage(sub, h).text.slice(0, 6000)}`);
     }
   }
+  return { texts, pages: seen.size };
+}
+
+let client: Anthropic | null = null;
+
+export async function enrichOfficialInfo(eventId: number): Promise<string> {
+  const ev = await one<Info & { name: string; official_url: string; source_url: string; enrich_at: number }>(
+    'SELECT name, official_url, source_url, enrich_at, parking_info, shuttle_info, traffic_info, toilet_info, city, address FROM events WHERE id = $1', [eventId]);
+  if (!ev) return '';
+  const empty = FIELDS.filter((f) => !ev[f]?.trim());
+  if (!empty.length) return '';
+  if (Date.now() - ev.enrich_at < 30 * 86400_000) return '';
+  if (!extractorReady()) return '';
+  const { budgetYen } = await discoverSettings();
+  if ((await monthSpend()) + 3 > budgetYen) return '公式情報の補完：今月の上限金額に達したため見送りました';
+  await q('UPDATE events SET enrich_at = $1 WHERE id = $2', [Date.now(), eventId]);
+
+  const { texts, pages } = await gatherOfficialTexts([ev.official_url, ev.source_url]);
+  const seen = { size: pages };
   if (!texts.length) return '公式情報の補完：公式ページを読めませんでした';
 
   client ??= new Anthropic();

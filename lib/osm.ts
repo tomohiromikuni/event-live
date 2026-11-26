@@ -196,7 +196,7 @@ export async function importOsmFacilities(tq: Q, eventId: number, o: { patient?:
   }
   // 位置の無い汎用の「トイレ」「駐車場」項目は、投稿が無ければ外す（実際の場所に置き換え）
   for (const cat of new Set(found.map((f) => f.cat))) {
-    await tq(`DELETE FROM spots s WHERE s.event_id = $1 AND s.generic = 1 AND s.category_id = $2
+    await tq(`DELETE FROM spots s WHERE s.event_id = $1 AND s.generic = 1 AND s.source = '' AND s.category_id = $2
       AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.spot_id = s.id)`, [eventId, cats.get(cat)!]);
   }
   // 地図として表示（背景は国土地理院の地図）

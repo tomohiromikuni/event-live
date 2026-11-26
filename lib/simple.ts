@@ -60,19 +60,19 @@ export async function syncSimpleItems(tq: Q, eventId: number) {
   if (ev?.map_mode !== 'simple') return;
   const cats = await tq<{ id: number; slug: string }>('SELECT id, slug FROM spot_categories');
   const catId = new Map(cats.map((c) => [c.slug, c.id]));
-  const have = new Set((await tq<{ category_id: number }>('SELECT category_id FROM spots WHERE event_id = $1 AND generic = 1', [eventId])).map((r) => r.category_id));
+  const have = new Set((await tq<{ category_id: number }>("SELECT category_id FROM spots WHERE event_id = $1 AND generic = 1 AND source = ''", [eventId])).map((r) => r.category_id));
   const all = simpleItems(ev.genre, { shuttle: !!ev.shuttle_info }).filter((it) => catId.has(it.cat));
   const missing = all.filter((it) => !have.has(catId.get(it.cat)!));
   if (missing.length === 0) return;
   await addItems(tq, eventId, missing, catId);
   // 並び順を項目の順にそろえる
-  for (const [i, it] of all.entries()) await tq('UPDATE spots SET sort = $1 WHERE event_id = $2 AND generic = 1 AND category_id = $3', [i, eventId, catId.get(it.cat)!]);
+  for (const [i, it] of all.entries()) await tq("UPDATE spots SET sort = $1 WHERE event_id = $2 AND generic = 1 AND source = '' AND category_id = $3", [i, eventId, catId.get(it.cat)!]);
 }
 
 /** かんたん表示をやめる（会場マップを描き始めたとき）。自動で用意した項目は削除する */
 export async function leaveSimpleMode(tq: Q, eventId: number, mode: 'canvas' | 'geo' = 'canvas') {
   const ev = (await tq<{ map_mode: string }>('SELECT map_mode FROM events WHERE id = $1', [eventId]))[0];
   if (ev?.map_mode !== 'simple') return;
-  await tq('DELETE FROM spots WHERE event_id = $1 AND generic = 1', [eventId]);
+  await tq("DELETE FROM spots WHERE event_id = $1 AND generic = 1 AND source = ''", [eventId]);
   await tq('UPDATE events SET map_mode = $1 WHERE id = $2', [mode, eventId]);
 }

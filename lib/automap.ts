@@ -6,6 +6,8 @@ import { settleAutoPublish } from './collect/publish';
 import { todayJST } from './dates';
 import { enrichOfficialInfo } from './collect/enrich';
 import { importVenueArea } from './venueArea';
+import { importTempFacilities } from './tempFacilities';
+import { addDays } from './dates';
 
 /**
  * 会場マップを自動で作る（人の手での位置合わせはしない）。
@@ -20,6 +22,8 @@ export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): 
   for (const step of steps) {
     try { msgs.push((await step(q, eventId)).message); } catch (e) { msgs.push(e instanceof Error ? e.message : String(e)); }
   }
+  // 公式の仮設トイレ・臨時駐車場・乗り場（名前つき）
+  try { const m = await importTempFacilities(eventId); if (m) msgs.push(m); } catch (e) { msgs.push(`仮設・臨時の読み取りに失敗：${e instanceof Error ? e.message : e}`); }
   // 会場の範囲（公園・広場の外形）を薄く囲う
   try { const m = await importVenueArea(q, eventId); if (m) msgs.push(m); } catch { /* 囲めなくても地図は使える */ }
   return msgs.join(' ／ ');
@@ -32,10 +36,10 @@ export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): 
 export async function autoMapPending(limit = 1): Promise<{ id: number; name: string; message: string }[]> {
   const weekAgo = Date.now() - 7 * 86400_000;
   const evs = await q<{ id: number; name: string }>(`SELECT e.id, e.name FROM events e
-    WHERE e.end_date >= $1 AND e.is_sample = 0 AND e.automap_at < $2
+    WHERE e.end_date >= $1 AND e.is_sample = 0 AND (e.automap_at < $2 OR (e.start_date <= $4 AND e.automap_at < $5))
       AND (e.map_mode = 'simple' OR (e.map_mode = 'geo' AND NOT EXISTS (
         SELECT 1 FROM spots s WHERE s.event_id = e.id AND s.generic = 0 AND s.source = '')))
-    ORDER BY e.published DESC, e.start_date LIMIT $3`, [todayJST(), weekAgo, limit]);
+    ORDER BY e.published DESC, e.start_date LIMIT $3`, [todayJST(), weekAgo, limit, addDays(todayJST(), 14), Date.now() - 2 * 86400_000]);
   const out = [];
   for (const e of evs) {
     await q('UPDATE events SET automap_at = $1 WHERE id = $2', [Date.now(), e.id]); // 失敗しても毎回同じイベントで止まらないよう、先に記録

@@ -4,6 +4,7 @@ import type { Q } from './db';
 import { fetchBinary, fetchHtml } from './collect/web';
 import { collectModel, extractorReady } from './collect/extract';
 import { distanceM, geocode } from './osm';
+import { saveTempItems, type TempItem } from './tempFacilities';
 import { addSpend, costYen, discoverSettings, monthSpend } from './collect/discover';
 
 /**
@@ -293,6 +294,7 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
   if (!images.length) return { ok: true, added: 0, message: `公式サイトにガイドマップらしい画像・PDFが見つかりませんでした${searched}` };
 
   const reasons: string[] = [];
+  const unplaced: GuideRead['facilities'] = [];
   const started = Date.now();
   const queue = images.slice(0, MAX_IMAGES);
   for (let qi = 0; ; qi++) {
@@ -316,7 +318,7 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
       const p = await locateLandmark(lm.name.trim(), ev, center);
       if (p) pairs.push({ name: lm.name, px: (lm.x / 100) * size.w, py: (lm.y / 100) * size.h, lat: p[0], lng: p[1] });
     }
-    if (pairs.length < 3) { reasons.push(`位置の分かる目印が足りませんでした（${pairs.length}か所）`); continue; }
+    if (pairs.length < 3) { reasons.push(`位置の分かる目印が足りませんでした（${pairs.length}か所）`); unplaced.push(...read.facilities); continue; }
     // 食い違いの大きい目印を1つずつ外して、なお3つ以上残れば計算し直す
     let fit = fitSimilarity(pairs, center);
     while (pairs.length > 3 && Math.max(...fit.err) > MAX_ONE_M) {
@@ -324,7 +326,7 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
       fit = fitSimilarity(pairs, center);
     }
     if (fit.rms > MAX_RMS_M || Math.max(...fit.err) > MAX_ONE_M || fit.metersPerPx < 0.02 || fit.metersPerPx > 50) {
-      reasons.push(`位置合わせの誤差が大きいため使いませんでした（約${Math.round(fit.rms)}m）`); continue;
+      reasons.push(`位置合わせの誤差が大きいため使いませんでした（約${Math.round(fit.rms)}m）`); unplaced.push(...read.facilities); continue;
     }
     // 施設を置く（会場から2km以上離れる・同じ種類の既存の施設とほぼ同じ場所なら置かない）
     const cats = new Map((await tq<{ id: number; slug: string }>('SELECT id, slug FROM spot_categories')).map((c) => [c.slug, c.id]));
@@ -347,13 +349,22 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
     if (added) {
       // 実際の場所が入った種類の、投稿の無い汎用項目は外す
       for (const c of new Set(read.facilities.map((f) => cats.get(f.category)).filter((x): x is number => !!x))) {
-        await tq(`DELETE FROM spots s WHERE s.event_id = $1 AND s.generic = 1 AND s.category_id = $2 AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.spot_id = s.id)`, [eventId, c]);
+        await tq(`DELETE FROM spots s WHERE s.event_id = $1 AND s.generic = 1 AND s.source = '' AND s.category_id = $2 AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.spot_id = s.id)`, [eventId, c]);
       }
       if (ev.map_mode !== 'geo') await tq("UPDATE events SET map_mode = 'geo' WHERE id = $1", [eventId]);
       const own = await tq<{ category_id: number }>('SELECT category_id FROM event_categories WHERE event_id = $1', [eventId]);
       if (own.length) for (const c of cats.values()) await tq('INSERT INTO event_categories (event_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [eventId, c]);
     }
     return { ok: true, added, message: `ガイドマップから ${added}件 を目安の位置として追加しました（目印 ${pairs.length}か所・誤差 約${err}m）` };
+  }
+  // 地図に重ねられなかったときも、名前のある仮設トイレ・臨時駐車場・乗り場は一覧に残す（名前から位置が分かれば地図にも）
+  const GENERIC = /^(仮設)?(トイレ|駐車場|P|WC|シャトルバス|バス乗り場|乗り場)$/i;
+  const named: TempItem[] = unplaced
+    .filter((f) => (f.category === 'toilet' || f.category === 'parking' || f.category === 'shuttle') && f.label.trim().length >= 2 && !GENERIC.test(f.label.trim()))
+    .map((f) => ({ kind: f.category as TempItem['kind'], name: f.label.trim(), note: '' }));
+  if (named.length) {
+    const r = await saveTempItems(tq, eventId, named, 'ガイドマップ');
+    if (r.added) return { ok: true, added: r.added, message: `ガイドマップの仮設・臨時 ${r.added}件 を一覧に追加しました（地図に${r.onMap}件。図そのものは位置合わせできませんでした）` };
   }
   return { ok: true, added: 0, message: `ガイドマップからは追加しませんでした：${[...new Set(reasons)].join('／')}${searched}` };
 }
