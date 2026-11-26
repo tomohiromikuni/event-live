@@ -945,3 +945,4 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
   .logo { font-size: 17px; gap: 4px; }
 }
 .sb-me { display: block; text-align: center; margin-top: 10px; font-size: 12px; font-weight: 800; color: var(--muted); text-decoration: underline; }
+.go-round-l { font-size: 10px; white-space: nowrap; }

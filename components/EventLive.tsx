@@ -522,7 +522,10 @@ export default function EventLive(p: Props) {
               {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
                 <a className="go-round" href={`https://www.google.com/maps/dir/?api=1&destination=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer"
                   aria-label={t(sel.source === 'guide' ? '📍 この辺りへ行く' : '📍 ここへ行く')}>
-                  <span className="go-round-i" aria-hidden>➤</span><span className="go-round-l">{t('行く')}</span>
+                  <span className="go-round-i" aria-hidden>
+                    {/* 一般的な「道順」の形（Google のロゴは使わない：非公式のため・ブランドの利用ルール） */}
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"><path d="M12 2.5 21.5 12 12 21.5 2.5 12z" fill="currentColor" stroke="none" /><path d="M9 15v-3.5a1.5 1.5 0 0 1 1.5-1.5H15m-2.2-2.3L15 10l-2.2 2.3" stroke="var(--park, #4f46e5)" /></svg>
+                  </span><span className="go-round-l">{t('Googleマップ')}</span>
                 </a>
               ) : null}
             </div>
