@@ -4,7 +4,7 @@ import type { Q } from './db';
 /**
  * 会場マップの自動作成（第1段階）：会場の周りにある「常設の」トイレ・駐車場を OpenStreetMap から取り込む。
  * - 会場の位置：住所 → 国土地理院の地名検索（無料）で緯度経度にする
- * - 施設：OpenStreetMap（Overpass API・無料。出典「© OpenStreetMap contributors」を表示）
+ * - 施設：OpenStreetMap（月1回作り直す自前の抽出データ。無いときは Overpass API。無料。出典「© OpenStreetMap contributors」を表示）
  * 仮設トイレ・臨時駐車場は OSM に無いので、ここでは取り込めない（第2段階でガイドマップから推定する予定）。
  * 人の手での位置合わせはしない。名前が無い施設は「会場から北へ約200m」のように方角と距離で呼ぶ。
  */
@@ -55,15 +55,48 @@ function direction(from: Geo, to: Geo) {
 }
 const roundDist = (m: number) => (m < 100 ? '100m以内' : `約${Math.round(m / 50) * 50}m`);
 
+/**
+ * 日本全国の OpenStreetMap から抜き出したトイレ・駐車場（0.1度ごとのファイル）。
+ * .github/workflows/osm-data.yml が月1回作り直して osm-data ブランチに置く。© OpenStreetMap contributors（ODbL）
+ */
+const TILES_BASE = process.env.OSM_TILES_URL || 'https://raw.githubusercontent.com/tomohiromikuni/event-live/osm-data';
+type TileRow = [string, number, number, number, string?, string?, string?, string?];
+
+async function fromTiles(center: Geo): Promise<OsmEl[] | null> {
+  const get = async (path: string) => {
+    const res = await fetch(`${TILES_BASE}/${path}`, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`tiles ${res.status}`);
+    return res.json();
+  };
+  const meta = (await get('meta.json')) as { tiles: string[] } | null;
+  if (!meta?.tiles?.length) return null; // データがまだ無い → Overpass で取る
+  const have = new Set(meta.tiles);
+  const [lat, lng] = center;
+  const dLat = RADIUS_M / 111_000, dLng = RADIUS_M / (111_000 * Math.cos(lat * Math.PI / 180));
+  const keys = new Set<string>();
+  for (const a of [lat - dLat, lat + dLat]) for (const b of [lng - dLng, lng + dLng]) keys.add(`${Math.floor(a * 10)}_${Math.floor(b * 10)}`);
+  const rows: TileRow[] = [];
+  for (const k of keys) if (have.has(k)) rows.push(...((await get(`t/${k}.json`)) as TileRow[] ?? []));
+  const TYPES: Record<string, string> = { n: 'node', w: 'way', r: 'relation' };
+  return rows
+    .filter((r) => distanceM(center, [r[2], r[3]]) <= RADIUS_M)
+    .map(([k, id, la, lo, name = '', fee = '', capacity = '', wheelchair = '']) => ({
+      type: TYPES[k[1]] ?? 'node', id, lat: la, lon: lo,
+      tags: { amenity: k[0] === 't' ? 'toilets' : 'parking', ...(name ? { name } : {}), ...(fee ? { fee } : {}), ...(capacity ? { capacity } : {}), ...(wheelchair ? { wheelchair } : {}) },
+    }));
+}
+
 /** 会場の周りの常設トイレ・駐車場を OSM から取る（距離の近い順・種類ごとに上限あり） */
 export async function fetchFacilities(center: Geo, o: { patient?: boolean } = {}): Promise<Facility[]> {
   const [lat, lng] = center;
   // 1回の検索で済ませ、サーバーの負担を軽くする（混んでいても通りやすくするため）
   const query = `[out:json][timeout:20];nwr(around:${RADIUS_M},${lat},${lng})[amenity~"^(toilets|parking)$"];out center tags;`;
-  let els: OsmEl[] | null = null;
+  // まず自前の抽出データ（月1回作り直す・osm-data ブランチ）から読む。読めなかったときだけ公開の Overpass サーバーに問い合わせる
+  let els: OsmEl[] | null = await fromTiles(center).catch(() => null);
   const errs: string[] = [];
   // 最初のサーバーは少し長めに待つ（公開サーバーは混んでいると10秒以上かかることがあるため）。やり直し専用の実行（patient）では長めに待つ
-  for (const [i, url] of OVERPASS.entries()) {
+  for (const [i, url] of (els ? [] : OVERPASS).entries()) {
     const host = new URL(url).hostname;
     try {
       const res = await fetch(url, {
