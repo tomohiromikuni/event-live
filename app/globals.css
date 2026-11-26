@@ -985,3 +985,4 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .pin-cta-plus { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 22px; line-height: 1; }
 .pin-cta-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pin-cta-txt small { font-size: 11px; font-weight: 700; color: #4b4560; }
+.me-people { color: #15803d; font-weight: 900; }

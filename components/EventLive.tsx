@@ -56,8 +56,8 @@ const POLL_MS = 20_000;
  */
 const TOPICS = [
   { id: 'parking', title: '駐車場', cats: ['parking'], always: true },
-  { id: 'shuttle', title: 'シャトルバス', cats: ['shuttle'], always: false },
   { id: 'toilet', title: 'トイレ', cats: ['toilet'], always: true },
+  { id: 'shuttle', title: 'シャトルバス', cats: ['shuttle'], always: false },
 ] as const;
 
 /** 公式の臨時・仮設、来場者の報告の目印（常設の施設と見分けるため） */
@@ -136,6 +136,11 @@ export default function EventLive(p: Props) {
   const fromMe = (s: Spot) => (me && placed(s) && !/（会場から[^）]*）/.test(s.name) ? trAuto(fromMeText(me, [s.lat, s.lng]), lang) : '');
   // 現在地が無いときは会場（地図の中心）から近い順
   const venueAt: Geo | null = p.geo && p.center && (p.center[0] || p.center[1]) ? p.center : null;
+  // 現地（開催中・会場から1km以内）にいる人には、最初にトイレのタブを開く（来る前は駐車場、現地ではトイレを探す人が多いため）
+  useEffect(() => {
+    if (!me || !venueAt || !p.postable || tabChosen.current || tab !== topics[0]?.id) return;
+    if (distM(me, venueAt) <= 1000) { tabChosen.current = true; setTab('toilet'); }
+  }, [me]); // eslint-disable-line react-hooks/exhaustive-deps
   const distOf = (s: Spot) => (!placed(s) ? Infinity : me ? distM(me, [s.lat, s.lng]) : venueAt ? distM(venueAt, [s.lat, s.lng]) : Infinity);
 
   // タブ：駐車場・（シャトルバス）・トイレ・地図・概要。最初は駐車場（検索でいちばん探される）。#toilet などで開くタブを指定できる
@@ -151,14 +156,17 @@ export default function EventLive(p: Props) {
   useEffect(() => {
     const fromHash = () => {
       const h = decodeURIComponent(location.hash.replace(/^#(topic-)?/, ''));
-      if (tabIds.includes(h)) setTab(h);
+      if (tabIds.includes(h)) { tabChosen.current = true; setTab(h); }
     };
     fromHash();
     window.addEventListener('hashchange', fromHash);
     return () => window.removeEventListener('hashchange', fromHash);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 利用者がタブを自分で選んだ（または #toilet などで開いた）ら、自動では切り替えない
+  const tabChosen = useRef(false);
   function openTab(id: string) {
+    tabChosen.current = true;
     setTab(id);
     try { history.replaceState(null, '', `#${id}`); } catch { /* 無視 */ }
     // 下まで読み進めていたら、タブの位置まで戻す（切り替えた中身の先頭が見えるように）

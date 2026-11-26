@@ -316,7 +316,7 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
       {!isEn && myViews >= MIN_VIEWS_TO_SHOW && (
         <a className="my-views" href="/me">
           <span aria-hidden="true">🙌</span>
-          <span>このイベントでのあなたの投稿が、これまで<strong>{myViews.toLocaleString()}回</strong>見られました。ありがとうございます！<small>（あなたにだけ表示）</small></span>
+          <span>このイベントでのあなたの投稿が、これまで<strong>のべ{myViews.toLocaleString()}人</strong>が見ました。ありがとうございます！<small>（あなたにだけ表示）</small></span>
         </a>
       )}
       {/* 検索エンジン向けの見出し（画面には出さない。すぐ下の「いまの混雑」が同じ役目） */}

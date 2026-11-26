@@ -30,7 +30,7 @@ export default async function MePage() {
       ) : (
         <>
           {c.views >= MIN_VIEWS_TO_SHOW && (
-            <div className="panel me-views">あなたの投稿は現在 <strong>{c.views.toLocaleString()}回</strong> 閲覧されています</div>
+            <div className="panel me-views">あなたの投稿を、これまで<strong>のべ{c.views.toLocaleString()}人</strong>が見ました</div>
           )}
           <div className="me-stats">
             <div><span>累計投稿</span><strong>{c.total}</strong></div>
@@ -67,7 +67,7 @@ export default async function MePage() {
                   <span className="what">
                     <span className="ev">{h.event_name}</span>
                     <span>{h.spot}：<strong style={{ color: levelColor(h.level) }}>{h.label}</strong></span>
-                    <span className="st">{h.status}</span>
+                    <span className="st">{h.status}{h.people > 0 && <>・<strong className="me-people">{h.people.toLocaleString()}人が見ました</strong></>}</span>
                   </span>
                 </Link>
               ))}
