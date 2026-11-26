@@ -11,7 +11,7 @@ import EndedEvent from '@/components/EndedEvent';
 import { eventDescription, eventTitle } from '@/lib/seo';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
-import { UNOFFICIAL, siteUrl } from '@/lib/site';
+import { siteUrl } from '@/lib/site';
 import ShareBlock from '@/components/ShareBlock';
 import { FavButton } from '@/components/Favorites';
 import MapThumb from '@/components/MapThumb';
