@@ -67,9 +67,10 @@ export async function collectSweepResults(): Promise<string | null> {
     usage.output += msg.usage.output_tokens;
     usage.searches += (msg.usage as { server_tool_use?: { web_search_requests?: number } }).server_tool_use?.web_search_requests ?? 0;
     const [pref, theme] = targets[Number(r.custom_id.slice(1))] ?? ['', ''];
-    for (const url of parseUrls(msg.content)) {
-      const ins = await q(`INSERT INTO sweep_queue (url, pref, theme, status, found_at) VALUES ($1, $2, $3, 'new', $4) ON CONFLICT (url) DO NOTHING RETURNING url`,
-        [url, pref, theme, Date.now()]);
+    // AI は有名な順に挙げる → その順位を覚えて、全国の「1番目」から先に取得する
+    for (const [rank, url] of parseUrls(msg.content).entries()) {
+      const ins = await q(`INSERT INTO sweep_queue (url, pref, theme, status, found_at, rank) VALUES ($1, $2, $3, 'new', $4, $5) ON CONFLICT (url) DO NOTHING RETURNING url`,
+        [url, pref, theme, Date.now(), rank]);
       found += ins.length;
     }
   }
@@ -83,7 +84,7 @@ export async function collectSweepResults(): Promise<string | null> {
 
 /** 一覧の URL を少しずつ取得して「AI整理待ち」へ。残りがあれば false */
 export async function drainSweepQueue(): Promise<{ done: boolean; queued: number }> {
-  const rows = await q<{ url: string }>(`SELECT url FROM sweep_queue WHERE status = 'new' ORDER BY found_at LIMIT $1`, [DRAIN_PER_CALL]);
+  const rows = await q<{ url: string }>(`SELECT url FROM sweep_queue WHERE status = 'new' ORDER BY rank, found_at LIMIT $1`, [DRAIN_PER_CALL]);
   let queued = 0;
   for (const r of rows) {
     const res = await queuePage(r.url).catch(() => 'blocked' as const);

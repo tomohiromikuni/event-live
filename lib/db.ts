@@ -517,7 +517,10 @@ const V39 = `CREATE TABLE IF NOT EXISTS event_i18n (
   PRIMARY KEY (event_id, lang)
 )`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33, V34, V35, V36, V37, V38, V39];
+// 自動収集は有名な（来場者の多い）イベントから：AIが挙げた順位を覚えて、その順に取得する
+const V40 = `ALTER TABLE sweep_queue ADD COLUMN IF NOT EXISTS rank INTEGER NOT NULL DEFAULT 99`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33, V34, V35, V36, V37, V38, V39, V40];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */
