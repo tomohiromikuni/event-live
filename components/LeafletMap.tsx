@@ -70,7 +70,8 @@ export default function LeafletMap(props: Props) {
           ...cbRef.current.markers.map((m) => [m.lat, m.lng] as [number, number]),
           ...(cbRef.current.shapes ?? []).flatMap((s) => s.coords),
         ];
-        map = lib.map(el.current, { minZoom: 5, maxZoom: 18, zoomSnap: 0.25, zoomDelta: 0.5, zoomControl: !cbRef.current.mini,
+        // keyboard: false … タップで地図にフォーカスが移ると、iPhone の Safari が地図の位置へページを勝手にスクロールするため
+        map = lib.map(el.current, { minZoom: 5, maxZoom: 18, zoomSnap: 0.25, zoomDelta: 0.5, zoomControl: !cbRef.current.mini, keyboard: false,
           ...(cbRef.current.still ? { dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false } : {}) });
         map.attributionControl.setPrefix(false);
         lib.tileLayer(GSI_TILE, { maxZoom: 18, maxNativeZoom: 18, attribution: cbRef.current.still ? GSI_ATTR_SHORT : GSI_ATTR }).addTo(map);
@@ -86,6 +87,7 @@ export default function LeafletMap(props: Props) {
         const { w, h } = cbRef.current.canvas;
         const bounds = lib.latLngBounds([0, 0], [h, w]);
         map = lib.map(el.current, {
+          keyboard: false,
           crs: lib.CRS.Simple, minZoom: -4, maxZoom: 3, zoomSnap: 0.25, zoomDelta: 0.5,
           attributionControl: false, maxBounds: bounds.pad(0.3), maxBoundsViscosity: 0.8,
         });
@@ -277,7 +279,7 @@ export default function LeafletMap(props: Props) {
     layer.clearLayers();
     for (const m of cbRef.current.markers) {
       const icon = lib.divIcon({ className: 'mk-wrap', html: m.html, iconSize: [36, 36], iconAnchor: [18, 18] });
-      const marker = lib.marker([m.lat, m.lng], { icon, title: m.title, draggable: !!m.draggable, keyboard: true, riseOnHover: true });
+      const marker = lib.marker([m.lat, m.lng], { icon, title: m.title, draggable: !!m.draggable, keyboard: false, riseOnHover: true });
       marker.on('click', () => cbRef.current.onMarkerClick?.(m.id));
       marker.on('dragend', () => {
         const p = marker.getLatLng();
