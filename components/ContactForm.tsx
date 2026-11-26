@@ -9,6 +9,8 @@ export default function ContactForm({ kind, event, topic }: Props) {
   const [res, action, pending] = useActionState<ContactResult | null, FormData>(submitInquiry, null);
   const [reason, setReason] = useState(topic ?? '');
   const options = kind === 'removal' ? REMOVAL_REASONS : CONTACT_TOPICS;
+  // ガイドマップ（会場図）：ファイルかURLを送るだけ（関係・内容・メールアドレスは聞かない）
+  const guide = kind === 'contact' && reason.startsWith('ガイドマップ');
 
   if (res?.ok) return <div className="flash" role="status">✅ {res.message}</div>;
 
@@ -46,6 +48,21 @@ export default function ContactForm({ kind, event, topic }: Props) {
         </div>
       </fieldset>
 
+      {guide ? (
+        <>
+          <div className="field">
+            <label htmlFor="gm_file">ガイドマップ（会場図）の写真・画像・PDF</label>
+            <input id="gm_file" name="file" type="file" accept="image/*,application/pdf" />
+            <div className="muted small" style={{ marginTop: 4 }}>パンフレットや看板の写真でもOK（4MBまで）。画像は地図への読み取りにだけ使い、保存・公開しません。</div>
+          </div>
+          <div className="field">
+            <label htmlFor="gm_url">または、ガイドマップが載っているページのURL（任意）</label>
+            <input id="gm_url" name="url" type="url" maxLength={500} placeholder="https://（公式サイトの会場マップのページなど）" />
+          </div>
+          {res && !res.ok && <div role="alert" style={{ color: 'var(--danger)', fontWeight: 700 }}>⚠️ {res.message}</div>}
+          <button className="btn" disabled={pending}>{pending ? '読み取り中…（30秒ほど）' : '送る'}</button>
+        </>
+      ) : (<>
       <div className="field">
         <label htmlFor="relation">このイベントとのご関係{kind === 'removal' ? ' *' : '（任意）'}</label>
         <select id="relation" name="relation" required={kind === 'removal'} defaultValue="">
@@ -73,6 +90,7 @@ export default function ContactForm({ kind, event, topic }: Props) {
       </p>
       {res && !res.ok && <div role="alert" style={{ color: 'var(--danger)', fontWeight: 700 }}>⚠️ {res.message}</div>}
       <button className="btn" disabled={pending}>{pending ? '送信中…' : kind === 'removal' ? '掲載停止を申請する' : '送信する'}</button>
+      </>)}
     </form>
   );
 }

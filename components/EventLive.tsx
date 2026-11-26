@@ -368,10 +368,10 @@ export default function EventLive(p: Props) {
     return <><strong className="ago">{rel(latest.created_at, now)}</strong>・{consensusNote(c, lang, lab)}</>;
   };
 
-  // 公式のガイドマップ（会場図）を知っている人に、場所（URL）を教えてもらう（日本語版だけ。画像は送ってもらわない＝運営方針）
+  // 公式のガイドマップ（会場図）を知っている人に、写真・画像やURLを送ってもらう（日本語版だけ。画像はその場で読み取るだけで保存しない）
   const guideAsk = lang === 'ja' && p.eventSlug && !p.share?.eventName?.startsWith('【サンプル】') ? (
-    <a className="guide-ask" href={`/contact?${new URLSearchParams({ topic: 'ガイドマップ（会場図）の場所を知らせる', event: p.eventSlug })}`}>
-      <span aria-hidden>🗺️</span><span>公式のガイドマップ（会場図）を知っていたら教えてください<small>場所（URL）を送ってもらえると、仮設トイレ・臨時駐車場を地図に反映します</small></span><span aria-hidden>›</span>
+    <a className="guide-ask" href={`/contact?${new URLSearchParams({ topic: 'ガイドマップ（会場図）を送る', event: p.eventSlug })}`}>
+      <span aria-hidden>🗺️</span><span>公式のガイドマップ（会場図）を知っていたら教えてください<small>写真・画像やURLを送ってもらえると、仮設トイレ・臨時駐車場を地図に反映します</small></span><span aria-hidden>›</span>
     </a>
   ) : null;
   return (

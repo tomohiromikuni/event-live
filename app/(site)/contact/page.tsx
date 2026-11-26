@@ -6,6 +6,8 @@ import { one } from '@/lib/db';
 import { redirectedSlug } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
+// ガイドマップを送ってもらったときに、その場で AI が読み取るため（30秒ほどかかる）
+export const maxDuration = 60;
 export const metadata: Metadata = { title: 'お問い合わせ・掲載停止の申請', robots: { index: false } };
 
 export default async function ContactPage({ searchParams }: { searchParams: Promise<{ type?: string; event?: string; topic?: string }> }) {
