@@ -6,6 +6,9 @@ on:
       paths:
         description: '撮るページ（スペース区切り。例：/ /events/xxx）'
         default: '/'
+      tap:
+        description: '開いたあとに押すリンクの文字（任意。例：探す）'
+        default: ''
 jobs:
   shot:
     runs-on: ubuntu-latest
@@ -17,6 +20,7 @@ jobs:
       - name: Take screenshots
         env:
           PATHS: ${{ inputs.paths }}
+          TAP: ${{ inputs.tap }}
         run: |
           cd s
           cat > shot.js <<'JS'
@@ -32,6 +36,12 @@ jobs:
               await p.screenshot({ path: `shot-${i}-top.jpg`, type: 'jpeg', quality: 55 });
               await p.screenshot({ path: `shot-${i}-full.png`, fullPage: true });
               console.log(i, path, await p.title());
+              if (process.env.TAP) {
+                const t0 = Date.now();
+                await p.locator('.site-header a, a, button', { hasText: process.env.TAP }).first().tap().catch((e) => console.log('TAP failed', e.message));
+                await p.waitForURL((u) => u.toString() !== 'https://www.evenow.jp' + path, { timeout: 10000 }).catch(() => {});
+                console.log('TAP', process.env.TAP, '→', p.url(), (Date.now() - t0) + 'ms');
+              }
               for (const t of await p.locator('.topic-card').allInnerTexts()) console.log('CARD', t.replace(/\s+/g, ' ').slice(0, 400));
             }
             await b.close();
