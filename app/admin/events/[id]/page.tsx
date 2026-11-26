@@ -6,7 +6,7 @@ import EventForm from '@/components/admin/EventForm';
 import MapEditor from '@/components/admin/MapEditor';
 import { formData } from '@/lib/admin-data';
 import { eventCategories, eventShapes, eventSpots, getEventById } from '@/lib/queries';
-import { autoMapFromOsm, deleteEvent } from '../../actions';
+import { autoMapFromOsm, deleteEvent, importGuideMapAction } from '../../actions';
 import { one } from '@/lib/db';
 
 // 地図の自動作成（外部の地図データ・AIの読み取り）を含むため、1回の処理時間の上限を長めにする
@@ -44,6 +44,17 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
         <input type="hidden" name="id" value={e.id} />
         <button className="btn sm ghost">🗺️ 会場マップを自動作成</button>
         <span className="muted">① 会場から700m以内（無い種類は1.5km以内）の常設のトイレ・駐車場（OpenStreetMap）② 公式ページのガイドマップから仮設トイレ・臨時駐車場・シャトル乗り場などを「目安」で追加（誤差が大きければ追加しません）</span>
+      </form>
+      <form action={importGuideMapAction} className="panel small" style={{ margin: '8px 0' }}>
+        <input type="hidden" name="id" value={e.id} />
+        <strong>📄 ガイドマップを読み込む</strong>
+        <span className="muted">（自動で見つからなかったとき用。画像・PDFのファイル（4MBまで）か、公式のガイドマップ・会場図のURL。AIが読み取り、目印で位置を合わせて「目安」で追加します。画像は読み取りにだけ使い、保存・公開しません。1枚数円）</span>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 }}>
+          <input type="file" name="file" accept="image/*,application/pdf" />
+          <span className="muted">または</span>
+          <input type="url" name="url" placeholder="https://（公式のガイドマップのURL）" style={{ flex: 1, minWidth: 200 }} />
+          <button className="btn sm">読み込む</button>
+        </div>
       </form>
       <MapEditor eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} spots={spots.filter((sp) => !sp.generic)} shapes={shapes} categories={cats} />
       <h2 style={{ fontSize: 17, marginTop: 24 }}>イベント情報の編集</h2>

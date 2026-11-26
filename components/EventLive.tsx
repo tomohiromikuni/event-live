@@ -20,6 +20,8 @@ const LeafletMap = dynamic(() => import('./LeafletMap'), {
 
 type Props = {
   eventId: number;
+  /** URL用ID（「ガイドマップを教えて」の問い合わせに使う） */
+  eventSlug?: string;
   eventName: string;
   canvas: { w: number; h: number };
   geo?: boolean;
@@ -341,6 +343,12 @@ export default function EventLive(p: Props) {
     return <><strong className="ago">{rel(latest.created_at, now)}</strong>・{consensusNote(c, lang, lab)}</>;
   };
 
+  // 公式のガイドマップ（会場図）を知っている人に、場所（URL）を教えてもらう（日本語版だけ。画像は送ってもらわない＝運営方針）
+  const guideAsk = lang === 'ja' && p.eventSlug && !p.share?.eventName?.startsWith('【サンプル】') ? (
+    <a className="guide-ask" href={`/contact?${new URLSearchParams({ topic: 'ガイドマップ（会場図）の場所を知らせる', event: p.eventSlug })}`}>
+      <span aria-hidden>🗺️</span><span>公式のガイドマップ（会場図）を知っていたら教えてください<small>場所（URL）を送ってもらえると、仮設トイレ・臨時駐車場を地図に反映します</small></span><span aria-hidden>›</span>
+    </a>
+  ) : null;
   return (
     <section id="live" className="live-cards" style={{ scrollMarginTop: 70 }}>
       {/* タブの上は1行だけ：「いまの混雑」と、最終更新（または投稿の受付について） */}
@@ -429,6 +437,7 @@ export default function EventLive(p: Props) {
               )}
                 </div>
               )}
+          {guideAsk}
         </div>
       )}
 
@@ -513,6 +522,8 @@ export default function EventLive(p: Props) {
           </div>
         );
       })}
+
+      {p.simple && guideAsk}
 
       {hasFood && (
         <div className={`topic-card colored ${tab === 'food' ? '' : 'tab-off'}`} role="tabpanel" id="topic-food" style={{ ['--c' as string]: '#ea580c', scrollMarginTop: 70 }}>

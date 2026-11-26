@@ -79,6 +79,7 @@ export async function SiteFooter() {
         <p>
           <Link href="/about" style={{ textDecoration: 'underline' }}>このサイトについて</Link>
           <Link href="/me" style={{ textDecoration: 'underline', marginLeft: 12 }}>あなたの貢献実績</Link>
+          <Link href="/sponsor" style={{ textDecoration: 'underline', marginLeft: 12 }}>スポンサー募集</Link>
           <Link href="/about#photo-credits" style={{ textDecoration: 'underline', marginLeft: 12 }}>写真のクレジット</Link>
           {'　'}<Link href="/contact" style={{ textDecoration: 'underline' }}>お問い合わせ</Link>
         </p>

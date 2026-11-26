@@ -3,11 +3,11 @@ import { startTransition, useActionState, useState } from 'react';
 import { submitInquiry, type ContactResult } from '@/app/(site)/contact/actions';
 import { CONTACT_TOPICS, RELATIONS, REMOVAL_REASONS } from '@/lib/inquiry';
 
-type Props = { kind: 'removal' | 'contact'; event?: { slug: string; name: string } };
+type Props = { kind: 'removal' | 'contact'; event?: { slug: string; name: string }; topic?: string };
 
-export default function ContactForm({ kind, event }: Props) {
+export default function ContactForm({ kind, event, topic }: Props) {
   const [res, action, pending] = useActionState<ContactResult | null, FormData>(submitInquiry, null);
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState(topic ?? '');
   const options = kind === 'removal' ? REMOVAL_REASONS : CONTACT_TOPICS;
 
   if (res?.ok) return <div className="flash" role="status">✅ {res.message}</div>;
@@ -59,7 +59,7 @@ export default function ContactForm({ kind, event }: Props) {
           {kind === 'removal' ? `詳しい理由・ご要望${reason === 'その他' ? ' *' : '（任意）'}` : 'お問い合わせ内容 *'}
         </label>
         <textarea id="message" name="message" rows={6} maxLength={3000} required={kind === 'contact' || reason === 'その他'}
-          placeholder={kind === 'removal' ? '例：主催者として、公式サイト以外での会場マップの掲載を控えたいため' : 'できるだけ具体的にご記入ください'} />
+          placeholder={kind === 'removal' ? '例：主催者として、公式サイト以外での会場マップの掲載を控えたいため' : reason.startsWith('ガイドマップ') ? '例：公式サイトの「会場マップ」のページ https://… に、仮設トイレと臨時駐車場の地図があります' : reason.startsWith('スポンサー') ? '例：○○の花火大会の当日、駐車場の案内と一緒に協賛として掲載したい（会社名・ご担当・ご予算の目安など）' : 'できるだけ具体的にご記入ください'} />
       </div>
 
       <div className="two">

@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import ContactForm from '@/components/ContactForm';
+import { CONTACT_TOPICS } from '@/lib/inquiry';
 import { one } from '@/lib/db';
 import { redirectedSlug } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'お問い合わせ・掲載停止の申請', robots: { index: false } };
 
-export default async function ContactPage({ searchParams }: { searchParams: Promise<{ type?: string; event?: string }> }) {
+export default async function ContactPage({ searchParams }: { searchParams: Promise<{ type?: string; event?: string; topic?: string }> }) {
   const sp = await searchParams;
   const slug = sp.event?.slice(0, 120);
   const event = slug
@@ -35,7 +36,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
           イベントの掲載停止をご希望の場合は、上の<Link href={href('removal')} style={{ textDecoration: 'underline' }}>「掲載停止の申請」</Link>からお手続きください。
         </p>
       )}
-      <div className="panel"><ContactForm key={kind} kind={kind} event={event ?? undefined} /></div>
+      <div className="panel"><ContactForm key={kind} kind={kind} event={event ?? undefined} topic={kind === 'contact' && (CONTACT_TOPICS as readonly string[]).includes(sp.topic ?? '') ? sp.topic : undefined} /></div>
       <p className="small" style={{ marginTop: 16 }}><Link href="/about" style={{ textDecoration: 'underline' }}>このサイトについて</Link></p>
     </div>
   );

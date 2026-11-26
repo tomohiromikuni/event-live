@@ -986,3 +986,7 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .pin-cta-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pin-cta-txt small { font-size: 11px; font-weight: 700; color: #4b4560; }
 .me-people { color: #15803d; font-weight: 900; }
+.guide-ask { display: flex; align-items: center; gap: 10px; margin: 0 12px 12px; padding: 10px 12px; border: 2px dashed #94a3b8; border-radius: 14px; background: #f8fafc; color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 800; line-height: 1.35; }
+.guide-ask small { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 2px; }
+.guide-ask > span:nth-child(2) { flex: 1; }
+.topic-card + .guide-ask, .live-cards > .guide-ask { margin: 12px 0; }

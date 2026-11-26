@@ -1,5 +1,6 @@
 'use server';
 import { autoMap, autoMapPending } from '@/lib/automap';
+import { importGuideMap } from '@/lib/guidemap';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { timingSafeEqual } from 'node:crypto';
@@ -308,6 +309,26 @@ export async function autoMapFromOsm(f: FormData) {
   const msg = await autoMap(id);
   revalidatePath('/', 'layout');
   redirect(`/admin/events/${id}?osm=${encodeURIComponent(msg)}`);
+}
+
+/**
+ * 管理画面から渡したガイドマップ（画像・PDFのアップロード、またはURL）を読み取って、会場マップに「目安」で追加する。
+ * 画像は読み取りにだけ使い、保存・公開しない（運営方針）。
+ */
+export async function importGuideMapAction(f: FormData) {
+  await requireAdmin();
+  const id = Number(f.get('id'));
+  const file = f.get('file');
+  const url = String(f.get('url') ?? '').trim().slice(0, 500);
+  let upload: { name: string; type: string; data: Buffer } | undefined;
+  if (file && typeof file === 'object' && 'arrayBuffer' in file && file.size > 0) {
+    if (file.size > 4 * 1024 * 1024) redirect(`/admin/events/${id}?osm=${encodeURIComponent('ファイルが大きすぎます（4MBまで）。大きいPDFは公式のURLを入れてください')}`);
+    upload = { name: file.name.slice(0, 80), type: file.type || 'application/octet-stream', data: Buffer.from(await file.arrayBuffer()) };
+  }
+  if (!upload && !/^https?:\/\//.test(url)) redirect(`/admin/events/${id}?osm=${encodeURIComponent('ガイドマップのファイルを選ぶか、URLを入れてください')}`);
+  const r = await importGuideMap(q, id, { upload, url: upload ? undefined : url });
+  revalidatePath('/', 'layout');
+  redirect(`/admin/events/${id}?osm=${encodeURIComponent(`ガイドマップ：${r.message}`)}`);
 }
 
 /** まだ地図の無いイベントに、自動作成（1回1件。押すたびに次のイベントへ） */

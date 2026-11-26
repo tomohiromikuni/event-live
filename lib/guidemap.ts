@@ -240,7 +240,10 @@ const LABEL: Record<Cat, string> = { toilet: 'トイレ', parking: '駐車場', 
 export type GuideResult = { ok: boolean; message: string; added?: number };
 
 /** 公式ページのガイドマップから施設を推定して追加する（見取り図で手描きしたイベントには混ぜない） */
-export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResult> {
+/** 管理画面から渡すガイドマップ（アップロードした画像・PDF、または公式のガイドマップのURL）。画像はメモリ上で読むだけで保存しない */
+export type GuideGiven = { upload?: { name: string; type: string; data: Buffer }; url?: string };
+
+export async function importGuideMap(tq: Q, eventId: number, given?: GuideGiven): Promise<GuideResult> {
   if (!extractorReady()) return { ok: false, message: 'ANTHROPIC_API_KEY が未設定のため、ガイドマップの読み取りはできません' };
   const ev = (await tq<{ name: string; prefecture: string; city: string; venue_name: string; address: string; lat: number; lng: number; map_mode: string; official_url: string; source_url: string }>(
     'SELECT name, prefecture, city, venue_name, address, lat, lng, map_mode, official_url, source_url FROM events WHERE id = $1', [eventId]))[0];
@@ -255,8 +258,17 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
     if (!center) return { ok: false, message: '会場の位置が分かりませんでした' };
     await tq('UPDATE events SET lat = $1, lng = $2 WHERE id = $3', [center[0], center[1], eventId]);
   }
-  const pages = [ev.official_url, ev.source_url].filter((u, i, a) => u && /^https?:/.test(u) && a.indexOf(u) === i);
+  const pages = given ? [] : [ev.official_url, ev.source_url].filter((u, i, a) => u && /^https?:/.test(u) && a.indexOf(u) === i);
   const images: string[] = [];
+  // 管理画面から渡されたもの：アップロードはそのまま、URLは画像・PDFならそのまま、ページならその中の地図の画像を探す
+  if (given?.upload) images.push('upload:');
+  if (given?.url && /^https?:\/\//.test(given.url)) {
+    if (/\.(png|jpe?g|gif|webp|pdf)(\?|$)/i.test(new URL(given.url).pathname)) images.push(given.url);
+    else {
+      const html = await fetchHtml(given.url).catch(() => null);
+      if (html) for (const u of findMapImages(html, given.url, true)) if (!images.includes(u)) images.push(u);
+    }
+  }
   for (const page of pages) {
     const html = await fetchHtml(page).catch(() => null);
     if (!html) continue;
@@ -273,7 +285,7 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
   // 地図に何も無い（このままでは公開できない）イベントだけ、公式サイトの中を Web 検索する（1回・約2円・月の上限内）。
   // 見つかった画像が無いとき、または見つかった画像がどれも地図ではなかったときに使う（例：トップの画像は写真で、地図は奥のページにある）
   let searched = '';
-  let searchDone = false;
+  let searchDone = !!given; // 管理画面から渡されたときは、公式サイトの中は探さない
   const searchMore = async (): Promise<string[]> => {
     searchDone = true;
     if (!pages[0]) return [];
@@ -291,7 +303,7 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
     return more;
   };
   if (!images.length) images.push(...await searchMore());
-  if (!images.length) return { ok: true, added: 0, message: `公式サイトにガイドマップらしい画像・PDFが見つかりませんでした${searched}` };
+  if (!images.length) return { ok: true, added: 0, message: given ? '渡されたURLからガイドマップらしい画像・PDFが見つかりませんでした（画像・PDFのURLを直接入れるか、ファイルをアップロードしてください）' : `公式サイトにガイドマップらしい画像・PDFが見つかりませんでした${searched}` };
 
   const reasons: string[] = [];
   const unplaced: GuideRead['facilities'] = [];
@@ -304,9 +316,9 @@ export async function importGuideMap(tq: Q, eventId: number): Promise<GuideResul
       queue.push(...(await searchMore()).slice(0, 2));
       if (qi >= queue.length) break;
     }
-    const url = queue[qi];
+    const url = queue[qi] === 'upload:' ? `upload:${given?.upload?.name ?? ''}` : queue[qi];
     if (Date.now() - started > TIME_BUDGET_MS) { reasons.push('時間内に処理しきれなかったため、残りの画像は次の機会に回しました'); break; }
-    const img = await fetchBinary(url).catch(() => null);
+    const img = queue[qi] === 'upload:' && given?.upload ? { type: given.upload.type, data: given.upload.data } : await fetchBinary(url).catch(() => null);
     const size = img && (isPdf(img.data) ? pdfSize(img.data) : imageSize(img.data));
     if (!img || !size) { reasons.push('画像を読み込めませんでした'); continue; }
     let read: GuideRead;

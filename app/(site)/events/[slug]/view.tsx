@@ -321,7 +321,7 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
       )}
       {/* 検索エンジン向けの見出し（画面には出さない。すぐ下の「いまの混雑」が同じ役目） */}
       <h2 className="sr-only">{t(e.shuttle_info ? '駐車場・シャトルバス・トイレの現地の状況' : '駐車場・トイレの現地の状況')}</h2>
-      <EventLive eventId={e.id} eventName={e.name} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} simple={e.map_mode === 'simple'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
+      <EventLive eventId={e.id} eventSlug={e.slug} eventName={e.name} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} simple={e.map_mode === 'simple'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
         initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}
         official={{ parking: e.parking_info, shuttle: e.shuttle_info, traffic: e.traffic_info, toilet: e.toilet_info, food: e.food_info }}
         share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined}
