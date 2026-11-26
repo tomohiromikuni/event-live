@@ -1,11 +1,11 @@
-# テーマ画像の候補を Unsplash から取り、横長（1200x480）に縮めて theme-candidates ブランチに置く（手動で実行）。
-# Unsplash License：無料・商用OK・クレジット表記不要（https://unsplash.com/license）。選んだものだけを本体の public/themes に入れる。
+# テーマ画像の候補を Wikimedia Commons（商用OKのライセンスだけ）から探し、横長（1200x480）に縮めて theme-candidates ブランチに置く（手動で実行）。
+# 選んだものだけを本体の public/themes に入れ、必要なクレジット（作者・ライセンス）を表示する。
 name: theme-images
 on:
   workflow_dispatch:
     inputs:
       list:
-        description: '「テーマ:写真ID」をスペース区切り'
+        description: '「テーマ=検索語」を | 区切り'
         required: true
 permissions:
   contents: write
@@ -14,25 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v4
       - name: Download and resize
         env:
           LIST: ${{ inputs.list }}
         run: |
           sudo apt-get install -y -qq imagemagick >/dev/null
           mkdir -p out && cd out
-          for item in $LIST; do
-            theme=${item%%:*}; id=${item#*:}
-            page=$(curl -sSL -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36' "https://unsplash.com/photos/${id}" || true)
-            img=$(echo "$page" | grep -o 'https://images.unsplash.com/photo-[A-Za-z0-9_-]*' | head -1)
-            plus=$(echo "$page" | grep -c 'plus.unsplash.com' || true)
-            echo "page ${id}: ${#page} bytes img=${img:-none} plus=${plus}"
-            if [ -n "$img" ] && curl -sSfL -o raw.jpg "${img}?w=1600&q=80&fm=jpg"; then
-              convert raw.jpg -auto-orient -resize '1200x480^' -gravity center -extent 1200x480 -strip -quality 72 "${theme}__${id}.jpg" && echo "ok ${theme} ${id} $(stat -c%s ${theme}__${id}.jpg)"
-            else echo "NG ${theme} ${id}"; fi
-            rm -f raw.jpg
-          done
-          montage -label '%t' *.jpg -tile 3x -geometry 400x160+6+6 -pointsize 14 sheet.png 2>/dev/null || true
-          convert sheet.png -resize 1400x -quality 80 sheet.jpg && rm sheet.png
+          IFS='|' read -ra ARGS <<< "$LIST"
+          python3 -I ../scripts/themes/fetch_commons.py "${ARGS[@]}"
+          for f in *_?.jpg; do convert "$f" -auto-orient -resize '1200x480^' -gravity center -extent 1200x480 -strip -quality 72 "$f"; done
+          montage -label '%t' *_?.jpg -tile 4x -geometry 360x144+6+6 -pointsize 16 sheet.png && convert sheet.png -quality 80 sheet.jpg && rm sheet.png
           echo '{"git":{"deploymentEnabled":false}}' > vercel.json
           git init -q -b theme-candidates && git config user.name 'github-actions[bot]' && git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A && git commit -qm 'テーマ画像の候補' && git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" theme-candidates && echo published
