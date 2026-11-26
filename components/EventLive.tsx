@@ -268,7 +268,7 @@ export default function EventLive(p: Props) {
         <div className="topic-card map-card">
           <div className="tc-head"><h3>会場マップ</h3></div>
           <p className="muted small one-line" style={{ margin: '0 0 8px' }}>地点をタップで、状況の確認・投稿ができます</p>
-          {p.geo && <LocateButton venue={p.center} />}
+          {p.geo && <LocateButton />}
           <div className="live-map">
             <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes}
               onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} />
@@ -411,7 +411,7 @@ function Confetti() {
 }
 
 /** 地図の上の大きな「現在地」ボタン。押したときだけ端末に位置情報の許可を求める（位置は画面に出すだけで、送信・保存しない） */
-function LocateButton({ venue }: { venue?: [number, number] }) {
+function LocateButton() {
   const [state, setState] = useState<{ on: boolean; error: string; far: number }>({ on: false, error: '', far: 0 });
   useEffect(() => {
     const h = (e: Event) => setState({ far: 0, ...(e as CustomEvent<{ on: boolean; error: string; far?: number }>).detail } as { on: boolean; error: string; far: number });
@@ -426,10 +426,10 @@ function LocateButton({ venue }: { venue?: [number, number] }) {
       </button>
       {state.on && state.far > 0 ? (
         <div className="locate-far">
-          <div className="one-line">いまの場所は会場から<strong>約{km}</strong>（地図は会場のまま）</div>
+          <div className="one-line">いまの場所は会場から<strong>約{km}</strong>。地図は会場付近のままです</div>
+          <div>行きたい駐車場などの地点をタップ →「📍 この場所に行く」で、そこまでの道順が出ます</div>
           <div className="locate-far-btns">
             <button type="button" className="chip-btn" onClick={() => window.dispatchEvent(new Event('evenow:show-me'))}>自分の位置を見る</button>
-            {venue && <a className="chip-btn" href={`https://www.google.com/maps/dir/?api=1&destination=${venue[0]},${venue[1]}`} target="_blank" rel="noopener noreferrer">会場までの道順 ↗</a>}
           </div>
         </div>
       ) : <div className="muted small one-line">位置は画面に出すだけで、送信・保存しません</div>}
