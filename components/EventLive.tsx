@@ -182,6 +182,21 @@ export default function EventLive(p: Props) {
   }
 
 
+  // 下から出る画面（地点の投稿・お礼）を開いている間は、後ろのページをスクロールさせない。
+  // iPhone の Safari は overflow:hidden だけでは止まらないので、body を固定して、閉じたら元の位置に戻す
+  const sheetOpen = selected != null || !!thanks;
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const y = window.scrollY;
+    const b = document.body.style;
+    const prev = { position: b.position, top: b.top, left: b.left, right: b.right, width: b.width, overflow: b.overflow };
+    Object.assign(b, { position: 'fixed', top: `-${y}px`, left: '0', right: '0', width: '100%', overflow: 'hidden' });
+    return () => {
+      Object.assign(b, prev);
+      window.scrollTo(0, y);
+    };
+  }, [sheetOpen]);
+
   const sel = selected != null ? spotById.get(selected) : undefined;
   const selCat = sel ? catById.get(sel.category_id) : undefined;
   const selLatest = sel ? latestBySpot.get(sel.id) : undefined;

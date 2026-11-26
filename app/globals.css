@@ -777,3 +777,7 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .share-icons .si { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--ink); background: #fff; color: var(--ink); cursor: pointer; padding: 0; box-shadow: 0 2px 0 var(--ink); }
 .share-icons .si.x { background: #0f1419; color: #fff; }
 .share-icons .si.line { background: #06c755; color: #fff; }
+
+/* 下から出る画面：中だけスクロールし、端まで来ても後ろのページへスクロールを伝えない */
+.sheet { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.sheet-backdrop { touch-action: none; overscroll-behavior: contain; }
