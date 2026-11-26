@@ -382,10 +382,10 @@ export default function EventLive(p: Props) {
         {/* 最終更新は時計付きの太字バッジ（新しさがいちばん大事な情報のため）。30分以上前はオレンジ */}
         {p.postable && newest ? (
           <span className={`nb-time ${fresh.length ? '' : 'old'}`}>
-            {fresh.length ? '🕒 ' : '⚠️ '}{t('最終更新 {t}', { t: rel(newest.created_at, now) })}{!fresh.length && <small>{t('（古い情報）')}</small>}
+            {fresh.length ? <>🕒 {t('最終更新 {t}', { t: rel(newest.created_at, now) })}</> : <>⚠️ {t('{t}の情報', { t: rel(newest.created_at, now) })}</>}
           </span>
         ) : (
-          <span className="nb-sub one-line">{!p.postable ? t(p.postBlockedReason) : t('来場者がタップで共有（登録不要）')}</span>
+          <span className="nb-sub one-line">{!p.postable ? t(p.postBlockedReason) : t('まだ投稿はありません')}</span>
         )}
       </div>
 

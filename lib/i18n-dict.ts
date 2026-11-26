@@ -62,6 +62,7 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "Added to favorites": ["已加入收藏", "즐겨찾기에 추가했어요"],
   "You can find it on the top page anytime (saved on this device only)": ["随时可在首页查看（只保存在这台设备上）", "언제든 첫 화면에서 볼 수 있어요 (이 기기에만 저장)"],
   "Favorites": ["收藏", "즐겨찾기"],
+  "🚗 Parking & 🚻 toilet crowds, shared live by visitors (no sign-up)": ["🚗 停车场・🚻 厕所的拥挤情况，由到场者实时分享（无需注册）", "🚗 주차장·🚻 화장실 혼잡도를 방문자가 실시간으로 공유 (가입 불필요)"],
   "Nearest": ["最近", "가장 가까움"],
   " (blue dot = you)": ["（蓝点是你）", " (파란 점이 나)"],
   // 地図
@@ -105,6 +106,7 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "📍 Go near here": ["📍 前往这附近", "📍 이 근처로 가기"],
   "Blue dot = you": ["蓝点是你", "파란 점이 나"],
   "Tap what you see now": ["点选你现在看到的情况", "지금 보이는 상황을 누르세요"],
+  "info from {t}": ["{t}的信息", "{t}의 정보"],
   "updated {t}": ["{t}更新", "{t} 업데이트"],
   " (old)": ["（旧信息）", " (오래된 정보)"],
   "No reports yet": ["还没有报告", "아직 제보가 없어요"],

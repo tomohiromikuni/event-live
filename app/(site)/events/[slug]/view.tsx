@@ -189,6 +189,11 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
   const tags = hashtagsFor({ ...raw!, genre_slug: genre.slug }, tagCtx);
   const fmt = (a: string, b: string) => (isEn ? fmtRangeL(a, b, lang) : fmtRange(a, b));
   const place = isEn ? `${e.city || prefName(raw!.prefecture, lang)}` : `${e.city || e.prefecture}`;
+  // 上部の短い日程（日本語は「11/20〜12/25」。今年でなければ年も付ける）
+  const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  const thisYear = todayJST().slice(0, 4);
+  const shortRange = isEn ? fmt(e.start_date, e.end_date)
+    : `${e.start_date.slice(0, 4) !== thisYear ? `${e.start_date.slice(0, 4)}年 ` : ''}${md(e.start_date)}${e.end_date !== e.start_date ? `〜${md(e.end_date)}` : ''}`;
   const shareLines = isEn
     ? [e.name, `📅 ${fmt(e.start_date, e.end_date)}`, `📍 ${place}${lang === 'en' ? ', Japan' : ''}`, tx('Live parking & toilet status at the venue')]
     : [e.name, `📅 ${fmtRange(e.start_date, e.end_date)}`, `📍 ${e.prefecture}${e.city}`, 'トイレ・駐車場の混雑や待ち時間をチェック！'];
@@ -267,7 +272,7 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
       {e.status === 'canceled' && <div className="banner canceled"><span className="banner-label">中止</span><span><strong>開催中止</strong>　{e.status_note}</span></div>}
       {e.status === 'postponed' && <div className="banner postponed"><span className="banner-label">延期</span><span><strong>延期</strong>　{e.status_note}</span></div>}
 
-      <div className="event-head">
+      <div className="event-head hero-b">
         {/* お気に入り（この端末だけ・写真の右上） */}
         {/* 見た人の数（写真の右上・ハートの左。実データのみ・少ないうちは出さない） */}
         {!isEn && !e.is_sample && views && views.total >= MIN_VIEWS_TO_SHOW && (
@@ -278,44 +283,34 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
           </span>
         )}
         {!e.is_sample && <FavButton lang={lang} ev={{ slug: e.slug, name: e.name, start: e.start_date, end: e.end_date, place: `${fmt(e.start_date, e.end_date)}・${place}` }} />}
-        {/* ページ上部のサムネイル：利用許諾済みの写真があればそれ、無ければジャンルの色とイラストで作る（公式サイトの画像は転載しない） */}
-        {e.image_url ? (
-          <figure className="event-thumb photo">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={e.image_url} alt={`${e.name}の写真`} />
-            {e.image_credit && <figcaption>{e.image_credit}</figcaption>}
-          </figure>
-        ) : theme ? (
-          <ThemeThumb theme={theme} mapLink={e.map_mode !== 'simple'} lang={lang} />
-        ) : e.map_mode === 'geo' && (e.lat || e.lng) ? (
-          <MapThumb center={[e.lat, e.lng]} spots={spots} categories={categories} genre={genre} />
-        ) : (
-          <div className="event-thumb" style={{ background: genre.color }} aria-hidden>
-            <span className="thumb-dot a" /><span className="thumb-dot b" />
-            <span className="thumb-icon"><KindIcon kind="genre" slug={genre.slug} emoji={genre.icon} size={64} strokeWidth={2} /></span>
-            <span className="thumb-genre">{genre.name}</span>
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadges e={e} lang={lang} /></div>
-        <h1>{e.name}</h1>
-        {isEn && en?.name && <div className="muted small" lang="ja">{raw!.name}</div>}
-        <div className="meta">
-          <span>
-            <svg aria-label="日時" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
-            <span className="one-line">{fmt(e.start_date, e.end_date)}</span>
-          </span>
-          {/* 時間は別の行に（日付と同じ行だと見切れるため） */}
-          {shortTime && (
-            <span>
-              <svg aria-label="時間" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-              <span className="one-line">{shortTime}</span>
-            </span>
+        {/* 上部（案B）：写真の上に、開催状況・イベント名・日程と場所の1行を重ねる。時間・会場の詳しい名前は開催概要へ */}
+        <div className="hero-media">
+          {/* サムネイル：利用許諾済みの写真があればそれ、無ければテーマ写真・会場の地図・ジャンルの色（公式サイトの画像は転載しない） */}
+          {e.image_url ? (
+            <figure className="event-thumb photo">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={e.image_url} alt={`${e.name}の写真`} />
+              {e.image_credit && <figcaption>{e.image_credit}</figcaption>}
+            </figure>
+          ) : theme ? (
+            <ThemeThumb theme={theme} mapLink={false} lang={lang} />
+          ) : e.map_mode === 'geo' && (e.lat || e.lng) ? (
+            <MapThumb center={[e.lat, e.lng]} spots={spots} categories={categories} genre={genre} />
+          ) : (
+            <div className="event-thumb" style={{ background: genre.color }} aria-hidden>
+              <span className="thumb-dot a" /><span className="thumb-dot b" />
+              <span className="thumb-icon"><KindIcon kind="genre" slug={genre.slug} emoji={genre.icon} size={64} strokeWidth={2} /></span>
+            </div>
           )}
-          <span>
-            <svg aria-label="場所" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
-            <span className="one-line">{place}{isEn ? ' · ' : '・'}{e.venue_name || (isEn ? tx('Venue not confirmed') : '会場情報なし')}</span>
-          </span>
+          <div className="hero-ov">
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadges e={e} lang={lang} /></div>
+            <h1>{e.name}</h1>
+            {isEn && en?.name && <div className="hero-ja" lang="ja">{raw!.name}</div>}
+            <div className="hero-meta one-line">📅 {shortRange}{place ? ` ・ 📍 ${place}` : ''}</div>
+          </div>
         </div>
+        {/* 何のサービスかを一言で */}
+        <p className="hero-pitch">{isEn ? tx('🚗 Parking & 🚻 toilet crowds, shared live by visitors (no sign-up)') : '🚗 駐車場・🚻 トイレの混み具合を、来場者がリアルタイムで共有（登録不要）'}</p>
       </div>
 
       {!isEn && myViews >= MIN_VIEWS_TO_SHOW && (

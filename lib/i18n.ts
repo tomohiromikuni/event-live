@@ -61,7 +61,7 @@ const EN: Record<string, string> = {
   '自分の位置を見る': 'Show me', '約{km}': 'about {km}', '📍 現在地': '📍 My location', '🚩 会場へ': '🚩 Venue',
   // 地点の画面
   '{x}の状況': '{x} status', '行く': 'Go', 'Tap the map to move it': 'Tap the map to move it', 'Googleマップ': 'Google Maps', '📍 ここへ行く': '📍 Go here', '📍 この辺りへ行く': '📍 Go near here', '青い点があなた': 'Blue dot = you',
-  'いま見た状況をタップ': 'Tap what you see now', '現在の状況': 'Status now', 'まだ投稿はありません': 'No reports yet', '最終更新 {t}': 'updated {t}', '（古い情報）': ' (old)', '古い情報': 'old info', '現在：': 'Now: ', '実際に見た状況を選んでください・匿名で時刻とともに公開': 'Choose what you actually see · anonymous, shown with the time', '📍 この場所に行く（Googleマップ）': '📍 Go here (Google Maps)', '📍 この辺りに行く（Googleマップ）': '📍 Go near here (Google Maps)',
+  'いま見た状況をタップ': 'Tap what you see now', '現在の状況': 'Status now', 'まだ投稿はありません': 'No reports yet', '最終更新 {t}': 'updated {t}', '{t}の情報': 'info from {t}', '（古い情報）': ' (old)', '古い情報': 'old info', '現在：': 'Now: ', '実際に見た状況を選んでください・匿名で時刻とともに公開': 'Choose what you actually see · anonymous, shown with the time', '📍 この場所に行く（Googleマップ）': '📍 Go here (Google Maps)', '📍 この辺りに行く（Googleマップ）': '📍 Go near here (Google Maps)',
   '来場者の報告': 'Visitor report', '（公式の情報ではありません）': ' (not official)', 'まだ1人の報告です': 'only 1 report so far', '{n}人が「ここにある」と確認': '{n} confirmed it is here', '見つからない {n}人': 'not found: {n}',
   '✓ ここにある': '✓ It is here', '✗ 見つからない': '✗ Not found', '現在の状況：': 'Now: ', '現在の情報はありません': 'No current info',
   'あなたが見た、いまの状況は？': 'What do you see right now?', 'ほかの人の投稿ではなく、実際に見た状況を選んでください': 'Choose what you actually see, not what others posted',
