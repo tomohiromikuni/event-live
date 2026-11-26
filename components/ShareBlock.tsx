@@ -34,8 +34,6 @@ export default function ShareBlock({ eventId, tag, xText, lineText, url, lang = 
         </div>
         {tag && <a className="sb-sub" href={`https://x.com/search?q=${encodeURIComponent(tag)}&f=live`} target="_blank" rel="noopener noreferrer">{t('X でみんなの投稿を見る →')}</a>}
       </div>
-      {/* 投稿した人へ：役に立った実感（貢献実績）。日本語版だけ（ヘッダーから移した） */}
-      {lang === 'ja' && <a className="sb-me" href="/me">🙌 あなたの投稿が役に立った回数を見る</a>}
     </section>
   );
 }
