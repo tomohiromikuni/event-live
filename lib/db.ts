@@ -444,7 +444,12 @@ UPDATE events e SET osm_pending = 1 WHERE e.is_sample = 0 AND e.map_mode = 'simp
 
 const V29 = `ALTER TABLE events ADD COLUMN IF NOT EXISTS osm_tried_at BIGINT NOT NULL DEFAULT 0`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions];
+/** 1.5km まで広げて探すようにしたので、トイレか駐車場が1つも無い実イベントをもう一度探す */
+const V30 = `UPDATE events e SET osm_pending = 1, osm_tried_at = 0 WHERE e.is_sample = 0 AND e.map_mode = 'geo'
+  AND (NOT EXISTS (SELECT 1 FROM spots s JOIN spot_categories c ON c.id = s.category_id WHERE s.event_id = e.id AND s.generic = 0 AND c.slug = 'toilet')
+    OR NOT EXISTS (SELECT 1 FROM spots s JOIN spot_categories c ON c.id = s.category_id WHERE s.event_id = e.id AND s.generic = 0 AND c.slug = 'parking'))`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

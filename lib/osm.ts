@@ -19,6 +19,8 @@ const OVERPASS = process.env.OSM_OVERPASS_URL ? [process.env.OSM_OVERPASS_URL] :
 const UA = `EVENOW-bot/1.0 (+${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.evenow.jp'}/about)`;
 
 export const RADIUS_M = 700;       // 会場の中心からこの範囲
+/** 700m以内に1つも無い種類（トイレ・駐車場）だけ、ここまで広げて近い順に探す */
+export const WIDE_M = 1500;
 const MAX = { toilet: 8, parking: 6 };
 
 type Geo = [number, number];
@@ -73,14 +75,14 @@ async function fromTiles(center: Geo): Promise<OsmEl[] | null> {
   if (!meta?.tiles?.length) return null; // データがまだ無い → Overpass で取る
   const have = new Set(meta.tiles);
   const [lat, lng] = center;
-  const dLat = RADIUS_M / 111_000, dLng = RADIUS_M / (111_000 * Math.cos(lat * Math.PI / 180));
+  const dLat = WIDE_M / 111_000, dLng = WIDE_M / (111_000 * Math.cos(lat * Math.PI / 180));
   const keys = new Set<string>();
   for (const a of [lat - dLat, lat + dLat]) for (const b of [lng - dLng, lng + dLng]) keys.add(`${Math.floor(a * 10)}_${Math.floor(b * 10)}`);
   const rows: TileRow[] = [];
   for (const k of keys) if (have.has(k)) rows.push(...((await get(`t/${k}.json`)) as TileRow[] ?? []));
   const TYPES: Record<string, string> = { n: 'node', w: 'way', r: 'relation' };
   return rows
-    .filter((r) => distanceM(center, [r[2], r[3]]) <= RADIUS_M)
+    .filter((r) => distanceM(center, [r[2], r[3]]) <= WIDE_M)
     .map(([k, id, la, lo, name = '', fee = '', capacity = '', wheelchair = '']) => ({
       type: TYPES[k[1]] ?? 'node', id, lat: la, lon: lo,
       tags: { amenity: k[0] === 't' ? 'toilets' : 'parking', ...(name ? { name } : {}), ...(fee ? { fee } : {}), ...(capacity ? { capacity } : {}), ...(wheelchair ? { wheelchair } : {}) },
@@ -91,7 +93,7 @@ async function fromTiles(center: Geo): Promise<OsmEl[] | null> {
 export async function fetchFacilities(center: Geo, o: { patient?: boolean } = {}): Promise<Facility[]> {
   const [lat, lng] = center;
   // 1回の検索で済ませ、サーバーの負担を軽くする（混んでいても通りやすくするため）
-  const query = `[out:json][timeout:20];nwr(around:${RADIUS_M},${lat},${lng})[amenity~"^(toilets|parking)$"];out center tags;`;
+  const query = `[out:json][timeout:20];nwr(around:${WIDE_M},${lat},${lng})[amenity~"^(toilets|parking)$"];out center tags;`;
   // まず自前の抽出データ（月1回作り直す・osm-data ブランチ）から読む。読めなかったときだけ公開の Overpass サーバーに問い合わせる
   let els: OsmEl[] | null = await fromTiles(center).catch(() => null);
   const errs: string[] = [];
@@ -139,7 +141,12 @@ export async function fetchFacilities(center: Geo, o: { patient?: boolean } = {}
     });
   }
   // 種類ごとに近い順で上限まで
-  const pick = (cat: 'toilet' | 'parking') => out.filter((f) => f.cat === cat).sort((a, b) => a.dist - b.dist).slice(0, MAX[cat]);
+  // 700m以内にあればその中から。1つも無い種類だけ、1.5km以内の近いものを出す（無い場所を推測で埋めない）
+  const pick = (cat: 'toilet' | 'parking') => {
+    const all = out.filter((f) => f.cat === cat).sort((a, b) => a.dist - b.dist);
+    const near = all.filter((f) => f.dist <= RADIUS_M);
+    return (near.length ? near : all).slice(0, MAX[cat]);
+  };
   return [...pick('toilet'), ...pick('parking')];
 }
 
@@ -171,7 +178,7 @@ export async function importOsmFacilities(tq: Q, eventId: number, o: { patient?:
     throw e;
   }
   await tq('UPDATE events SET osm_pending = 0 WHERE id = $1', [eventId]);
-  if (found.length === 0) return { ok: true, added: 0, message: `会場の周り（${RADIUS_M}m以内）に、OpenStreetMap に登録されたトイレ・駐車場はありませんでした` };
+  if (found.length === 0) return { ok: true, added: 0, message: `会場の周り（${WIDE_M / 1000}km以内）に、OpenStreetMap に登録されたトイレ・駐車場はありませんでした` };
 
   const cats = new Map((await tq<{ id: number; slug: string }>("SELECT id, slug FROM spot_categories WHERE slug IN ('toilet', 'parking')")).map((c) => [c.slug, c.id]));
   const have = new Set((await tq<{ ext_id: string }>("SELECT ext_id FROM spots WHERE event_id = $1 AND source = 'osm'", [eventId])).map((r) => r.ext_id));

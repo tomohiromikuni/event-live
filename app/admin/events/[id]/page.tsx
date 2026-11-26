@@ -43,7 +43,7 @@ export default async function EditEvent({ params, searchParams }: { params: Prom
       <form action={autoMapFromOsm} className="small" style={{ margin: '8px 0', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <input type="hidden" name="id" value={e.id} />
         <button className="btn sm ghost">🗺️ 会場マップを自動作成</button>
-        <span className="muted">① 会場から700m以内の常設のトイレ・駐車場（OpenStreetMap）② 公式ページのガイドマップから仮設トイレ・臨時駐車場・シャトル乗り場などを「目安」で追加（誤差が大きければ追加しません）</span>
+        <span className="muted">① 会場から700m以内（無い種類は1.5km以内）の常設のトイレ・駐車場（OpenStreetMap）② 公式ページのガイドマップから仮設トイレ・臨時駐車場・シャトル乗り場などを「目安」で追加（誤差が大きければ追加しません）</span>
       </form>
       <MapEditor eventId={e.id} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} spots={spots.filter((sp) => !sp.generic)} shapes={shapes} categories={cats} />
       <h2 style={{ fontSize: 17, marginTop: 24 }}>イベント情報の編集</h2>
