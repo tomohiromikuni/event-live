@@ -56,6 +56,8 @@ export const MORE: Record<'vi', Record<string, string>> = {
     "~{d} from the venue": "Cách địa điểm ~{d}",
     "Add to favorites": "Thêm vào yêu thích",
     "Remove from favorites": "Bỏ khỏi yêu thích",
+    "Added to favorites": "Đã thêm vào yêu thích",
+    "You can find it on the top page anytime (saved on this device only)": "Xem bất cứ lúc nào ở trang chủ (chỉ lưu trên thiết bị này)",
     "Favorites": "Yêu thích",
     "Nearest": "Gần nhất",
     " (blue dot = you)": " (chấm xanh = bạn)",

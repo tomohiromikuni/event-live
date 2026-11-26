@@ -53,6 +53,8 @@ export const ZHT: Record<string, string> = {
  "~{d} from the venue": "距會場約{d}",
  "Add to favorites": "加入收藏",
  "Remove from favorites": "取消收藏",
+ "Added to favorites": "已加入收藏",
+ "You can find it on the top page anytime (saved on this device only)": "隨時可在首頁檢視（只儲存在這臺裝置上）",
  "Favorites": "收藏",
  "Nearest": "最近",
  " (blue dot = you)": "（藍點是你）",

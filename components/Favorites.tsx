@@ -15,6 +15,9 @@ const todayJst = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0
 /** 詳細ページの写真の右上のハート */
 export function FavButton({ ev, lang = 'ja' }: { ev: Fav; lang?: Lang }) {
   const [on, setOn] = useState(false);
+  // 初めてお気に入りに入れたときだけ「トップからいつでも見られます」と知らせる（2回目からは出さない）
+  const [hint, setHint] = useState(false);
+  useEffect(() => { if (!hint) return; const id = setTimeout(() => setHint(false), 4000); return () => clearTimeout(id); }, [hint]);
   useEffect(() => {
     const sync = () => setOn(read().some((f) => f.slug === ev.slug));
     sync();
@@ -24,10 +27,22 @@ export function FavButton({ ev, lang = 'ja' }: { ev: Fav; lang?: Lang }) {
   const tx = makeTx(lang);
   const label = lang === 'ja' ? (on ? 'お気に入りから外す' : 'お気に入りに追加') : tx(on ? 'Remove from favorites' : 'Add to favorites');
   return (
+    <>
     <button type="button" className={`fav-btn ${on ? 'on' : ''}`} aria-pressed={on} aria-label={label} title={label}
-      onClick={() => { const v = read().filter((f) => f.slug !== ev.slug); write(on ? v : [ev, ...v]); }}>
+      onClick={() => {
+        const v = read().filter((f) => f.slug !== ev.slug);
+        write(on ? v : [ev, ...v]);
+        if (!on) { let first = false; try { first = !localStorage.getItem('evenow:fav-hint'); localStorage.setItem('evenow:fav-hint', '1'); } catch { /* 無視 */ } if (first) setHint(true); }
+      }}>
       <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.4 4.5 7 4.5c2.1 0 3.5 1.2 5 3 1.5-1.8 2.9-3 5-3 3.6 0 5.5 3.5 4.3 6.8-1.8 4.6-9.3 9.2-9.3 9.2z" fill={on ? '#e11d48' : 'none'} stroke={on ? '#e11d48' : '#1c1730'} strokeWidth="2.2" strokeLinejoin="round" /></svg>
     </button>
+    {hint && (
+      <div className="fav-hint" role="status" onClick={() => setHint(false)}>
+        <strong>{lang === 'ja' ? '❤️ お気に入りに登録しました' : `❤️ ${tx('Added to favorites')}`}</strong>
+        <span>{lang === 'ja' ? 'トップページからいつでも見られます（この端末だけに保存）' : tx('You can find it on the top page anytime (saved on this device only)')}</span>
+      </div>
+    )}
+    </>
   );
 }
 

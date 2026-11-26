@@ -1003,3 +1003,6 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .fav-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
 .fav-list .event-item .txt { padding-left: 4px; }
 .views-chip { position: absolute; right: 64px; top: 20px; z-index: 5; display: inline-flex; align-items: center; gap: 4px; background: rgba(28,23,48,.72); color: #fff; font-size: 13px; font-weight: 900; padding: 4px 10px; border-radius: 999px; }
+.fav-hint { position: absolute; right: 10px; top: 64px; z-index: 6; max-width: 260px; background: #fff; border: 2.5px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink); padding: 9px 12px; font-size: 12px; line-height: 1.45; display: flex; flex-direction: column; gap: 2px; animation: fade .2s; }
+.fav-hint strong { font-size: 13px; }
+.fav-hint::before { content: ""; position: absolute; top: -9px; right: 18px; width: 14px; height: 14px; background: #fff; border-left: 2.5px solid var(--ink); border-top: 2.5px solid var(--ink); transform: rotate(45deg); }
