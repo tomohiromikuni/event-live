@@ -4,6 +4,7 @@ import { importOsmFacilities } from './osm';
 import { importGuideMap } from './guidemap';
 import { settleAutoPublish } from './collect/publish';
 import { todayJST } from './dates';
+import { enrichOfficialInfo } from './collect/enrich';
 
 /**
  * 会場マップを自動で作る（人の手での位置合わせはしない）。
@@ -16,6 +17,8 @@ export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): 
   for (const step of steps) {
     try { msgs.push((await step(q, eventId)).message); } catch (e) { msgs.push(e instanceof Error ? e.message : String(e)); }
   }
+  // 公式情報（駐車場・トイレなど）が空なら、公式サイトのアクセス・駐車場などのページから補う
+  try { const m = await enrichOfficialInfo(eventId); if (m) msgs.push(m); } catch (e) { msgs.push(`公式情報の補完に失敗：${e instanceof Error ? e.message : e}`); }
   return msgs.join(' ／ ');
 }
 
