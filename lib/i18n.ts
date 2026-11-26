@@ -27,6 +27,9 @@ const EN: Record<string, string> = {
   '🚻 トイレ': '🚻 Toilet', '🅿️ 駐車場': '🅿️ Parking', '🚌 乗り場': '🚌 Bus stop', 'やめる': 'Cancel',
   '良好': 'Good', 'やや': 'Fair', '混雑': 'Busy', '非常に': 'Very busy', '利用不可': 'Closed', '情報なし': 'No info', '点線＝{n}分以上前': 'Dotted = {n}+ min ago', '破線の枠＝位置は目安': 'Dashed = approx. location',
   '施設・会場の範囲の一部：': 'Some places & venue area: ',
+  '📍 自分から近い順': '📍 Nearest to you', '📍 自分から近い順にする': '📍 Sort by distance from me', '現在地を確認中…': 'Finding your location…',
+  '会場から離れているので、会場からの方角で表示しています': 'You are far from the venue, so directions are from the venue.', '位置は送信・保存しません': 'Your location is never sent or saved',
+  'いちばん近い': 'Nearest', '（青い点があなた）': ' (blue dot = you)',
   '📍 自分の位置を地図に表示する': '📍 Show my location', '📍 現在地の表示をやめる': '📍 Hide my location', '位置は画面に出すだけで、送信・保存しません': 'Your location stays on your phone and is never sent or saved',
   'いまの場所は会場から': 'You are ', '。地図は会場付近のままです': ' from the venue. The map stays on the venue.',
   '行きたい駐車場などの地点をタップ →「📍 この場所に行く」で、そこまでの道順が出ます': 'Tap a parking lot or other place → “📍 Go here” for directions',
@@ -83,6 +86,7 @@ const DIR_EN: Record<string, string> = { 北: 'north', 北東: 'northeast', 東:
 export function trAuto(text: string, lang: Lang): string {
   if (lang !== 'en' || !text) return text;
   return text
+    .replace(/あなたから(北東|北西|南東|南西|北|東|南|西)へ約([\d.]+)(m|km)/g, (_, d, n, u) => `about ${n} ${u} ${DIR_EN[d]} of you`).replace(/あなたのすぐ近く/g, 'right near you')
     .replace(/会場から(北東|北西|南東|南西|北|東|南|西)へ(100m以内|約(\d+)m)/g, (_, d, all, m) => (m ? `about ${m} m ${DIR_EN[d]} of the venue` : `within 100 m ${DIR_EN[d]} of the venue`))
     .replace(/^トイレ（(.+)）$/, 'Toilet ($1)').replace(/^駐車場（(.+)）$/, 'Parking ($1)').replace(/^駐車場（周辺）$/, 'Parking (nearby)').replace(/^トイレ$/, 'Toilets')
     .replace(/規模：(大|中|小)（約(\d+)台）/, (_, s, n) => `${{ 大: 'Large', 中: 'Medium', 小: 'Small' }[s as '大']} (~${n} cars)`)

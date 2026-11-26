@@ -25,6 +25,10 @@ type Props = {
   locate?: boolean;
   /** 地図のボタン・案内の言語 */
   lang?: 'ja' | 'en';
+  /** 小さな地図（タップした施設の場所を見せる）：その施設を中心に表示し、近くにいれば自分の位置も入れる */
+  mini?: boolean;
+  /** 自分の位置（mini のときに青い点で出す。端末の画面の中だけ） */
+  me?: [number, number] | null;
 };
 
 /**
@@ -101,6 +105,7 @@ export default function LeafletMap(props: Props) {
       renderShapes();
       renderMarkers();
       if (cbRef.current.geo && cbRef.current.locate) addLocateControl(map, lib);
+      if (cbRef.current.mini) showMini(map, lib);
       cbRef.current.onReady?.(map, lib);
     });
     return () => {
@@ -110,6 +115,16 @@ export default function LeafletMap(props: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** 小さな地図：施設を真ん中に。自分が2km以内なら自分と施設の両方が入るように */
+  function showMini(map: L.Map, lib: typeof L) {
+    const m = cbRef.current.markers[0];
+    if (!m) return;
+    const me = cbRef.current.geo ? cbRef.current.me : null;
+    if (me) lib.circleMarker(me, { radius: 7, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1, interactive: false }).addTo(map);
+    if (me && map.distance(me, [m.lat, m.lng]) < 2000) map.fitBounds(lib.latLngBounds([me, [m.lat, m.lng]]), { padding: [34, 34], maxZoom: 17 });
+    else map.setView([m.lat, m.lng], cbRef.current.geo ? 17 : map.getZoom() + 1.5);
+  }
 
   /** 現在地がうまく使えないときの案内（端末・アプリ別） */
   function locateHelp(kind: 'denied' | 'failed' | 'unsupported') {
@@ -147,9 +162,13 @@ export default function LeafletMap(props: Props) {
         const stop = () => {
           if (watch != null) navigator.geolocation.clearWatch(watch);
           watch = null; dot?.remove(); ring?.remove(); dot = ring = null; first = true;
+          window.dispatchEvent(new CustomEvent('evenow:me', { detail: null }));
           b.classList.remove('on');
         };
-        window.addEventListener('evenow:locate', () => b.click());
+        const W = window as unknown as { __evenowWantLocate?: boolean };
+        window.addEventListener('evenow:locate', () => { W.__evenowWantLocate = false; b.click(); });
+        // 地図の読み込み前に「近い順にする」が押されていたら、読み込めた時点で始める
+        if (W.__evenowWantLocate) { W.__evenowWantLocate = false; setTimeout(() => b.click(), 0); }
         b.onclick = () => {
           if (watch != null) { stop(); tell(false); return; }
           if (!('geolocation' in navigator)) { tell(false, locateHelp('unsupported')); return; }
@@ -161,6 +180,7 @@ export default function LeafletMap(props: Props) {
               dot = lib.circleMarker(ll, { radius: 8, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1, interactive: false }).addTo(map);
             } else { dot.setLatLng(ll); ring!.setLatLng(ll).setRadius(pos.coords.accuracy); }
             last = lib.latLng(ll);
+            window.dispatchEvent(new CustomEvent('evenow:me', { detail: ll })); // 一覧を「自分から近い順」にする（画面の中だけ）
             if (first) {
               first = false;
               const venue = venueRef.current;

@@ -10,6 +10,7 @@ import type { Category, Report, Spot } from '@/lib/types';
 import type { MapMarker } from './LeafletMap';
 import ShareButtons from './ShareButtons';
 import { composePost, shareUrl } from '@/lib/share';
+import { distM, fromMeText, nameFromMe, type Geo } from '@/lib/fromMe';
 import { PUBLIC_SPOT_CATS, simplifyShapes, type MapShape } from '@/lib/shapes';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
@@ -98,6 +99,32 @@ export default function EventLive(p: Props) {
   const [pins, setPins] = useState(p.pins ?? {});
   const visibleSpots = useMemo(() => [...p.spots, ...addedSpots].filter((s) => catById.has(s.category_id)), [p.spots, addedSpots, catById]);
   const spotById = useMemo(() => new Map(visibleSpots.map((s) => [s.id, s])), [visibleSpots]);
+
+  // 現在地（「📍 自分の位置」を押したときだけ。端末の画面の中で距離を計算するだけで、送信・保存しない）
+  const [meRaw, setMeRaw] = useState<Geo | null>(null);
+  const [locErr, setLocErr] = useState('');
+  const [locating, setLocating] = useState(false);
+  useEffect(() => {
+    const onMe = (e: Event) => { setMeRaw((e as CustomEvent<Geo | null>).detail); setLocating(false); };
+    const onState = (e: Event) => { const d = (e as CustomEvent<{ on: boolean; error: string }>).detail; setLocErr(d.error || ''); if (!d.on) setLocating(false); };
+    window.addEventListener('evenow:me', onMe);
+    window.addEventListener('evenow:locate-state', onState);
+    return () => { window.removeEventListener('evenow:me', onMe); window.removeEventListener('evenow:locate-state', onState); };
+  }, []);
+  const placed = (s: Spot) => !s.generic && !!(s.lat || s.lng);
+  // 会場から遠い（いちばん近い施設まで3km超）ときは「自分から」の表示にしない（会場からの表示のまま）
+  const meFar = useMemo(() => {
+    if (!meRaw || !p.geo) return false;
+    const pts = visibleSpots.filter(placed).map((s) => [s.lat, s.lng] as Geo);
+    return pts.length ? Math.min(...pts.map((x) => distM(meRaw, x))) > 3000 : true;
+  }, [meRaw, p.geo, visibleSpots]);
+  const me = meRaw && p.geo && !meFar ? meRaw : null;
+  const myDist = (s: Spot) => (me && placed(s) ? distM(me, [s.lat, s.lng]) : Infinity);
+  /** 名前（現在地があれば「（会場から…）」を「（あなたから…）」に） */
+  const nameOf = (s: Spot) => nm((me && placed(s) && nameFromMe(s.name, me, [s.lat, s.lng])) || s.name);
+  /** 名前に方角が入っていない施設は、説明の行の先頭に「あなたから…」 */
+  const fromMe = (s: Spot) => (me && placed(s) && !/（会場から[^）]*）/.test(s.name) ? trAuto(fromMeText(me, [s.lat, s.lng]), lang) : '');
+  function startLocate() { setLocErr(''); setLocating(true); (window as unknown as { __evenowWantLocate?: boolean }).__evenowWantLocate = true; window.dispatchEvent(new Event('evenow:locate')); }
 
   // タブ：駐車場・（シャトルバス）・トイレ・地図・概要。最初は駐車場（検索でいちばん探される）。#toilet などで開くタブを指定できる
   const spotsOf = useCallback((cats: readonly string[]) => visibleSpots.filter((s) => cats.includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0), [visibleSpots, catById]);
@@ -318,7 +345,10 @@ export default function EventLive(p: Props) {
         if (!spots.length && !official && !tp.always) return null;
         const cat = p.categories.find((c) => (tp.cats as readonly string[]).includes(c.slug));
         // 並び：投稿がある場所（新しい順）→ 投稿がない場所（登録順）。多いときは3か所まで出して残りは畳む
-        const sorted = [...spots].sort((a, b) => (latestBySpot.get(b.id)?.created_at ?? 0) - (latestBySpot.get(a.id)?.created_at ?? 0) || a.sort - b.sort);
+        // 現在地があれば、自分から近い順（位置が分からないものは最後）
+        const sorted = me ? [...spots].sort((a, b) => myDist(a) - myDist(b) || a.sort - b.sort)
+          : [...spots].sort((a, b) => (latestBySpot.get(b.id)?.created_at ?? 0) - (latestBySpot.get(a.id)?.created_at ?? 0) || a.sort - b.sort);
+        const nearestId = me && sorted[0] && placed(sorted[0]) ? sorted[0].id : null;
         const open = expanded.has(tp.id) || sorted.length <= 4;
         const shown = open ? sorted : sorted.slice(0, 3);
         const single = spots.length === 1 ? spots[0] : undefined;
@@ -342,14 +372,23 @@ export default function EventLive(p: Props) {
               const level = n >= 9 ? '多め' : n >= 4 ? 'ふつう' : '少なめ';
               return <div className={`tc-amount ${level === '少なめ' ? 'few' : ''}`}>{t('会場まわりのトイレ：')}<strong>{t(level)}</strong>{t('（地図上で{n}か所）', { n })}</div>;
             })()}
+            {spots.length > 1 && p.geo && !p.simple && spots.some(placed) && (
+              <div className="near-bar">
+                {me ? <span className="near-on">{t('📍 自分から近い順')}</span>
+                  : meRaw ? null : <button type="button" className="chip-btn near-btn" onClick={startLocate} disabled={locating}>{t(locating ? '現在地を確認中…' : '📍 自分から近い順にする')}</button>}
+                {!me && meFar && <span className="muted small">{t('会場から離れているので、会場からの方角で表示しています')}</span>}
+                {!me && !meFar && !locErr && <span className="muted small">{t('位置は送信・保存しません')}</span>}
+                {locErr && <span className="locate-err small" role="alert">{locErr}</span>}
+              </div>
+            )}
             {spots.length > 1 && (
               <div className="tc-rows">
                 {shown.map((s) => {
                   const latest = latestBySpot.get(s.id);
                   return (
                     <button key={s.id} id={`spot-${s.id}`} className={`tc-row spot-item ${highlight === s.id ? 'highlight' : ''}`} onClick={() => setSelected(s.id)}>
-                      <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id], t); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{nm(s.name)}</span>
-                        <span className="tc-sub">{latest ? when(s, latest) : s.source === 'official_temp' ? `${t('投稿なし')}・${t(s.generic ? '地図の位置は未確認' : '位置は目安')}` : s.source === 'osm' && s.note ? `${t('投稿なし')}・${trAuto(s.note.replace(/・?会場から.+$/, ''), lang)}` : t('投稿なし')}{latest?.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span></span>
+                      <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id], t); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{nearestId === s.id && <span className="origin-tag nearest">{t('いちばん近い')}</span>}{nameOf(s)}</span>
+                        <span className="tc-sub">{fromMe(s) && <>{fromMe(s)}・</>}{latest ? when(s, latest) : s.source === 'official_temp' ? `${t('投稿なし')}・${t(s.generic ? '地図の位置は未確認' : '位置は目安')}` : s.source === 'osm' && s.note.replace(/・?会場から.+$/, '') ? `${t('投稿なし')}・${trAuto(s.note.replace(/・?会場から.+$/, ''), lang)}` : t('投稿なし')}{latest?.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span></span>
                       {latest && pill(latest)}<span className="tc-arrow" aria-hidden>›</span>
                     </button>
                   );
@@ -456,8 +495,15 @@ export default function EventLive(p: Props) {
           <div className="sheet" role="dialog" aria-label={t('{x}の状況', { x: nm(sel.name) })}>
             <div className="sheet-grip" />
             <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{t(selCat.name)}</div>
-            <h3>{nm(sel.name)}</h3>
-            {sel.note && <div className="muted small">{trAuto(sel.note, lang)}</div>}
+            <h3>{nameOf(sel)}</h3>
+            {(me ? sel.note.replace(/・?会場から.+$/, '') : sel.note) && <div className="muted small">{trAuto(me ? sel.note.replace(/・?会場から.+$/, '') : sel.note, lang)}</div>}
+            {placed(sel) && !p.simple && (
+              <div className="sheet-map">
+                <LeafletMap key={sel.id} mini canvas={p.canvas} geo={p.geo} center={[sel.lat, sel.lng]} me={me}
+                  markers={markers.filter((m) => m.id === sel.id)} shapes={mapShapes.filter((sh) => sh.style === 'venue')} className="map mini-map" lang={lang} />
+                {me && <div className="sheet-map-note">{trAuto(fromMeText(me, [sel.lat, sel.lng]), lang)}{t('（青い点があなた）')}</div>}
+              </div>
+            )}
             {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
               <a className="btn ghost go-btn" href={`https://www.google.com/maps/dir/?api=1&destination=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer">
                 {t(sel.source === 'guide' ? '📍 この辺りに行く（Googleマップ）' : '📍 この場所に行く（Googleマップ）')}

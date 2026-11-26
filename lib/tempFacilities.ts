@@ -95,15 +95,18 @@ let client: Anthropic | null = null;
  */
 /** 位置がまだ分からない公式の案内（一覧のみ）を、地図データの名前で探し直す（費用0円・毎回） */
 export async function relocateTempItems(eventId: number): Promise<number> {
-  const ev = await one<{ lat: number; lng: number }>('SELECT lat, lng FROM events WHERE id = $1', [eventId]);
+  const ev = await one<{ lat: number; lng: number; prefecture: string; city: string }>('SELECT lat, lng, prefecture, city FROM events WHERE id = $1', [eventId]);
   if (!ev || !(ev.lat || ev.lng)) return 0;
   const rows = await q<{ id: number; name: string; note: string; slug: string }>(`SELECT s.id, s.name, s.note, c.slug FROM spots s JOIN spot_categories c ON c.id = s.category_id
-    WHERE s.event_id = $1 AND s.source = $2 AND s.generic = 1 AND c.slug IN ('toilet', 'parking')`, [eventId, TEMP_SOURCE]);
-  let n = 0;
+    WHERE s.event_id = $1 AND s.source = $2 AND s.generic = 1 AND c.slug IN ('toilet', 'parking', 'shuttle')`, [eventId, TEMP_SOURCE]);
+  let n = 0, asked = 0;
   for (const r of rows) {
-    const pos = await findFacilityByName([ev.lat, ev.lng], r.name, r.slug as 'toilet' | 'parking').catch(() => null);
+    // シャトルバス乗り場は駅・公園などの名前から探す（Nominatim の負担を抑えて1回3件まで）
+    const pos = r.slug === 'shuttle'
+      ? (asked++ < 3 ? await locateByName(r.name, ev, [ev.lat, ev.lng]).catch(() => null) : null)
+      : await findFacilityByName([ev.lat, ev.lng], r.name, r.slug as 'toilet' | 'parking').catch(() => null);
     if (!pos) continue;
-    await q('UPDATE spots SET lat = $1, lng = $2, generic = 0, note = $3 WHERE id = $4', [pos[0], pos[1], r.note.replace('地図の位置は未確認', '位置は地図データの同じ名前の施設'), r.id]);
+    await q('UPDATE spots SET lat = $1, lng = $2, generic = 0, note = $3 WHERE id = $4', [pos[0], pos[1], r.note.replace('地図の位置は未確認', r.slug === 'shuttle' ? '位置は名前からの目安' : '位置は地図データの同じ名前の施設'), r.id]);
     n++;
   }
   return n;
