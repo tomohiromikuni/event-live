@@ -2,6 +2,7 @@ import Link from 'next/link';
 import EventCard, { CardRow, ItemList } from '@/components/EventCard';
 import { latestSpotStatuses, liveEvents, searchEvents } from '@/lib/queries';
 import { UNOFFICIAL } from '@/lib/site';
+import SearchSuggest from '@/components/SearchSuggest';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +27,7 @@ export default async function Home() {
             <p>駐車場・シャトルバス・トイレの混雑を、<br />来場者がリアルタイムで投稿。</p>
           </div>
           <form action="/search" className="search-box">
-            <input name="q" type="search" placeholder="イベント名で探す" aria-label="キーワード" />
+            <SearchSuggest placeholder="イベント名・地名で探す" label="キーワード" />
             <button className="btn pop" type="submit">検索</button>
           </form>
         </section>

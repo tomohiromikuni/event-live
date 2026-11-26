@@ -864,3 +864,18 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .event-card .thumb { position: relative; }
 .event-card .thumb .thumb-note { position: absolute; right: 8px; bottom: 6px; font-size: 10px; font-weight: 800; color: #fff; background: rgba(0,0,0,.5); padding: 0 7px; border-radius: 999px; }
 .credit-list { padding-left: 1.2em; line-height: 1.8; }
+
+/* 検索欄の予測候補 */
+.suggest-wrap { position: relative; flex: 1; min-width: 0; }
+.suggest-wrap input { width: 100%; }
+.suggest-list { position: absolute; left: 0; right: -90px; top: calc(100% + 6px); z-index: 1500; list-style: none; margin: 0; padding: 4px; background: var(--surface); border: 2.5px solid var(--ink); border-radius: 14px; box-shadow: 0 5px 0 var(--ink); max-height: 60vh; overflow-y: auto; text-align: left; }
+.suggest-head { font-size: 11px; font-weight: 800; color: var(--muted); padding: 4px 10px 2px; }
+.suggest-item { display: grid; gap: 1px; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; font: inherit; color: var(--text, var(--ink)); cursor: pointer; }
+.suggest-item.on, .suggest-item:hover { background: #fff3d6; }
+.suggest-item .si-name { font-weight: 900; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.suggest-item .si-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.suggest-item .si-live { color: #e11d48; font-weight: 900; }
+@media (prefers-color-scheme: dark) { .suggest-item.on, .suggest-item:hover { background: #3a2f12; } }
+.search-box { position: relative; }
+.search-box .suggest-wrap { position: static; display: flex; }
+.search-box .suggest-list { left: 0; right: 0; }

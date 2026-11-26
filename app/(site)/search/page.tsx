@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { ItemList } from '@/components/EventCard';
 import { listGenres, searchEvents } from '@/lib/queries';
 import SearchBeacon from '@/components/SearchBeacon';
+import SearchSuggest from '@/components/SearchSuggest';
 
 export const dynamic = 'force-dynamic';
 // 検索結果のページは中身が条件で変わる薄いページなので、検索エンジンには登録しない（リンク先のイベントページはたどってもらう）
@@ -26,7 +27,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       {/* 方針：イベント名で探して詳細ページへ。ジャンル・期間・都道府県の絞り込みは画面から外した（?pref= などのURLはそのまま使える） */}
       <form className="filters" action="/search">
         <div className="search-box">
-          <input name="q" type="search" defaultValue={params.q} placeholder="イベント名で探す（例：花火大会）" aria-label="イベント名" />
+          <SearchSuggest defaultValue={params.q ?? ''} placeholder="イベント名・地名で探す（例：札幌）" label="イベント名" />
           <button className="btn pop" type="submit">検索</button>
         </div>
       </form>
