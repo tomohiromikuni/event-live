@@ -523,7 +523,15 @@ export default function EventLive(p: Props) {
                     </button>
                   );
                 })}
-                {!open && <button className="tc-more" onClick={() => setExpanded((x) => new Set(x).add(tp.id))}>{t('ほかの{n}か所を表示', { n: sorted.length - 3 })}</button>}
+                {!open && <button className="tc-more" onClick={() => setExpanded((x) => new Set(x).add(tp.id))}>{t('ほかの{n}か所を表示', { n: sorted.length - 3 })} ▾</button>}
+                {/* 開いたあとも閉じられるように（閉じたらカードの先頭へ戻す） */}
+                {open && sorted.length > 4 && (
+                  <button className="tc-more" onClick={() => {
+                    setExpanded((x) => { const n = new Set(x); n.delete(tp.id); return n; });
+                    const el = document.getElementById(`topic-${tp.id}`);
+                    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start' });
+                  }}>{t('閉じる')} ▴</button>
+                )}
               </div>
             )}
             {(() => {
