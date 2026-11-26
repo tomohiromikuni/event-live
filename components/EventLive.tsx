@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import KindIcon from '@/components/Icon';
 import { iconHtml } from '@/lib/icons';
-import { clockTime, FRESH_MIN, freshness, LEVEL_COLORS, levelColor, relTime } from '@/lib/freshness';
+import { clockTime, FRESH_MIN, freshness, levelColor, relTime } from '@/lib/freshness';
 import { consensus, consensusNote, type Consensus } from '@/lib/consensus';
 import { makeT, makeTx, relTimeL, trAuto, trLabel, type Lang, type T } from '@/lib/i18n';
 import type { Category, Report, Spot } from '@/lib/types';
@@ -209,6 +209,8 @@ export default function EventLive(p: Props) {
   // 公開マップは簡易表示：施設は決まった種類だけ、エリアは四角に簡略化、線は出さない（lib/shapes.ts）
   const mapShapes = useMemo(() => simplifyShapes(p.shapes), [p.shapes]);
   const tabCats = (tab === 'food' ? ['food'] : TOPICS.find((t) => t.id === tab)?.cats ?? null) as readonly string[] | null;
+  // 凡例：いまのタブの投稿の選択肢（色の意味をそのまま見せる）
+  const legendOpts = p.categories.find((c) => tabCats?.includes(c.slug) && c.options.length > 0)?.options ?? [];
   const markers: MapMarker[] = useMemo(() => visibleSpots.filter((s) => !s.generic && (PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '') || tab === 'food')
     && (!tabCats || tabCats.includes(catById.get(s.category_id)?.slug ?? ''))).map((s) => {
     const c = catById.get(s.category_id)!;
@@ -355,8 +357,8 @@ export default function EventLive(p: Props) {
             <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes} lockUntilTap
               onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} lang={lang} />
             <div className="legend">
-              {/* 1行に収める：日本語は短い言い方（押さえると正式な言い方） */}
-              {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l} title={t(l)}><i style={{ background: LEVEL_COLORS[i] }} />{lang === 'ja' && l === '利用不可' ? '不可' : t(l)}</span>)}
+              {/* 色の意味は、いま選んでいるタブの投稿の選択肢そのもの（駐車場なら 空きあり／残りわずか／満車）。1行に収めるため短い言い方 */}
+              {legendOpts.map((o) => { const full = lab(o.label); return <span key={o.value} title={full}><i style={{ background: levelColor(o.level) }} />{full.split(/[・（(]/)[0]}</span>; })}
               <span title={t('情報なし')}><i style={{ background: '#94a3b8' }} />{lang === 'ja' ? 'なし' : t('情報なし')}</span>
               <span title={t('点線＝{n}分以上前', { n: FRESH_MIN })}><i className="stale-i" />{lang === 'ja' ? `${FRESH_MIN}分前〜` : t('{n}分以上前', { n: FRESH_MIN })}</span>
               {visibleSpots.some((s) => s.source === 'guide') && <span><i className="est-i" />{t('破線の枠＝位置は目安')}</span>}
