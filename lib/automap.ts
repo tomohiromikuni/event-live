@@ -55,7 +55,11 @@ export async function retryOsmPending(limit = 2): Promise<{ id: number; name: st
   for (const e of evs) {
     await q('UPDATE events SET osm_tried_at = $1 WHERE id = $2', [Date.now(), e.id]); // 同じイベントばかり試さないよう、順番に回す
     let message: string;
-    try { message = (await importOsmFacilities(q, e.id, { patient: true })).message; } catch (err) { message = err instanceof Error ? err.message : String(err); }
+    try {
+      message = (await importOsmFacilities(q, e.id, { patient: true })).message;
+      // つながったが取れなかった（会場の位置が不明など）：やり直しても変わらないので対象から外す（7日ごとの自動作成では引き続き試す）
+      await q('UPDATE events SET osm_pending = 0 WHERE id = $1', [e.id]);
+    } catch (err) { message = err instanceof Error ? err.message : String(err); }
     const settled = await settleAutoPublish(e.id).catch(() => null);
     if (settled === 'published') message += ' ／ 載せられる情報があるため公開しました';
     if (settled === 'hidden') message += ' ／ 載せられる情報が無いため非公開にしました';

@@ -1,0 +1,44 @@
+# 本番の動作確認（手動で実行）：主なページ・サイトマップ・定期実行APIの応答を確かめる。何も変更しない。
+name: health-check
+on:
+  workflow_dispatch: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check pages
+        env:
+          SITE: https://www.evenow.jp
+        run: |
+          fail=0
+          chk() { # path 期待コード [含むべき文字]
+            body=$(curl -sS -L -m 30 -A 'Mozilla/5.0 (EVENOW health-check)' -o /tmp/b -w '%{http_code} %{time_total}' "$SITE$1"); code=${body%% *}
+            ok=1; [ "$code" = "$2" ] || ok=0
+            if [ -n "$3" ] && ! grep -q "$3" /tmp/b; then ok=0; fi
+            echo "$([ $ok = 1 ] && echo OK || echo NG) $1 -> $body"; [ $ok = 1 ] || fail=1
+          }
+          chk / 200 'EVENOW'
+          chk /search 200
+          chk /about 200
+          chk /contact 200 'お問い合わせ'
+          chk /me 200
+          chk /robots.txt 200 'Sitemap'
+          chk /sitemap.xml 200 '<urlset'
+          chk /events/no-such-event-xyz 404
+          chk /admin 404
+          # サイトマップの先頭5件のイベントページ
+          for u in $(grep -o '<loc>[^<]*/events/[^<]*</loc>' /tmp/b 2>/dev/null | head -0); do :; done
+          curl -sS -m 30 "$SITE/sitemap.xml" | grep -o '/events/[^<]*' | head -5 > /tmp/ev || true
+          echo "events in sitemap (first 5):"; cat /tmp/ev
+          while read -r p; do chk "$p" 200 'application/ld+json'; grep -o '<title>[^<]*' /tmp/b | head -1; grep -c 'topic-card' /tmp/b | sed 's/^/  cards: /'; done < /tmp/ev
+          # 定期実行APIは鍵なしでは断られること
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$SITE/api/cron/sns"); echo "cron without key -> $code"; [ "$code" = 401 ] || fail=1
+          exit $fail
+      - name: Check scheduled endpoints (read-only status)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE: https://www.evenow.jp
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET 未設定"; exit 1; fi
+          curl -sS -m 60 -X POST -H "Authorization: Bearer $CRON_SECRET" "$SITE/api/cron/sns"; echo
