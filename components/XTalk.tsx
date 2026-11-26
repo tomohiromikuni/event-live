@@ -2,21 +2,22 @@ import { xIntent } from '@/lib/share';
 
 /**
  * イベントの会話は X に任せる（イベナウに掲示板・チャットは作らない：一人での運営で見張りきれないため）。
- * イベント名のハッシュタグで X に投稿する／X で同じタグの投稿を見る、の2つのボタンを目立たせる。
+ * コンパクトな1枠：イベント名のハッシュタグ＋「投稿する」「投稿を見る」。
  */
 export default function XTalk({ tag, tags, url }: { tag: string; tags: string[]; url: string }) {
   const text = `\n\n${[tag, ...tags.filter((t) => t !== tag)].slice(0, 3).join(' ')}\n${url}`;
   const search = `https://x.com/search?q=${encodeURIComponent(tag)}&f=live`;
   return (
-    <section className="x-talk" aria-labelledby="x-talk-h">
-      <h2 id="x-talk-h">X でみんなと情報交換</h2>
-      <p className="one-line">来場者どうしの会話は X で</p>
-      <div className="x-tag">{tag}</div>
-      <a className="x-btn primary" href={xIntent(text)} target="_blank" rel="noopener noreferrer">
-        <span aria-hidden="true" className="x-logo">𝕏</span>このタグで投稿する
-      </a>
-      <a className="x-btn" href={search} target="_blank" rel="noopener noreferrer">X でみんなの投稿を見る</a>
-      <p className="muted small one-line" style={{ margin: '8px 0 0' }}>X の投稿はイベナウでは確認していません</p>
+    <section className="x-talk" aria-label="X でみんなと情報交換">
+      <div className="xt-top">
+        <span className="x-logo" aria-hidden="true">𝕏</span>
+        <span className="xt-title">X で情報交換</span>
+        <span className="x-tag one-line">{tag}</span>
+      </div>
+      <div className="xt-btns">
+        <a className="x-btn primary" href={xIntent(text)} target="_blank" rel="noopener noreferrer">このタグで投稿</a>
+        <a className="x-btn" href={search} target="_blank" rel="noopener noreferrer">みんなの投稿を見る</a>
+      </div>
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { importGuideMap } from './guidemap';
 import { settleAutoPublish } from './collect/publish';
 import { todayJST } from './dates';
 import { enrichOfficialInfo } from './collect/enrich';
+import { importVenueArea } from './venueArea';
 
 /**
  * 会場マップを自動で作る（人の手での位置合わせはしない）。
@@ -19,6 +20,8 @@ export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): 
   for (const step of steps) {
     try { msgs.push((await step(q, eventId)).message); } catch (e) { msgs.push(e instanceof Error ? e.message : String(e)); }
   }
+  // 会場の範囲（公園・広場の外形）を薄く囲う
+  try { const m = await importVenueArea(q, eventId); if (m) msgs.push(m); } catch { /* 囲めなくても地図は使える */ }
   return msgs.join(' ／ ');
 }
 

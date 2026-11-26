@@ -173,6 +173,45 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const extras = e.extra_info.split('\n').map((l) => l.split(/[:：]/)).filter((p) => p.length >= 2 && p[0].trim())
     .map(([k, ...v]) => [k.trim(), v.join(':').trim()] as const);
 
+  // 「概要」タブの中身（開催概要）
+  const overview = (
+    <>
+        <h2 className="info-h">開催概要</h2>
+        {e.summary && <p style={{ marginTop: 0, whiteSpace: 'pre-wrap' }}>{e.summary}</p>}
+        {(() => {
+          // 情報のある項目だけをアイコン付きで出し、確認できない項目は1行にまとめる（推測で埋めない）
+          const rows: { key: string; icon: string; label: string; value: React.ReactNode }[] = [];
+          const missing: string[] = [];
+          for (const key of fieldKeys) {
+            const def = INFO_FIELDS.find((f) => f.key === key);
+            if (!def) continue;
+            if (key === 'extra_info') {
+              for (const [k, v] of extras) if (v) rows.push({ key: `x-${k}`, icon: '📝', label: k, value: v }); else missing.push(k);
+              continue;
+            }
+            const has = key === 'venue' ? !!(e.venue_name || e.address) : !!(e as unknown as Record<string, string>)[key];
+            if (has) rows.push({ key, icon: INFO_ICON[key] ?? '・', label: def.label, value: fieldValue(e, key) });
+            else missing.push(def.label);
+          }
+          rows.push({ key: 'status', icon: e.status === 'scheduled' ? '✅' : '⚠️', label: '開催状況', value: <>{e.status === 'canceled' ? '中止' : e.status === 'postponed' ? '延期' : '開催予定'}{e.status_note && `（${e.status_note}）`}</> });
+          return (
+            <>
+              <ul className="info-icons">
+                {rows.map((r) => (
+                  <li key={r.key}><span className="ii-icon" aria-hidden="true">{r.icon}</span><span className="ii-label">{r.label}</span><span className="ii-val">{r.value}</span></li>
+                ))}
+              </ul>
+              {missing.length > 0 && <p className="muted small one-line" title={missing.join('・')}>未確認：{missing.join('・')}</p>}
+            </>
+          );
+        })()}
+        <p className="muted small one-line">
+          情報元：{e.source_url ? <a href={e.source_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>{hostOf(e.source_url)}</a> : (e.is_sample ? 'サンプルデータ' : '情報なし')}
+          {e.source_checked_at && `（${e.source_checked_at.slice(5).replace('-', '/')} 確認）`}
+        </p>
+    </>
+  );
+
   return (
     <div className="container">
       {e.published ? <ViewBeacon eventId={e.id} /> : null}
@@ -233,46 +272,14 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       <EventLive eventId={e.id} eventName={e.name} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} simple={e.map_mode === 'simple'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
         initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}
         official={{ parking: e.parking_info, shuttle: e.shuttle_info, traffic: e.traffic_info, toilet: e.toilet_info, food: e.food_info }}
-        share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined} />
+        share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined}
+        overview={overview} />
 
       {!e.is_sample && e.published && talkTag && <XTalk tag={talkTag} tags={liveTags} url={shareUrl(base, eventPath, 'x_talk')} />}
 
-      <section className="section" id="info" style={{ scrollMarginTop: 70 }}>
-        <div className="section-head"><h2>開催概要</h2></div>
-        {e.summary && <p style={{ marginTop: 0, whiteSpace: 'pre-wrap' }}>{e.summary}</p>}
-        {(() => {
-          // 情報のある項目だけをアイコン付きで出し、確認できない項目は1行にまとめる（推測で埋めない）
-          const rows: { key: string; icon: string; label: string; value: React.ReactNode }[] = [];
-          const missing: string[] = [];
-          for (const key of fieldKeys) {
-            const def = INFO_FIELDS.find((f) => f.key === key);
-            if (!def) continue;
-            if (key === 'extra_info') {
-              for (const [k, v] of extras) if (v) rows.push({ key: `x-${k}`, icon: '📝', label: k, value: v }); else missing.push(k);
-              continue;
-            }
-            const has = key === 'venue' ? !!(e.venue_name || e.address) : !!(e as unknown as Record<string, string>)[key];
-            if (has) rows.push({ key, icon: INFO_ICON[key] ?? '・', label: def.label, value: fieldValue(e, key) });
-            else missing.push(def.label);
-          }
-          rows.push({ key: 'status', icon: e.status === 'scheduled' ? '✅' : '⚠️', label: '開催状況', value: <>{e.status === 'canceled' ? '中止' : e.status === 'postponed' ? '延期' : '開催予定'}{e.status_note && `（${e.status_note}）`}</> });
-          return (
-            <>
-              <ul className="info-icons">
-                {rows.map((r) => (
-                  <li key={r.key}><span className="ii-icon" aria-hidden="true">{r.icon}</span><span className="ii-label">{r.label}</span><span className="ii-val">{r.value}</span></li>
-                ))}
-              </ul>
-              {missing.length > 0 && <p className="muted small one-line" title={missing.join('・')}>未確認：{missing.join('・')}</p>}
-            </>
-          );
-        })()}
-        <p className="muted small one-line">
-          情報元：{e.source_url ? <a href={e.source_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>{hostOf(e.source_url)}</a> : (e.is_sample ? 'サンプルデータ' : '情報なし')}
-          {e.source_checked_at && `（${e.source_checked_at.slice(5).replace('-', '/')} 確認）`}
-        </p>
+      <section className="section page-foot">
         {!e.is_sample && e.published ? (
-          <ShareButtons eventId={e.id} title="このイベントを共有" url={shareUrl(base, eventPath, 'copy')}
+          <ShareButtons eventId={e.id} iconOnly url={shareUrl(base, eventPath, 'copy')}
             xText={composePost(shareLines, shareUrl(base, eventPath, 'x'), tags)}
             lineText={composePost(shareLines, shareUrl(base, eventPath, 'line'), tags, 1000)} />
         ) : null}

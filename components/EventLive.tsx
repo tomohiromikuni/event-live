@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import KindIcon from '@/components/Icon';
 import { iconHtml } from '@/lib/icons';
@@ -33,6 +33,8 @@ type Props = {
   postBlockedReason: string;
   /** 公式情報（管理者が情報元で確認した内容）。カードの「公式情報」に出す。空なら「未確認」 */
   official?: { parking?: string; shuttle?: string; traffic?: string; toilet?: string; food?: string };
+  /** 「概要」タブの中身（開催概要。サーバーで作って渡す） */
+  overview?: React.ReactNode;
   /** 現地情報を投稿した直後に出す共有（サンプル・非公開イベントでは出さない） */
   share?: { eventName: string; base: string; path: string; tags: string[] };
 };
@@ -69,6 +71,30 @@ export default function EventLive(p: Props) {
   const catById = useMemo(() => new Map(p.categories.map((c) => [c.id, c])), [p.categories]);
   const visibleSpots = useMemo(() => p.spots.filter((s) => catById.has(s.category_id)), [p.spots, catById]);
   const spotById = useMemo(() => new Map(visibleSpots.map((s) => [s.id, s])), [visibleSpots]);
+
+  // タブ：駐車場・（シャトルバス）・トイレ・地図・概要。最初は駐車場（検索でいちばん探される）。#toilet などで開くタブを指定できる
+  const spotsOf = useCallback((cats: readonly string[]) => visibleSpots.filter((s) => cats.includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0), [visibleSpots, catById]);
+  const topics = TOPICS.filter((t) => t.always || spotsOf(t.cats).length > 0 || !!p.official?.[t.id]?.trim());
+  const tabIds = [...topics.map((t) => t.id as string), ...(!p.simple ? ['map'] : []), ...(p.overview ? ['info'] : [])];
+  const [tab, setTab] = useState<string>(topics[0]?.id ?? 'parking');
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const fromHash = () => {
+      const h = decodeURIComponent(location.hash.replace(/^#(topic-)?/, ''));
+      if (tabIds.includes(h)) setTab(h);
+    };
+    fromHash();
+    window.addEventListener('hashchange', fromHash);
+    return () => window.removeEventListener('hashchange', fromHash);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function openTab(id: string) {
+    setTab(id);
+    try { history.replaceState(null, '', `#${id}`); } catch { /* 無視 */ }
+    // 下まで読み進めていたら、タブの位置まで戻す（切り替えた中身の先頭が見えるように）
+    const el = tabsRef.current;
+    if (el) { const top = el.getBoundingClientRect().top + scrollY - 64; if (scrollY > top) scrollTo({ top, behavior: 'smooth' }); }
+  }
 
   const refresh = useCallback(async () => {
     try {
@@ -118,7 +144,9 @@ export default function EventLive(p: Props) {
 
   // 公開マップは簡易表示：施設は決まった種類だけ、エリアは四角に簡略化、線は出さない（lib/shapes.ts）
   const mapShapes = useMemo(() => simplifyShapes(p.shapes), [p.shapes]);
-  const markers: MapMarker[] = useMemo(() => visibleSpots.filter((s) => !s.generic && PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '')).map((s) => {
+  const tabCats = (TOPICS.find((t) => t.id === tab)?.cats ?? null) as readonly string[] | null;
+  const markers: MapMarker[] = useMemo(() => visibleSpots.filter((s) => !s.generic && PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '')
+    && (!tabCats || tabCats.includes(catById.get(s.category_id)?.slug ?? ''))).map((s) => {
     const c = catById.get(s.category_id)!;
     const latest = latestBySpot.get(s.id);
     const stale = latest && freshness(latest.created_at, now) === 'stale';
@@ -128,7 +156,7 @@ export default function EventLive(p: Props) {
       id: s.id, lat: s.lat, lng: s.lng, title: s.name,
       html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}${s.source === 'guide' ? ' est' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge}</div>`,
     };
-  }), [visibleSpots, catById, latestBySpot, selected, now]);
+  }), [visibleSpots, catById, latestBySpot, selected, now, tabCats]);
 
   async function post(spotId: number, value: string) {
     if (posting) return;
@@ -180,23 +208,34 @@ export default function EventLive(p: Props) {
           : <>まだ投稿はありません。タップで投稿できます（登録不要）</>}
       </div>
 
-      <div className="status-tiles" role="list" aria-label="いまの状況">
-        {TOPICS.map((t) => {
-          const spots = visibleSpots.filter((s) => (t.cats as readonly string[]).includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0);
-          if (!spots.length && !p.official?.[t.id]?.trim() && !t.always) return null;
+      <div className="ev-tabs" role="tablist" aria-label="表示の切り替え" ref={tabsRef} style={{ ['--n' as string]: tabIds.length }}>
+        {topics.map((t) => {
+          const spots = spotsOf(t.cats);
           const cat = p.categories.find((c) => (t.cats as readonly string[]).includes(c.slug));
           // 最新の状況（複数か所なら一番新しく投稿があった場所）
           const best = spots.map((s) => latestBySpot.get(s.id)).filter(Boolean).sort((a, b) => b!.created_at - a!.created_at)[0];
           const stale = best && freshness(best.created_at, now) === 'stale';
           return (
-            <a key={t.id} role="listitem" href={`#topic-${t.id}`} className="status-tile" style={{ ['--c' as string]: cat?.color ?? '#64748b' }}>
-              <span className="st-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={20} />}</span>
-              <span className="st-name">{t.title}</span>
-              {best ? <span className={`st-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{best.label}</span>
-                : <span className="st-val none">投稿なし</span>}
-            </a>
+            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} aria-controls={`topic-${t.id}`}
+              className={`ev-tab ${tab === t.id ? 'on' : ''}`} style={{ ['--c' as string]: cat?.color ?? '#64748b' }} onClick={() => openTab(t.id)}>
+              <span className="et-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={18} />}</span>
+              <span className="et-name">{t.id === 'shuttle' ? 'バス' : t.title}</span>
+              {best ? <span className={`et-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{best.label}</span>
+                : <span className="et-val none">投稿なし</span>}
+            </button>
           );
         })}
+        {!p.simple && (
+          <button type="button" role="tab" aria-selected={tab === 'map'} aria-controls="map" className={`ev-tab ${tab === 'map' ? 'on' : ''}`} style={{ ['--c' as string]: '#b45309' }} onClick={() => openTab('map')}>
+            <span className="et-icon" aria-hidden>🗺️</span><span className="et-name">地図</span>
+            <span className="et-val none">{visibleSpots.filter((s) => !s.generic && PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '')).length}か所</span>
+          </button>
+        )}
+        {p.overview && (
+          <button type="button" role="tab" aria-selected={tab === 'info'} aria-controls="info" className={`ev-tab ${tab === 'info' ? 'on' : ''}`} style={{ ['--c' as string]: '#1c1730' }} onClick={() => openTab('info')}>
+            <span className="et-icon" aria-hidden>ℹ️</span><span className="et-name">概要</span><span className="et-val none">開催情報</span>
+          </button>
+        )}
       </div>
 
       {TOPICS.map((t) => {
@@ -211,7 +250,7 @@ export default function EventLive(p: Props) {
         const single = spots.length === 1 ? spots[0] : undefined;
         const singleLatest = single ? latestBySpot.get(single.id) : undefined;
         return (
-          <div key={t.id} className="topic-card colored" id={`topic-${t.id}`} style={{ ['--c' as string]: cat?.color ?? '#64748b', scrollMarginTop: 70 }}>
+          <div key={t.id} className={`topic-card colored ${tab === t.id ? '' : 'tab-off'}`} role="tabpanel" id={`topic-${t.id}`} style={{ ['--c' as string]: cat?.color ?? '#64748b', scrollMarginTop: 70 }}>
             <div className="tc-head">
               <span className="tc-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={20} />}</span>
               <h3>{t.title}</h3>
@@ -265,8 +304,8 @@ export default function EventLive(p: Props) {
       })}
 
       {!p.simple && (
-        <div className="topic-card map-card" id="map" style={{ scrollMarginTop: 70 }}>
-          <div className="tc-head"><h3>会場マップ</h3></div>
+        <div className={`topic-card map-card ${tab === 'info' ? 'map-off' : ''}`} id="map" role={tab === 'map' ? 'tabpanel' : undefined} style={{ scrollMarginTop: 70 }}>
+          <div className="tc-head"><h3>{tabCats ? `${TOPICS.find((t) => t.id === tab)?.title}の地図` : '会場マップ'}</h3></div>
           <p className="muted small one-line" style={{ margin: '0 0 8px' }}>地点をタップで、状況の確認・投稿ができます</p>
           {p.geo && <LocateButton />}
           <div className="live-map">
@@ -284,6 +323,12 @@ export default function EventLive(p: Props) {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {p.overview && (
+        <div className={`topic-card info-card ${tab === 'info' ? '' : 'tab-off'}`} id="info" role="tabpanel" style={{ scrollMarginTop: 70 }}>
+          {p.overview}
         </div>
       )}
 

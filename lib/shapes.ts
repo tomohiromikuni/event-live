@@ -7,6 +7,7 @@ export type ShapeKind = 'area' | 'line';
 export type ShapeStyle = { key: string; kind: ShapeKind; name: string; color: string; dashed?: boolean };
 
 export const SHAPE_STYLES: ShapeStyle[] = [
+  { key: 'venue', kind: 'area', name: '会場の範囲', color: '#e11d48', dashed: true },
   { key: 'viewing', kind: 'area', name: '観覧エリア', color: '#7c3aed' },
   { key: 'food', kind: 'area', name: '屋台・飲食エリア', color: '#ea580c' },
   { key: 'stage', kind: 'area', name: 'ステージ周辺', color: '#c026d3' },
@@ -31,7 +32,7 @@ export type MapShape = { id: number; event_id: number; kind: ShapeKind; style: s
  * - 線（通路・推奨ルート・交通規制区間）は出さない（交通規制は駐車場カードの文章で案内）
  * 管理画面で描いた元のデータは消さない（表示のときに簡略化するだけ）。
  */
-export const PUBLIC_AREA_STYLES = ['food', 'parking', 'closed', 'viewing'];
+export const PUBLIC_AREA_STYLES = ['venue', 'food', 'parking', 'closed', 'viewing'];
 /** 公開マップに出す施設の種類（カードの4つ＋入口・救護所） */
 export const PUBLIC_SPOT_CATS = ['parking', 'shuttle', 'toilet', 'gate', 'first_aid']; // 飲食・屋台の混雑は扱わない（エリアの四角は位置の目安として残す）
 
@@ -39,6 +40,8 @@ export function simplifyShapes(shapes: MapShape[]): MapShape[] {
   return shapes
     .filter((s) => s.kind === 'area' && PUBLIC_AREA_STYLES.includes(s.style) && s.coords.length >= 3)
     .map((s) => {
+      // 会場の範囲は OpenStreetMap の外形（公式のガイドマップではない）なので、そのまま薄く囲う
+      if (s.style === 'venue') return s;
       const ys = s.coords.map((c) => c[0]), xs = s.coords.map((c) => c[1]);
       const [y0, y1, x0, x1] = [Math.min(...ys), Math.max(...ys), Math.min(...xs), Math.max(...xs)];
       return { ...s, coords: [[y0, x0], [y0, x1], [y1, x1], [y1, x0]] as [number, number][] };

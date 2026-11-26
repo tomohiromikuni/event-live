@@ -191,7 +191,7 @@ export default function LeafletMap(props: Props) {
       const st = shapeStyle(s.style);
       const common = { color: st.color, weight: s.kind === 'line' ? 5 : 2, dashArray: st.dashed ? '8 6' : undefined, interactive: false };
       const layerShape = s.kind === 'area'
-        ? lib.polygon(s.coords, { ...common, fillColor: st.color, fillOpacity: 0.18 })
+        ? lib.polygon(s.coords, s.style === 'venue' ? { ...common, weight: 2, opacity: 0.55, fillColor: st.color, fillOpacity: 0.06 } : { ...common, fillColor: st.color, fillOpacity: 0.18 })
         : lib.polyline(s.coords, { ...common, opacity: 0.85, lineCap: 'round' });
       if (s.label) layerShape.bindTooltip(s.label, { permanent: true, direction: 'center', className: `shape-label ${s.kind}`, opacity: 1 });
       layerShape.addTo(layer);
