@@ -48,6 +48,13 @@ export function searchEvents(p: SearchParams): Promise<EventCard[]> {
     ORDER BY e.status = 'canceled', e.start_date, e.id LIMIT ${arg(p.limit ?? 50)}`, args);
 }
 
+/** URL用IDの並び順のまま、イベントのカードを取る（英語版の検索結果など） */
+export async function eventsBySlugs(slugs: string[]): Promise<EventCard[]> {
+  if (!slugs.length) return [];
+  const rows = await q<EventCard>(`${CARD_SELECT} WHERE e.published = 1 AND e.slug IN (${slugs.map((_, i) => `$${i + 1}`).join(', ')})`, slugs);
+  return slugs.map((sl) => rows.find((r) => r.slug === sl)).filter((x): x is EventCard => !!x);
+}
+
 export function featuredEvents(): Promise<EventCard[]> {
   return q<EventCard>(`${CARD_SELECT} WHERE e.published = 1${NO_SAMPLE} AND e.is_featured = 1 AND e.end_date >= $1
     ORDER BY e.start_date LIMIT 10`, [todayJST()]);

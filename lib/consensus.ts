@@ -51,8 +51,13 @@ export function consensus<T extends Vote>(reports: T[], now: number): Consensus<
 }
 
 /** 表示用の短い説明（例：「3人中2人」「情報が分かれています（待ちなし／20分以上）」） */
-export function consensusNote(c: Consensus<Vote>): string {
+export function consensusNote(c: Consensus<Vote>, lang: 'ja' | 'en' = 'ja', tr: (l: string) => string = (l) => l): string {
   if (c.stale) return '';
+  if (lang === 'en') {
+    if (c.split) return `mixed reports (${tr(c.report.label)} / ${tr(c.other ?? '')})`;
+    if (c.voters >= 2) return `${c.count} of ${c.voters} people`;
+    return '1 report';
+  }
   if (c.split) return `情報が分かれています（${c.report.label}／${c.other}）`;
   if (c.voters >= 2) return `${c.voters}人中${c.count}人`;
   return '1人の投稿';

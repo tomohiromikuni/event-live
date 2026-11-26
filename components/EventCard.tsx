@@ -4,14 +4,18 @@ import KindIcon from '@/components/Icon';
 import { themeFor } from '@/lib/themes';
 import { levelColor } from '@/lib/freshness';
 import type { EventCard as EventCardT, SpotStatus } from '@/lib/types';
+import { fmtRangeEn, prefEn } from '@/lib/i18n';
 
-export function StatusBadges({ e }: { e: EventCardT }) {
+const GENRE_EN: Record<string, string> = { fireworks: 'Fireworks', festival: 'Festival', music: 'Music', marche: 'Market', food: 'Food', expo: 'Expo', anime_game: 'Anime & games', sports: 'Sports', local: 'Local event', seasonal: 'Seasonal', other: 'Event' };
+
+export function StatusBadges({ e, lang = 'ja' }: { e: EventCardT; lang?: 'ja' | 'en' }) {
+  const en = lang === 'en';
   return (
     <>
-      {e.is_sample ? <span className="badge sample">サンプル</span> : null}
-      {e.status === 'canceled' && <span className="badge canceled">中止</span>}
-      {e.status === 'postponed' && <span className="badge postponed">延期</span>}
-      {e.status === 'scheduled' && isOngoing(e.start_date, e.end_date) && <span className="badge live">● 開催中</span>}
+      {e.is_sample ? <span className="badge sample">{en ? 'Sample' : 'サンプル'}</span> : null}
+      {e.status === 'canceled' && <span className="badge canceled">{en ? 'Canceled' : '中止'}</span>}
+      {e.status === 'postponed' && <span className="badge postponed">{en ? 'Postponed' : '延期'}</span>}
+      {e.status === 'scheduled' && isOngoing(e.start_date, e.end_date) && <span className="badge live">{en ? '● Happening now' : '● 開催中'}</span>}
     </>
   );
 }
@@ -70,25 +74,26 @@ export default function EventCard({ e, hero = false, statuses, now = 0 }: { e: E
 }
 
 /** 行型のコンパクトなカード（トップの「今日開催」など） */
-export function EventItem({ e }: { e: EventCardT }) {
+export function EventItem({ e, lang = 'ja' }: { e: EventCardT; lang?: 'ja' | 'en' }) {
+  const en = lang === 'en';
   return (
-    <Link href={`/events/${e.slug}`} className="event-item">
+    <Link href={`${en ? '/en' : ''}/events/${e.slug}`} className="event-item">
       <span className="ico" style={thumbStyle(e, true)} aria-hidden>{!hasPhoto(e) && <KindIcon kind="genre" slug={e.genre_slug} emoji={e.genre_icon} size={34} strokeWidth={2.1} />}</span>
       <span className="txt">
         <span className="kicker" style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-          {e.genre_name}<StatusBadges e={e} />
+          {en ? GENRE_EN[e.genre_slug] ?? 'Event' : e.genre_name}<StatusBadges e={e} lang={lang} />
         </span>
         <span className="name">{e.name}</span>
-        <span className="sub">{fmtRange(e.start_date, e.end_date)}・{e.prefecture} {e.city}</span>
+        <span className="sub">{en ? `${fmtRangeEn(e.start_date, e.end_date)} · ${e.city || prefEn(e.prefecture)}` : `${fmtRange(e.start_date, e.end_date)}・${e.prefecture} ${e.city}`}</span>
         {e.live_count ? <span className="sub live-count">直近1時間で {e.live_count}件の投稿</span> : null}
       </span>
     </Link>
   );
 }
 
-export function ItemList({ events, empty }: { events: EventCardT[]; empty: string }) {
+export function ItemList({ events, empty, lang = 'ja' }: { events: EventCardT[]; empty: string; lang?: 'ja' | 'en' }) {
   if (events.length === 0) return <div className="empty">{empty}</div>;
-  return <div className="event-list">{events.map((e) => <EventItem key={e.id} e={e} />)}</div>;
+  return <div className="event-list">{events.map((e) => <EventItem key={e.id} e={e} lang={lang} />)}</div>;
 }
 
 export function CardList({ events, empty }: { events: EventCardT[]; empty: string }) {

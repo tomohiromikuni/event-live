@@ -507,7 +507,17 @@ const V37 = `UPDATE events SET automap_at = 0 WHERE is_sample = 0 AND map_mode =
 /** 公式の案内の位置を地図データの名前から合わせる仕組みを入れたので、位置の無い案内があるイベントをやり直す */
 const V38 = `UPDATE events e SET automap_at = 0 WHERE EXISTS (SELECT 1 FROM spots s WHERE s.event_id = e.id AND s.source = 'official_temp' AND s.generic = 1)`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33, V34, V35, V36, V37, V38];
+/** 英語版：イベントの中身の訳（lib/translate.ts） */
+const V39 = `CREATE TABLE IF NOT EXISTS event_i18n (
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  lang TEXT NOT NULL,
+  data TEXT NOT NULL,
+  src_hash TEXT NOT NULL DEFAULT '',
+  updated_at BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (event_id, lang)
+)`;
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData, V32, V33, V34, V35, V36, V37, V38, V39];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

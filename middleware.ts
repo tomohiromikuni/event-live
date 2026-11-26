@@ -11,9 +11,18 @@ function entryPath() {
   return (process.env.ADMIN_ENTRY_PATH || '').trim().replace(/^\/+|\/+$/g, '');
 }
 
+/** 英語版（/en/…）かどうかと、いまのパスをページに伝える（<html lang>・言語の切り替えリンクに使う） */
+function withLang(req: NextRequest) {
+  const h = new Headers(req.headers);
+  const path = req.nextUrl.pathname;
+  h.set('x-evenow-lang', path === '/en' || path.startsWith('/en/') ? 'en' : 'ja');
+  h.set('x-evenow-path', path);
+  return NextResponse.next({ request: { headers: h } });
+}
+
 export function middleware(req: NextRequest) {
   const entry = entryPath();
-  if (!entry) return NextResponse.next();
+  if (!entry) return withLang(req);
   // 日本語などを含む値でも一致するよう、URLの文字をもとに戻して比べる（末尾の / も無視）
   let pathname = req.nextUrl.pathname;
   try { pathname = decodeURIComponent(pathname); } catch { /* そのまま */ }
@@ -33,7 +42,7 @@ export function middleware(req: NextRequest) {
     url.pathname = '/__not-found';
     return NextResponse.rewrite(url);
   }
-  return NextResponse.next();
+  return withLang(req);
 }
 
 export const config = {

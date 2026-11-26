@@ -5,6 +5,7 @@ import KindIcon from '@/components/Icon';
 import { iconHtml } from '@/lib/icons';
 import { clockTime, FRESH_MIN, freshness, LEVEL_COLORS, levelColor, relTime } from '@/lib/freshness';
 import { consensus, consensusNote, type Consensus } from '@/lib/consensus';
+import { makeT, relTimeEn, trAuto, trLabel, type Lang, type T } from '@/lib/i18n';
 import type { Category, Report, Spot } from '@/lib/types';
 import type { MapMarker } from './LeafletMap';
 import ShareButtons from './ShareButtons';
@@ -13,7 +14,7 @@ import { PUBLIC_SPOT_CATS, simplifyShapes, type MapShape } from '@/lib/shapes';
 
 const LeafletMap = dynamic(() => import('./LeafletMap'), {
   ssr: false,
-  loading: () => <div className="map"><div className="map-fallback">地図を読み込み中…</div></div>,
+  loading: () => <div className="map"><div className="map-fallback">…</div></div>,
 });
 
 type Props = {
@@ -33,6 +34,10 @@ type Props = {
   postBlockedReason: string;
   /** 公式情報（管理者が情報元で確認した内容）。カードの「公式情報」に出す。空なら「未確認」 */
   official?: { parking?: string; shuttle?: string; traffic?: string; toilet?: string; food?: string };
+  /** 表示の言語（英語版は 'en'） */
+  lang?: Lang;
+  /** 施設名の訳（英語版：日本語の名前 → 英語） */
+  spotNames?: Record<string, string>;
   /** 来場者の報告（ピン）の確認人数（spot_id → ある／見つからない／この端末の票） */
   pins?: Record<number, { yes: number; no: number; mine: number }>;
   /** 「概要」タブの中身（開催概要。サーバーで作って渡す） */
@@ -55,14 +60,14 @@ const TOPICS = [
 ] as const;
 
 /** 公式の臨時・仮設、来場者の報告の目印（常設の施設と見分けるため） */
-function originTag(s: Spot, catSlug: string | undefined, pin?: { yes: number }): { text: string; cls: string } | null {
+function originTag(s: Spot, catSlug: string | undefined, pin?: { yes: number }, t: T = makeT()): { text: string; cls: string } | null {
   if (s.source === 'official_temp') {
     const txt = s.name + s.note;
-    if (/仮設/.test(txt) && catSlug === 'toilet') return { text: '仮設', cls: 'temp' };
-    if (/臨時|特設/.test(txt)) return { text: '臨時', cls: 'temp' };
-    return { text: '公式案内', cls: 'temp official' };
+    if (/仮設/.test(txt) && catSlug === 'toilet') return { text: t('仮設'), cls: 'temp' };
+    if (/臨時|特設/.test(txt)) return { text: t('臨時'), cls: 'temp' };
+    return { text: t('公式案内'), cls: 'temp official' };
   }
-  if (s.source === 'user') return (pin?.yes ?? 1) >= 2 ? { text: `${pin!.yes}人が確認`, cls: 'user ok' } : { text: '1人の報告', cls: 'user' };
+  if (s.source === 'user') return (pin?.yes ?? 1) >= 2 ? { text: t('{n}人が確認', { n: pin!.yes }), cls: 'user ok' } : { text: t('1人の報告'), cls: 'user' };
   return null;
 }
 
@@ -71,6 +76,11 @@ function escapeHtml(s: string) {
 }
 
 export default function EventLive(p: Props) {
+  const lang: Lang = p.lang ?? 'ja';
+  const t = useMemo(() => makeT(lang), [lang]);
+  const rel = (ts: number, n: number) => (lang === 'en' ? relTimeEn(ts, n) : relTime(ts, n));
+  const lab = (l: string) => trLabel(l, lang);
+  const nm = (x: string) => trAuto(p.spotNames?.[x] ?? x, lang);
   const [reports, setReports] = useState<Report[]>(p.initialReports);
   const [skew] = useState(() => p.serverNow - Date.now()); // 端末時計のずれを補正
   const [now, setNow] = useState(p.serverNow);
@@ -172,10 +182,10 @@ export default function EventLive(p: Props) {
     const latest = latestBySpot.get(s.id);
     const stale = latest && freshness(latest.created_at, now) === 'stale';
     const border = c.options.length ? levelColor(latest?.level) : c.color;
-    const badge = latest && !stale ? `<span class="mk-badge" style="background:${levelColor(latest.level)}">${escapeHtml(latest.label)}</span>` : '';
+    const badge = latest && !stale ? `<span class="mk-badge" style="background:${levelColor(latest.level)}">${escapeHtml(lab(latest.label))}</span>` : '';
     return {
-      id: s.id, lat: s.lat, lng: s.lng, title: s.name,
-      html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}${s.source === 'guide' ? ' est' : ''}${s.source === 'official_temp' ? ' temp' : ''}${s.source === 'user' ? ` userpin${(pins[s.id]?.yes ?? 1) < 2 ? ' faint' : ''}` : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge || (originTag(s, c.slug, pins[s.id]) ? `<span class="mk-tag ${originTag(s, c.slug, pins[s.id])!.cls}">${originTag(s, c.slug, pins[s.id])!.text}</span>` : '')}</div>`,
+      id: s.id, lat: s.lat, lng: s.lng, title: nm(s.name),
+      html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}${s.source === 'guide' ? ' est' : ''}${s.source === 'official_temp' ? ' temp' : ''}${s.source === 'user' ? ` userpin${(pins[s.id]?.yes ?? 1) < 2 ? ' faint' : ''}` : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge || (originTag(s, c.slug, pins[s.id], t) ? `<span class="mk-tag ${originTag(s, c.slug, pins[s.id], t)!.cls}">${originTag(s, c.slug, pins[s.id], t)!.text}</span>` : '')}</div>`,
     };
   }), [visibleSpots, catById, latestBySpot, selected, now, tabCats, tab, pins]);
 
@@ -193,10 +203,10 @@ export default function EventLive(p: Props) {
         setThanksHold(false);
         setThanks({ id: data.report.id, spotId, spot: sp?.name ?? '', label: data.report.label, level: data.report.level, at: data.report.created_at });
       } else {
-        setToast({ msg: data.error ?? '投稿できませんでした', error: true });
+        setToast({ msg: t(data.error ?? '投稿できませんでした'), error: true });
       }
     } catch {
-      setToast({ msg: '通信エラーが発生しました', error: true });
+      setToast({ msg: t('通信エラーが発生しました'), error: true });
     } finally {
       setPosting(false);
     }
@@ -222,27 +232,27 @@ export default function EventLive(p: Props) {
     try {
       const res = await fetch('/api/pins/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spotId, vote }) });
       const d = await res.json();
-      if (d.ok) { setPins((x) => ({ ...x, [spotId]: d.stat })); setToast({ msg: vote === 1 ? '確認ありがとうございます' : '「見つからない」を受け付けました' }); }
-      else setToast({ msg: d.error ?? '送れませんでした', error: true });
-    } catch { setToast({ msg: '通信エラーが発生しました', error: true }); }
+      if (d.ok) { setPins((x) => ({ ...x, [spotId]: d.stat })); setToast({ msg: vote === 1 ? t('確認ありがとうございます') : t('「見つからない」を受け付けました') }); }
+      else setToast({ msg: t(d.error ?? '送れませんでした'), error: true });
+    } catch { setToast({ msg: t('通信エラーが発生しました'), error: true }); }
   }
   async function reportPin(kind: 'toilet' | 'parking' | 'shuttle') {
     setPinMenu(false);
-    if (!('geolocation' in navigator)) { setToast({ msg: 'この端末では現在地を使えません', error: true }); return; }
-    setToast({ msg: '現在地を確認しています…' });
+    if (!('geolocation' in navigator)) { setToast({ msg: t('この端末では現在地を使えません'), error: true }); return; }
+    setToast({ msg: t('現在地を確認しています…') });
     navigator.geolocation.getCurrentPosition(async (pos) => {
       try {
         const res = await fetch('/api/pins', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ eventId: p.eventId, kind, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }) });
         const d = await res.json();
-        if (!d.ok) { setToast({ msg: d.error ?? '報告できませんでした', error: true }); return; }
+        if (!d.ok) { setToast({ msg: t(d.error ?? '報告できませんでした'), error: true }); return; }
         setPins((x) => ({ ...x, [d.spotId]: d.stat }));
         if (d.spot) setAddedSpots((x) => [...x, d.spot as Spot]);
         const cat = p.categories.find((c) => c.slug === kind);
         if (cat && TOPICS.some((t) => t.id === kind)) setTab(kind);
-        setToast({ msg: d.merged ? 'すでに報告がある場所でした。確認として受け付けました' : '報告しました。ほかの人が確認すると、地図にはっきり出ます' });
-      } catch { setToast({ msg: '通信エラーが発生しました', error: true }); }
-    }, (err) => setToast({ msg: err.code === 1 ? '位置情報が許可されていません（上の「自分の位置を地図に表示する」で直し方を表示できます）' : '現在地を取得できませんでした', error: true }),
+        setToast({ msg: d.merged ? t('すでに報告がある場所でした。確認として受け付けました') : t('報告しました。ほかの人が確認すると、地図にはっきり出ます') });
+      } catch { setToast({ msg: t('通信エラーが発生しました'), error: true }); }
+    }, (err) => setToast({ msg: err.code === 1 ? '位置情報が許可されていません（上の「自分の位置を地図に表示する」で直し方を表示できます）' : t('現在地を取得できませんでした'), error: true }),
     { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   }
   const [pinMenu, setPinMenu] = useState(false);
@@ -257,80 +267,80 @@ export default function EventLive(p: Props) {
   /** 状況のピル（投稿なし・古い情報も同じ見た目で） */
   const pill = (latest: Report | undefined) => latest
     ? <span className={`status-pill ${freshness(latest.created_at, now) === 'stale' ? 'stale' : ''}`} style={{ background: levelColor(latest.level) }}>{latest.label}</span>
-    : <span className="status-pill none">投稿なし</span>;
+    : <span className="status-pill none">{t('投稿なし')}</span>;
   const when = (s: Spot, latest: Report | undefined) => {
     const c = statusBySpot.get(s.id);
     if (!latest || !c) return '';
-    if (c.stale) return `⚠️ ${relTime(latest.created_at, now)}の情報`;
-    return `${relTime(latest.created_at, now)}・${consensusNote(c)}`;
+    if (c.stale) return lang === 'en' ? `⚠️ from ${rel(latest.created_at, now)}` : `⚠️ ${rel(latest.created_at, now)}の情報`;
+    return `${rel(latest.created_at, now)}・${consensusNote(c, lang, lab)}`;
   };
 
   return (
     <section id="live" className="live-cards" style={{ scrollMarginTop: 70 }}>
       {/* タブの上は1行だけ：「いまの混雑」と、最終更新（または投稿の受付について） */}
       <div className="now-bar">
-        <span className="nb-title">{fresh.length ? <span className="live-dot" /> : <span aria-hidden>📡</span>}いまの混雑</span>
+        <span className="nb-title">{fresh.length ? <span className="live-dot" /> : <span aria-hidden>📡</span>}{t('いまの混雑')}</span>
         <span className="nb-sub one-line">
-          {!p.postable ? p.postBlockedReason
-            : fresh.length ? `来場者${fresh.length}件・最終 ${relTime(newest!.created_at, now)}`
-            : '来場者がタップで共有（登録不要）'}
+          {!p.postable ? t(p.postBlockedReason)
+            : fresh.length ? t('来場者{n}件・最終 {t}', { n: fresh.length, t: rel(newest!.created_at, now) })
+            : t('来場者がタップで共有（登録不要）')}
         </span>
       </div>
 
-      <div className="ev-tabs seg" role="tablist" aria-label="表示の切り替え" ref={tabsRef} style={{ ['--n' as string]: tabIds.length }}>
-        {topics.map((t) => {
-          const spots = spotsOf(t.cats);
-          const cat = p.categories.find((c) => (t.cats as readonly string[]).includes(c.slug));
+      <div className="ev-tabs seg" role="tablist" aria-label={t('表示の切り替え')} ref={tabsRef} style={{ ['--n' as string]: tabIds.length }}>
+        {topics.map((tp) => {
+          const spots = spotsOf(tp.cats);
+          const cat = p.categories.find((c) => (tp.cats as readonly string[]).includes(c.slug));
           // 最新の状況（複数か所なら一番新しく投稿があった場所）
           const best = spots.map((s) => latestBySpot.get(s.id)).filter(Boolean).sort((a, b) => b!.created_at - a!.created_at)[0];
           const stale = best && freshness(best.created_at, now) === 'stale';
           return (
-            <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} aria-controls={`topic-${t.id}`}
-              className={`ev-tab ${tab === t.id ? 'on' : ''}`} style={{ ['--c' as string]: cat?.color ?? '#64748b' }} onClick={() => openTab(t.id)}>
+            <button key={tp.id} type="button" role="tab" aria-selected={tab === tp.id} aria-controls={`topic-${tp.id}`}
+              className={`ev-tab ${tab === tp.id ? 'on' : ''}`} style={{ ['--c' as string]: cat?.color ?? '#64748b' }} onClick={() => openTab(tp.id)}>
               <span className="et-head"><span className="et-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={16} />}</span>
-              <span className="et-name">{t.id === 'shuttle' ? 'バス' : t.title}</span></span>
-              {best ? <span className={`et-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{best.label}</span>
-                : <span className="et-val none">投稿なし</span>}
+              <span className="et-name">{tp.id === 'shuttle' ? t('バス') : t(tp.title)}</span></span>
+              {best ? <span className={`et-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{lab(best.label)}</span>
+                : <span className="et-val none">{t('投稿なし')}</span>}
             </button>
           );
         })}
         {hasFood && (
           <button type="button" role="tab" aria-selected={tab === 'food'} aria-controls="topic-food" className={`ev-tab ${tab === 'food' ? 'on' : ''}`} style={{ ['--c' as string]: '#ea580c' }} onClick={() => openTab('food')}>
-            <span className="et-head"><span className="et-icon" aria-hidden>🍢</span><span className="et-name">屋台</span></span>
-            <span className="et-val none">{foodSpots.length + foodAreas.length ? `${foodSpots.length + foodAreas.length}か所` : '場所の案内'}</span>
+            <span className="et-head"><span className="et-icon" aria-hidden>🍢</span><span className="et-name">{t('屋台')}</span></span>
+            <span className="et-val none">{foodSpots.length + foodAreas.length ? t('{n}か所', { n: foodSpots.length + foodAreas.length }) : t('場所の案内')}</span>
           </button>
         )}
       </div>
 
-      {TOPICS.map((t) => {
-        const spots = visibleSpots.filter((s) => (t.cats as readonly string[]).includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0);
-        const official = p.official?.[t.id]?.trim() ?? '';
-        if (!spots.length && !official && !t.always) return null;
-        const cat = p.categories.find((c) => (t.cats as readonly string[]).includes(c.slug));
+      {TOPICS.map((tp) => {
+        const spots = visibleSpots.filter((s) => (tp.cats as readonly string[]).includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0);
+        const official = p.official?.[tp.id]?.trim() ?? '';
+        if (!spots.length && !official && !tp.always) return null;
+        const cat = p.categories.find((c) => (tp.cats as readonly string[]).includes(c.slug));
         // 並び：投稿がある場所（新しい順）→ 投稿がない場所（登録順）。多いときは3か所まで出して残りは畳む
         const sorted = [...spots].sort((a, b) => (latestBySpot.get(b.id)?.created_at ?? 0) - (latestBySpot.get(a.id)?.created_at ?? 0) || a.sort - b.sort);
-        const open = expanded.has(t.id) || sorted.length <= 4;
+        const open = expanded.has(tp.id) || sorted.length <= 4;
         const shown = open ? sorted : sorted.slice(0, 3);
         const single = spots.length === 1 ? spots[0] : undefined;
         const singleLatest = single ? latestBySpot.get(single.id) : undefined;
         return (
-          <div key={t.id} className={`topic-card colored ${tab === t.id ? '' : 'tab-off'}`} role="tabpanel" id={`topic-${t.id}`} style={{ ['--c' as string]: cat?.color ?? '#64748b', scrollMarginTop: 70 }}>
+          <div key={tp.id} className={`topic-card colored ${tab === tp.id ? '' : 'tab-off'}`} role="tabpanel" id={`topic-${tp.id}`} style={{ ['--c' as string]: cat?.color ?? '#64748b', scrollMarginTop: 70 }}>
             <div className="tc-head">
               <span className="tc-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={20} />}</span>
-              <h3>{t.title}</h3>
-              {single ? pill(singleLatest) : spots.length > 1 ? <span className="muted small" style={{ fontWeight: 800 }}>{spots.length}か所</span> : null}
+              <h3>{t(tp.title)}</h3>
+              {single ? pill(singleLatest) : spots.length > 1 ? <span className="muted small" style={{ fontWeight: 800 }}>{t('{n}か所', { n: spots.length })}</span> : null}
             </div>
             {single && singleLatest && (
               <div className={`tc-when ${highlight === single.id ? 'highlight' : ''}`} id={`spot-${single.id}`}>
-                現地の投稿・{when(single, singleLatest)}{singleLatest.mine && <span className="mine-tag">あなたの投稿</span>}
+                {t('現地の投稿')}・{when(single, singleLatest)}{singleLatest.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}
               </div>
             )}
-            {t.id === 'toilet' && (() => {
+            {tp.id === 'toilet' && (() => {
               // 会場まわりのトイレの「多い・少ない」（地図上の数から。仮設・常設を合わせて、来場者の報告は数えない）
               const n = visibleSpots.filter((s) => catById.get(s.category_id)?.slug === 'toilet' && !s.generic && s.source !== 'user').length;
               if (!n || p.simple) return null;
               const level = n >= 9 ? '多め' : n >= 4 ? 'ふつう' : '少なめ';
-              return <div className={`tc-amount ${level === '少なめ' ? 'few' : ''}`}>会場まわりのトイレ：<strong>{level}</strong>（地図上で{n}か所）</div>;
+              return <div className={`tc-amount ${level === '少なめ' ? 'few' : ''}`}>{t('会場まわりのトイレ：')}<strong>{t(level)}</strong>{t('（地図上で{n}か所）', { n })}</div>;
             })()}
             {spots.length > 1 && (
               <div className="tc-rows">
@@ -338,36 +348,36 @@ export default function EventLive(p: Props) {
                   const latest = latestBySpot.get(s.id);
                   return (
                     <button key={s.id} id={`spot-${s.id}`} className={`tc-row spot-item ${highlight === s.id ? 'highlight' : ''}`} onClick={() => setSelected(s.id)}>
-                      <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id]); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{s.name}</span>
-                        <span className="tc-sub">{latest ? when(s, latest) : s.source === 'official_temp' ? `投稿なし・${s.generic ? '地図の位置は未確認' : '位置は目安'}` : s.source === 'osm' && s.note ? `投稿なし・${s.note.replace(/・?会場から.+$/, '')}` : '投稿なし'}{latest?.mine && <span className="mine-tag">あなたの投稿</span>}</span></span>
+                      <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id], t); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{nm(s.name)}</span>
+                        <span className="tc-sub">{latest ? when(s, latest) : s.source === 'official_temp' ? `${t('投稿なし')}・${t(s.generic ? '地図の位置は未確認' : '位置は目安')}` : s.source === 'osm' && s.note ? `${t('投稿なし')}・${trAuto(s.note.replace(/・?会場から.+$/, ''), lang)}` : t('投稿なし')}{latest?.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span></span>
                       {latest && pill(latest)}<span className="tc-arrow" aria-hidden>›</span>
                     </button>
                   );
                 })}
-                {!open && <button className="tc-more" onClick={() => setExpanded((x) => new Set(x).add(t.id))}>ほかの{sorted.length - 3}か所を表示</button>}
+                {!open && <button className="tc-more" onClick={() => setExpanded((x) => new Set(x).add(tp.id))}>{t('ほかの{n}か所を表示', { n: sorted.length - 3 })}</button>}
               </div>
             )}
             {(() => {
-              const traffic = t.id === 'parking' ? p.official?.traffic?.trim() ?? '' : '';
+              const traffic = tp.id === 'parking' ? p.official?.traffic?.trim() ?? '' : '';
               const long = official.length + traffic.length > 70;
               const body = (
                 <>
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{official || <span className="none">未確認</span>}</div>
-                  {traffic && <div className="tc-traffic">🚧 交通規制：{traffic}</div>}
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{official || <span className="none">{t('未確認')}</span>}</div>
+                  {traffic && <div className="tc-traffic">{t('🚧 交通規制：')}{traffic}</div>}
                 </>
               );
               return long ? (
                 <details className="tc-off">
-                  <summary><span className="src-tag official">公式情報</span><span className="tc-off-preview">{official.slice(0, 34)}…</span><span className="tc-off-more">続きを見る</span></summary>
+                  <summary><span className="src-tag official">{t('公式情報')}</span><span className="tc-off-preview">{official.slice(0, 34)}…</span><span className="tc-off-more">{t('続きを見る')}</span></summary>
                   {body}
                 </details>
               ) : (
-                <div className="tc-off"><span className="src-tag official">公式情報</span>{body}</div>
+                <div className="tc-off"><span className="src-tag official">{t('公式情報')}</span>{body}</div>
               );
             })()}
             {single && (
               <button className={`tc-btn spot-item ${p.postable ? 'primary' : ''}`} onClick={() => setSelected(single.id)}>
-                {t.title}{p.postable ? 'のいまを投稿する' : 'の状況を見る'}
+                {t(p.postable ? '{x}のいまを投稿する' : '{x}の状況を見る', { x: t(tp.title) })}
               </button>
             )}
           </div>
@@ -378,41 +388,41 @@ export default function EventLive(p: Props) {
         <div className={`topic-card colored ${tab === 'food' ? '' : 'tab-off'}`} role="tabpanel" id="topic-food" style={{ ['--c' as string]: '#ea580c', scrollMarginTop: 70 }}>
           <div className="tc-head">
             <span className="tc-icon" aria-hidden>🍢</span>
-            <h3>屋台・飲食エリア</h3>
-            {foodSpots.length + foodAreas.length > 0 && <span className="muted small" style={{ fontWeight: 800 }}>{foodSpots.length + foodAreas.length}か所</span>}
+            <h3>{t('屋台・飲食エリア')}</h3>
+            {foodSpots.length + foodAreas.length > 0 && <span className="muted small" style={{ fontWeight: 800 }}>{t('{n}か所', { n: foodSpots.length + foodAreas.length })}</span>}
           </div>
           {foodSpots.length > 0 && (
             <div className="tc-rows">
               {foodSpots.map((s) => (
                 <button key={s.id} className="tc-row spot-item" onClick={() => setSelected(s.id)}>
-                  <span className="tc-name"><span className="spot-name">{s.name}</span><span className="tc-sub">場所の案内のみ</span></span>
-                  <span className="tc-go">地図で見る ›</span>
+                  <span className="tc-name"><span className="spot-name">{nm(s.name)}</span><span className="tc-sub">{t('場所の案内のみ')}</span></span>
+                  <span className="tc-go">{t('地図で見る ›')}</span>
                 </button>
               ))}
             </div>
           )}
-          {foodAreas.length > 0 && <div className="tc-when">地図のオレンジの範囲が、屋台・飲食エリアです</div>}
-          <div className="tc-off"><span className="src-tag official">公式情報</span><div style={{ whiteSpace: 'pre-wrap' }}>{p.official?.food?.trim() || <span className="none">未確認</span>}</div></div>
+          {foodAreas.length > 0 && <div className="tc-when">{t('地図のオレンジの範囲が、屋台・飲食エリアです')}</div>}
+          <div className="tc-off"><span className="src-tag official">{t('公式情報')}</span><div style={{ whiteSpace: 'pre-wrap' }}>{p.official?.food?.trim() || <span className="none">{t('未確認')}</span>}</div></div>
         </div>
       )}
 
       {!p.simple && (
         <div className="topic-card map-card" id="map" style={{ scrollMarginTop: 70 }}>
-          <div className="tc-head"><h3>{tab === 'food' ? '屋台' : TOPICS.find((t) => t.id === tab)?.title ?? '会場'}の地図</h3></div>
-          <p className="muted small one-line" style={{ margin: '0 0 8px' }}>地点をタップで、状況の確認・投稿ができます</p>
-          {p.geo && <LocateButton />}
+          <div className="tc-head"><h3>{t('{x}の地図', { x: t(tab === 'food' ? '屋台' : TOPICS.find((x) => x.id === tab)?.title ?? '会場') })}</h3></div>
+          <p className="muted small one-line" style={{ margin: '0 0 8px' }}>{t('地点をタップで、状況の確認・投稿ができます')}</p>
+          {p.geo && <LocateButton t={t} />}
           {p.geo && p.postable && (
             <div className="pin-report">
               {!pinMenu ? (
-                <button type="button" className="chip-btn" onClick={() => setPinMenu(true)}>＋ ここにトイレ・駐車場がある（現在地で報告）</button>
+                <button type="button" className="chip-btn" onClick={() => setPinMenu(true)}>{t('＋ ここにトイレ・駐車場がある（現在地で報告）')}</button>
               ) : (
                 <div className="pin-menu">
-                  <div className="small">いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）</div>
+                  <div className="small">{t('いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）')}</div>
                   <div className="pin-btns">
-                    <button type="button" className="chip-btn" onClick={() => reportPin('toilet')}>🚻 トイレ</button>
-                    <button type="button" className="chip-btn" onClick={() => reportPin('parking')}>🅿️ 駐車場</button>
-                    <button type="button" className="chip-btn" onClick={() => reportPin('shuttle')}>🚌 乗り場</button>
-                    <button type="button" className="chip-btn ghost" onClick={() => setPinMenu(false)}>やめる</button>
+                    <button type="button" className="chip-btn" onClick={() => reportPin('toilet')}>{t('🚻 トイレ')}</button>
+                    <button type="button" className="chip-btn" onClick={() => reportPin('parking')}>{t('🅿️ 駐車場')}</button>
+                    <button type="button" className="chip-btn" onClick={() => reportPin('shuttle')}>{t('🚌 乗り場')}</button>
+                    <button type="button" className="chip-btn ghost" onClick={() => setPinMenu(false)}>{t('やめる')}</button>
                   </div>
                 </div>
               )}
@@ -420,14 +430,14 @@ export default function EventLive(p: Props) {
           )}
           <div className="live-map">
             <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes}
-              onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} />
+              onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} lang={lang} />
             <div className="legend">
-              {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l}><i style={{ background: LEVEL_COLORS[i] }} />{l}</span>)}
-              <span><i style={{ background: '#94a3b8' }} />情報なし</span>
-              <span>点線＝{FRESH_MIN}分以上前</span>
-              {visibleSpots.some((s) => s.source === 'guide') && <span><i className="est-i" />破線の枠＝位置は目安</span>}
+              {['良好', 'やや', '混雑', '非常に', '利用不可'].map((l, i) => <span key={l}><i style={{ background: LEVEL_COLORS[i] }} />{t(l)}</span>)}
+              <span><i style={{ background: '#94a3b8' }} />{t('情報なし')}</span>
+              <span>{t('点線＝{n}分以上前', { n: FRESH_MIN })}</span>
+              {visibleSpots.some((s) => s.source === 'guide') && <span><i className="est-i" />{t('破線の枠＝位置は目安')}</span>}
               {(visibleSpots.some((s) => s.source === 'osm') || p.shapes.some((sh) => sh.style === 'venue')) && (
-                <span className="legend-credit">施設・会場の範囲の一部：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></span>
+                <span className="legend-credit">{t('施設・会場の範囲の一部：')}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></span>
               )}
             </div>
           </div>
@@ -443,23 +453,23 @@ export default function EventLive(p: Props) {
       {sel && selCat && (
         <>
           <div className="sheet-backdrop" onClick={() => setSelected(null)} />
-          <div className="sheet" role="dialog" aria-label={`${sel.name}の状況`}>
+          <div className="sheet" role="dialog" aria-label={t('{x}の状況', { x: nm(sel.name) })}>
             <div className="sheet-grip" />
-            <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{selCat.name}</div>
-            <h3>{sel.name}</h3>
-            {sel.note && <div className="muted small">{sel.note}</div>}
+            <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{t(selCat.name)}</div>
+            <h3>{nm(sel.name)}</h3>
+            {sel.note && <div className="muted small">{trAuto(sel.note, lang)}</div>}
             {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
               <a className="btn ghost go-btn" href={`https://www.google.com/maps/dir/?api=1&destination=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer">
-                📍 {sel.source === 'guide' ? 'この辺りに行く' : 'この場所に行く'}（Googleマップ）
+                {t(sel.source === 'guide' ? '📍 この辺りに行く（Googleマップ）' : '📍 この場所に行く（Googleマップ）')}
               </a>
             ) : null}
             {sel.source === 'user' && (
               <div className="pin-check">
-                <div className="small"><strong>来場者の報告</strong>（公式の情報ではありません）・{(pins[sel.id]?.yes ?? 1) >= 2 ? `${pins[sel.id]!.yes}人が「ここにある」と確認` : 'まだ1人の報告です'}{(pins[sel.id]?.no ?? 0) > 0 && `・見つからない ${pins[sel.id]!.no}人`}</div>
+                <div className="small"><strong>{t('来場者の報告')}</strong>{t('（公式の情報ではありません）')}・{(pins[sel.id]?.yes ?? 1) >= 2 ? t('{n}人が「ここにある」と確認', { n: pins[sel.id]!.yes }) : t('まだ1人の報告です')}{(pins[sel.id]?.no ?? 0) > 0 && `・${t('見つからない {n}人', { n: pins[sel.id]!.no })}`}</div>
                 {p.postable && (
                   <div className="pin-btns">
-                    <button type="button" className={`chip-btn ${pins[sel.id]?.mine === 1 ? 'on' : ''}`} onClick={() => votePin(sel.id, 1)}>✓ ここにある</button>
-                    <button type="button" className={`chip-btn ${pins[sel.id]?.mine === -1 ? 'on' : ''}`} onClick={() => votePin(sel.id, -1)}>✗ 見つからない</button>
+                    <button type="button" className={`chip-btn ${pins[sel.id]?.mine === 1 ? 'on' : ''}`} onClick={() => votePin(sel.id, 1)}>{t('✓ ここにある')}</button>
+                    <button type="button" className={`chip-btn ${pins[sel.id]?.mine === -1 ? 'on' : ''}`} onClick={() => votePin(sel.id, -1)}>{t('✗ 見つからない')}</button>
                   </div>
                 )}
               </div>
@@ -468,42 +478,42 @@ export default function EventLive(p: Props) {
               <>
                 {!p.postable && (
                   <div className="current">
-                    現在の状況：
-                    {selLatest ? <strong style={{ color: levelColor(selLatest.level) }}>{selLatest.label}</strong> : <span className="muted">現在の情報はありません</span>}
+                    {t('現在の状況：')}
+                    {selLatest ? <strong style={{ color: levelColor(selLatest.level) }}>{lab(selLatest.label)}</strong> : <span className="muted">{t('現在の情報はありません')}</span>}
                   </div>
                 )}
                 {p.postable ? (
                   <>
-                    <div className="sheet-ask">あなたが見た、いまの状況は？</div>
-                    <p className="muted small" style={{ margin: '-4px 0 8px' }}>ほかの人の投稿ではなく、実際に見た状況を選んでください</p>
+                    <div className="sheet-ask">{t('あなたが見た、いまの状況は？')}</div>
+                    <p className="muted small" style={{ margin: '-4px 0 8px' }}>{t('ほかの人の投稿ではなく、実際に見た状況を選んでください')}</p>
                     <div className="option-grid">
                       {selCat.options.map((o) => (
                         <button key={o.value} className="option-btn" disabled={posting}
                           onClick={() => post(sel.id, o.value)}>
-                          <span className="lv" style={{ background: levelColor(o.level) }} aria-hidden />{o.label}
+                          <span className="lv" style={{ background: levelColor(o.level) }} aria-hidden />{lab(o.label)}
                         </button>
                       ))}
                     </div>
-                    <p className="muted small" style={{ marginBottom: 0 }}>投稿は匿名で、投稿時刻とともに公開されます。</p>
+                    <p className="muted small" style={{ marginBottom: 0 }}>{t('投稿は匿名で、投稿時刻とともに公開されます。')}</p>
                     {selLatest && statusBySpot.get(sel.id) && (
-                      <p className="muted small current-ref">参考：いまの表示は「{selLatest.label}」（{relTime(selLatest.created_at, now)}・{consensusNote(statusBySpot.get(sel.id)!) || '古い情報'}）</p>
+                      <p className="muted small current-ref">{t('参考：いまの表示は「{x}」（{t}）', { x: lab(selLatest.label), t: `${rel(selLatest.created_at, now)}・${consensusNote(statusBySpot.get(sel.id)!, lang, lab) || (lang === 'en' ? 'old' : '古い情報')}` })}</p>
                     )}
                   </>
-                ) : <p className="muted small">{p.postBlockedReason}</p>}
+                ) : <p className="muted small">{t(p.postBlockedReason)}</p>}
                 {selPosts.length > 0 && (
                   <div className="sheet-posts">
-                    <div className="small" style={{ fontWeight: 800 }}>この場所への最近の投稿</div>
+                    <div className="small" style={{ fontWeight: 800 }}>{t('この場所への最近の投稿')}</div>
                     {selPosts.map((r) => (
                       <div key={r.id} className={`feed-item ${freshness(r.created_at, now) !== 'fresh' ? 'stale' : ''}`}>
                         <span className="time">{clockTime(r.created_at)}</span>
-                        <span className="what"><strong style={{ color: levelColor(r.level) }}>{r.label}</strong>{r.mine && <span className="mine-tag">あなたの投稿</span>}</span>
+                        <span className="what"><strong style={{ color: levelColor(r.level) }}>{lab(r.label)}</strong>{r.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span>
                       </div>
                     ))}
                   </div>
                 )}
               </>
-            ) : <p className="muted small">{selCat.slug === 'food' ? '屋台・飲食エリアは場所の案内のみです（混雑の投稿は受け付けていません）。' : 'この地点は施設の位置情報のみ掲載しています。'}</p>}
-            <button className="btn ghost" style={{ width: '100%', marginTop: 12 }} onClick={() => setSelected(null)}>閉じる</button>
+            ) : <p className="muted small">{t(selCat.slug === 'food' ? '屋台・飲食エリアは場所の案内のみです（混雑の投稿は受け付けていません）。' : 'この地点は施設の位置情報のみ掲載しています。')}</p>}
+            <button className="btn ghost" style={{ width: '100%', marginTop: 12 }} onClick={() => setSelected(null)}>{t('閉じる')}</button>
           </div>
         </>
       )}
@@ -521,23 +531,23 @@ export default function EventLive(p: Props) {
             <div className="sheet thanks" role="dialog" aria-label="投稿ありがとうございます" onPointerDown={() => setThanksHold(true)}>
               <div className="sheet-grip" />
               {!thanksHold && <div className="thanks-timer" aria-hidden />}
-              <h3><span className="pop">🎉</span>投稿ありがとうございます！</h3>
-              <p className="thanks-lead">あなたの情報がイベント参加者に共有されました。</p>
+              <h3><span className="pop">🎉</span>{t('投稿ありがとうございます！')}</h3>
+              <p className="thanks-lead">{t('あなたの情報がイベント参加者に共有されました。')}</p>
               <dl className="thanks-detail">
-                <div><dt>イベント</dt><dd>{p.eventName}</dd></div>
-                <div><dt>投稿内容</dt><dd>{thanks.spot}：<strong style={{ color: levelColor(thanks.level) }}>{thanks.label}</strong></dd></div>
-                <div><dt>投稿日時</dt><dd>{whenText}</dd></div>
+                <div><dt>{t('イベント')}</dt><dd>{p.eventName}</dd></div>
+                <div><dt>{t('投稿内容')}</dt><dd>{nm(thanks.spot)}：<strong style={{ color: levelColor(thanks.level) }}>{lab(thanks.label)}</strong></dd></div>
+                <div><dt>{t('投稿日時')}</dt><dd>{whenText}</dd></div>
               </dl>
               <div className="thanks-actions">
                 <button className="btn" onClick={() => {
                   setHighlight(thanks.spotId); setThanks(null);
                   setTimeout(() => document.getElementById(`spot-${thanks.spotId}`)?.closest('.topic-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-                }}>自分の投稿を見る</button>
-                <a className="btn ghost" href="/me">この端末の貢献実績を見る</a>
-                <button className="btn ghost" onClick={() => setThanks(null)}>閉じる</button>
+                }}>{t('自分の投稿を見る')}</button>
+                <a className="btn ghost" href="/me">{t('この端末の貢献実績を見る')}</a>
+                <button className="btn ghost" onClick={() => setThanks(null)}>{t('閉じる')}</button>
               </div>
               {s && (
-                <ShareButtons eventId={p.eventId} context="live" compact title="ほかの来場者にも知らせる" url={live('copy_live')}
+                <ShareButtons eventId={p.eventId} context="live" compact title={t('ほかの来場者にも知らせる')} url={live('copy_live')}
                   xText={composePost(lines, live('x_live'), s.tags)} lineText={composePost(lines, live('line_live'), s.tags, 1000)} />
               )}
             </div>
@@ -575,7 +585,7 @@ function Confetti() {
 }
 
 /** 地図の上の大きな「現在地」ボタン。押したときだけ端末に位置情報の許可を求める（位置は画面に出すだけで、送信・保存しない） */
-function LocateButton() {
+function LocateButton({ t }: { t: T }) {
   const [state, setState] = useState<{ on: boolean; error: string; far: number }>({ on: false, error: '', far: 0 });
   useEffect(() => {
     const h = (e: Event) => setState({ far: 0, ...(e as CustomEvent<{ on: boolean; error: string; far?: number }>).detail } as { on: boolean; error: string; far: number });
@@ -586,17 +596,17 @@ function LocateButton() {
   return (
     <div className="locate-big">
       <button type="button" className={`tc-btn locate-big-btn ${state.on ? 'on' : ''}`} onClick={() => { setState((s) => ({ ...s, error: '' })); window.dispatchEvent(new Event('evenow:locate')); }}>
-        {state.on ? '📍 現在地の表示をやめる' : '📍 自分の位置を地図に表示する'}
+        {t(state.on ? '📍 現在地の表示をやめる' : '📍 自分の位置を地図に表示する')}
       </button>
       {state.on && state.far > 0 ? (
         <div className="locate-far">
-          <div className="one-line">いまの場所は会場から<strong>約{km}</strong>。地図は会場付近のままです</div>
-          <div>行きたい駐車場などの地点をタップ →「📍 この場所に行く」で、そこまでの道順が出ます</div>
+          <div className="one-line">{t('いまの場所は会場から')}<strong>{t('約{km}', { km })}</strong>{t('。地図は会場付近のままです')}</div>
+          <div>{t('行きたい駐車場などの地点をタップ →「📍 この場所に行く」で、そこまでの道順が出ます')}</div>
           <div className="locate-far-btns">
-            <button type="button" className="chip-btn" onClick={() => window.dispatchEvent(new Event('evenow:show-me'))}>自分の位置を見る</button>
+            <button type="button" className="chip-btn" onClick={() => window.dispatchEvent(new Event('evenow:show-me'))}>{t('自分の位置を見る')}</button>
           </div>
         </div>
-      ) : <div className="muted small one-line">位置は画面に出すだけで、送信・保存しません</div>}
+      ) : <div className="muted small one-line">{t('位置は画面に出すだけで、送信・保存しません')}</div>}
       {state.error && <div className="locate-err" role="alert">{state.error}</div>}
     </div>
   );

@@ -10,7 +10,8 @@ const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
  * 検索欄（予測候補つき）。打った文字に合わせて、登録済みのイベントを開催中から順に出す。
  * 候補を押すとそのイベントのページへ。Enter（候補を選んでいなければ）はいつもどおり検索結果へ。
  */
-export default function SearchSuggest({ defaultValue = '', placeholder, label }: { defaultValue?: string; placeholder: string; label: string }) {
+export default function SearchSuggest({ defaultValue = '', placeholder, label, lang = 'ja' }: { defaultValue?: string; placeholder: string; label: string; lang?: 'ja' | 'en' }) {
+  const en = lang === 'en';
   const [value, setValue] = useState(defaultValue);
   const [items, setItems] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
@@ -24,7 +25,7 @@ export default function SearchSuggest({ defaultValue = '', placeholder, label }:
     timer.current = setTimeout(async () => {
       const my = ++seq.current;
       try {
-        const res = await fetch(`/api/suggest?q=${encodeURIComponent(text)}`);
+        const res = await fetch(`/api/suggest?q=${encodeURIComponent(text)}${en ? '&lang=en' : ''}`);
         const d = (await res.json()) as { items: Item[] };
         if (my === seq.current) { setItems(d.items); setActive(-1); }
       } catch { /* 候補が出ないだけ */ }
@@ -32,7 +33,7 @@ export default function SearchSuggest({ defaultValue = '', placeholder, label }:
   }
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  function go(it: Item) { setOpen(false); router.push(`/events/${it.slug}`); }
+  function go(it: Item) { setOpen(false); router.push(`${en ? '/en' : ''}/events/${it.slug}`); }
 
   return (
     <div className="suggest-wrap">
@@ -50,12 +51,12 @@ export default function SearchSuggest({ defaultValue = '', placeholder, label }:
         }} />
       {open && items.length > 0 && (
         <ul className="suggest-list" id="suggest-list" role="listbox">
-          {!value.trim() && <li className="suggest-head" aria-hidden>開催中・近日のイベント</li>}
+          {!value.trim() && <li className="suggest-head" aria-hidden>{en ? 'Happening now & soon' : '開催中・近日のイベント'}</li>}
           {items.map((it, i) => (
             <li key={it.slug} role="option" aria-selected={i === active}>
               <button type="button" className={`suggest-item ${i === active ? 'on' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => go(it)}>
                 <span className="si-name">{it.name}</span>
-                <span className="si-sub">{it.ongoing ? <span className="si-live">● 開催中</span> : <span>{md(it.start)}{it.end !== it.start ? `〜${md(it.end)}` : ''}</span>}{it.place && <span>・{it.place}</span>}</span>
+                <span className="si-sub">{it.ongoing ? <span className="si-live">{en ? '● Now' : '● 開催中'}</span> : <span>{md(it.start)}{it.end !== it.start ? `〜${md(it.end)}` : ''}</span>}{it.place && <span>・{it.place}</span>}</span>
               </button>
             </li>
           ))}

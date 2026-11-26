@@ -23,6 +23,8 @@ type Props = {
   focus?: { lat: number; lng: number } | null;
   /** geo のとき「現在地」ボタンを出す（位置はこの端末の画面に表示するだけ。サーバーには送らない・保存しない） */
   locate?: boolean;
+  /** 地図のボタン・案内の言語 */
+  lang?: 'ja' | 'en';
 };
 
 /**
@@ -112,6 +114,14 @@ export default function LeafletMap(props: Props) {
   /** 現在地がうまく使えないときの案内（端末・アプリ別） */
   function locateHelp(kind: 'denied' | 'failed' | 'unsupported') {
     const ua = navigator.userAgent;
+    if (cbRef.current.lang === 'en') {
+      if (/Line\/|FBAN|FBAV|Instagram|Twitter/i.test(ua)) return 'Location may not work inside apps. Open this page in Safari or your browser from the app menu.';
+      if (kind === 'unsupported') return 'Location is not available on this device or browser.';
+      if (kind === 'failed') return 'Could not get your location. Try again where the signal is better.';
+      if (/iPhone|iPad|iPod/.test(ua)) return 'Location is not allowed. On iPhone: Settings → Privacy & Security → Location Services → turn on, and set “Safari Websites” to “While Using”. Then tap again.';
+      if (/Android/.test(ua)) return 'Location is not allowed. Tap the lock (or ⓘ) icon in the address bar → Permissions → Location → Allow. Then tap again.';
+      return 'Location is not allowed. Allow location for this site from the lock icon in the address bar.';
+    }
     if (/Line\/|FBAN|FBAV|Instagram|Twitter/i.test(ua)) return 'アプリの中のブラウザでは現在地を使えないことがあります。右上（または右下）のメニューから「Safari／ブラウザで開く」を選んで、開き直してください。';
     if (kind === 'unsupported') return 'この端末・ブラウザでは現在地を使えません。';
     if (kind === 'failed') return '現在地を取得できませんでした。電波の良い場所で、もう一度お試しください。';
@@ -127,7 +137,7 @@ export default function LeafletMap(props: Props) {
     const Ctl = lib.Control.extend({
       onAdd() {
         const b = lib.DomUtil.create('button', 'locate-btn');
-        b.type = 'button'; b.textContent = '📍 現在地'; b.title = '現在地を表示（位置は送信・保存されません）';
+        b.type = 'button'; b.textContent = cbRef.current.lang === 'en' ? '📍 My location' : '📍 現在地'; b.title = cbRef.current.lang === 'en' ? 'Show my location (never sent or saved)' : '現在地を表示（位置は送信・保存されません）';
         lib.DomEvent.disableClickPropagation(b);
         // 地図の外の大きなボタン（EventLive）からも押せるようにし、状態・うまくいかない理由を知らせる
         const tell = (on: boolean, error = '', far = 0) => window.dispatchEvent(new CustomEvent('evenow:locate-state', { detail: { on, error, far } }));
@@ -173,7 +183,7 @@ export default function LeafletMap(props: Props) {
     const Home = lib.Control.extend({
       onAdd() {
         const b = lib.DomUtil.create('button', 'locate-btn home-btn');
-        b.type = 'button'; b.textContent = '🎪 会場へ'; b.title = '会場の表示に戻る';
+        b.type = 'button'; b.textContent = cbRef.current.lang === 'en' ? '🎪 Venue' : '🎪 会場へ'; b.title = cbRef.current.lang === 'en' ? 'Back to the venue' : '会場の表示に戻る';
         lib.DomEvent.disableClickPropagation(b);
         b.onclick = () => homeRef.current?.();
         return b;
