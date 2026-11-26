@@ -94,6 +94,8 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "📍 Go near here": ["📍 前往这附近", "📍 이 근처로 가기"],
   "Blue dot = you": ["蓝点是你", "파란 점이 나"],
   "Tap what you see now": ["点选你现在看到的情况", "지금 보이는 상황을 누르세요"],
+  "updated {t}": ["{t}更新", "{t} 업데이트"],
+  " (old)": ["（旧信息）", " (오래된 정보)"],
   "No reports yet": ["还没有报告", "아직 제보가 없어요"],
   "old info": ["旧信息", "오래된 정보"],
   "Status now": ["现在的情况", "현재 상황"],

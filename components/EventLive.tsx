@@ -326,11 +326,14 @@ export default function EventLive(p: Props) {
       {/* タブの上は1行だけ：「いまの混雑」と、最終更新（または投稿の受付について） */}
       <div className="now-bar">
         <span className="nb-title">{fresh.length ? <span className="live-dot" /> : <span aria-hidden>📡</span>}{t('いまの混雑')}</span>
-        <span className="nb-sub one-line">
-          {!p.postable ? t(p.postBlockedReason)
-            : fresh.length ? t('来場者{n}件・最終 {t}', { n: fresh.length, t: rel(newest!.created_at, now) })
-            : t('来場者がタップで共有（登録不要）')}
-        </span>
+        {/* 最終更新は時計付きの太字バッジ（新しさがいちばん大事な情報のため）。30分以上前はオレンジ */}
+        {p.postable && newest ? (
+          <span className={`nb-time ${fresh.length ? '' : 'old'}`}>
+            {fresh.length ? '🕒 ' : '⚠️ '}{t('最終更新 {t}', { t: rel(newest.created_at, now) })}{!fresh.length && <small>{t('（古い情報）')}</small>}
+          </span>
+        ) : (
+          <span className="nb-sub one-line">{!p.postable ? t(p.postBlockedReason) : t('来場者がタップで共有（登録不要）')}</span>
+        )}
       </div>
 
       <div className="ev-tabs seg" role="tablist" aria-label={t('表示の切り替え')} ref={tabsRef} style={{ ['--n' as string]: tabIds.length }}>
@@ -340,23 +343,22 @@ export default function EventLive(p: Props) {
           // 最新の状況（複数か所なら一番新しく投稿があった場所）
           const best = spots.map((s) => latestBySpot.get(s.id)).filter(Boolean).sort((a, b) => b!.created_at - a!.created_at)[0];
           const stale = best && freshness(best.created_at, now) === 'stale';
-          // 地点が複数あるときは「何か所が どの状況か」を数で見せる（1か所の満車で全部が満車に見えないように）
-          const fresh = spots.map((s) => latestBySpot.get(s.id)).filter((r): r is Report => !!r && freshness(r.created_at, now) !== 'stale');
-          const counts = [...fresh.reduce((m, r) => m.set(r.label, { level: r.level, n: (m.get(r.label)?.n ?? 0) + 1 }), new Map<string, { level: number; n: number }>())]
-            .sort((x, y) => x[1].level - y[1].level);
+          // タブは「どんな状況が混ざっているか（色の点）」と「最新の投稿が何分前か」だけ。
+          // 地点の数は会場ごとに違い、数字は目安にならないため出さない（どこが空いているかは地図のピンの色で見る）
+          const freshR = spots.map((s) => latestBySpot.get(s.id)).filter((r): r is Report => !!r && freshness(r.created_at, now) !== 'stale');
+          const kinds = [...new Map(freshR.map((r) => [r.label, r.level] as const)).entries()].sort((x, y) => x[1] - y[1]);
           return (
             <button key={tp.id} type="button" role="tab" aria-selected={tab === tp.id} aria-controls={`topic-${tp.id}`}
               className={`ev-tab ${tab === tp.id ? 'on' : ''}`} style={{ ['--c' as string]: cat?.color ?? '#64748b' }} onClick={() => openTab(tp.id)}>
               <span className="et-head"><span className="et-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={16} />}</span>
               <span className="et-name">{tp.id === 'shuttle' ? t('バス') : t(tp.title)}</span></span>
-              {spots.length > 1 && counts.length > 0 ? (
-                <span className="et-val multi">
-                  {/* 1種類なら「● 満車 1か所」、2種類以上は色の点と数だけ（「●2 ●1」。色の意味は地図の凡例と同じ） */}
-                  {counts.length === 1
-                    ? counts.map(([label, c]) => <span key={label} title={lab(label)}><i style={{ background: levelColor(c.level) }} />{lab(label).split(/[・（(]/)[0]} {t('{n}か所', { n: c.n })}</span>)
-                    : counts.map(([label, c]) => <span key={label} title={`${lab(label)} ${t('{n}か所', { n: c.n })}`}><i style={{ background: levelColor(c.level) }} />{c.n}</span>)}
+              {best && !stale ? (
+                <span className="et-val multi" title={kinds.map(([l]) => lab(l)).join(' / ')}>
+                  {kinds.map(([label, level]) => <i key={label} style={{ background: levelColor(level) }} />)}
+                  {kinds.length === 1 && <span>{lab(kinds[0][0]).split(/[・（(]/)[0]}</span>}
+                  <b>{rel(best.created_at, now)}</b>
                 </span>
-              ) : best ? <span className={`et-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{lab(best.label)}</span>
+              ) : best ? <span className="et-val multi old"><i style={{ background: '#94a3b8' }} /><b>⚠️ {rel(best.created_at, now)}</b></span>
                 : <span className="et-val none">{t('投稿なし')}</span>}
             </button>
           );
