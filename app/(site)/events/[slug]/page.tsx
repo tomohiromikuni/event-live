@@ -16,7 +16,7 @@ import ViewBeacon from '@/components/ViewBeacon';
 import { hashtagsFor, type TagContext } from '@/lib/hashtags';
 import { composePost, shareUrl } from '@/lib/share';
 import { q } from '@/lib/db';
-import { currentClientId, MIN_VIEWS_TO_SHOW, recordViews } from '@/lib/contrib';
+import { currentClientId, MIN_VIEWS_TO_SHOW, myViewsInEvent, recordViews } from '@/lib/contrib';
 import { todayJST, weekendRange } from '@/lib/dates';
 
 export const dynamic = 'force-dynamic';
@@ -123,6 +123,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
     listGenres(), eventCategories(e.id, e.genre_id), eventSpots(e.id), recentReports(e.id, cid), eventShapes(e.id),
   ]);
   const genre = genres.find((g) => g.id === e.genre_id)!;
+  // 前に投稿した人へ：その投稿が見られた回数（本人にだけ表示・実データのみ・少ないうちは出さない）
+  const myViews = cid && !e.is_sample ? await myViewsInEvent(cid, e.id).catch(() => 0) : 0;
   // このページを見た人の数（実データのみ。1人1日1回で数える。少ないうちは出さない）
   const views = await q<{ today: number; total: number }>(`SELECT
       COALESCE(SUM(visitors) FILTER (WHERE day = $2), 0)::int AS today, COALESCE(SUM(visitors), 0)::int AS total
@@ -214,6 +216,12 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         </div>
       </div>
 
+      {myViews >= MIN_VIEWS_TO_SHOW && (
+        <a className="my-views" href="/me">
+          <span aria-hidden="true">🙌</span>
+          <span>このイベントでのあなたの投稿が、これまで<strong>{myViews.toLocaleString()}回</strong>見られました。ありがとうございます！<small>（あなたにだけ表示）</small></span>
+        </a>
+      )}
       <h2 className="cards-title">{e.name}の駐車場・{e.shuttle_info ? 'シャトルバス・' : ''}トイレ（現地の状況）</h2>
       <EventLive eventId={e.id} eventName={e.name} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} simple={e.map_mode === 'simple'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
         initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}

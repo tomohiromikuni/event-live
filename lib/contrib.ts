@@ -35,7 +35,7 @@ export async function recordViews(eventId: number) {
 export type Badge = { key: string; name: string; desc: string };
 
 export type Contribution = {
-  total: number; events: number; parking: number; toilet: number; food: number;
+  total: number; events: number; parking: number; toilet: number; shuttle: number;
   views: number; badges: Badge[];
   history: { id: number; event_name: string; event_slug: string; spot: string; label: string; level: number; created_at: number; status: string }[];
 };
@@ -46,14 +46,14 @@ const BADGES: (Badge & { ok: (c: Omit<Contribution, 'badges' | 'history' | 'view
   { key: 'events', name: 'イベント情報サポーター', desc: '3つ以上のイベントで情報を投稿', ok: (c) => c.events >= 3 },
   { key: 'parking', name: '駐車場情報サポーター', desc: '駐車場の情報を5件以上投稿', ok: (c) => c.parking >= 5 },
   { key: 'toilet', name: 'トイレ情報サポーター', desc: 'トイレの情報を5件以上投稿', ok: (c) => c.toilet >= 5 },
-  { key: 'food', name: '飲食エリア情報サポーター', desc: '飲食・屋台の情報を5件以上投稿', ok: (c) => c.food >= 5 },
+  { key: 'shuttle', name: 'シャトルバス情報サポーター', desc: 'シャトルバスの情報を5件以上投稿', ok: (c) => c.shuttle >= 5 },
   { key: 'member', name: 'イベナウ貢献メンバー', desc: '5つ以上のイベントで30件以上投稿', ok: (c) => c.total >= 30 && c.events >= 5 },
 ];
 export const ALL_BADGES: Badge[] = BADGES.map(({ key, name, desc }) => ({ key, name, desc }));
 
 export async function contributionOf(cid: string): Promise<Contribution> {
   const [[c], [v], history] = await Promise.all([
-    q<{ total: number; events: number; parking: number; toilet: number; food: number }>(`
+    q<{ total: number; events: number; parking: number; toilet: number; shuttle: number }>(`
       WITH valid AS (
         SELECT DISTINCT ON (r.spot_id, r.created_at / 600000) r.event_id, c.slug
         FROM reports r JOIN spots s ON s.id = r.spot_id JOIN spot_categories c ON c.id = s.category_id
@@ -62,7 +62,7 @@ export async function contributionOf(cid: string): Promise<Contribution> {
       SELECT COUNT(*)::int AS total, COUNT(DISTINCT event_id)::int AS events,
         COUNT(*) FILTER (WHERE slug = 'parking')::int AS parking,
         COUNT(*) FILTER (WHERE slug = 'toilet')::int AS toilet,
-        COUNT(*) FILTER (WHERE slug = 'food')::int AS food
+        COUNT(*) FILTER (WHERE slug = 'shuttle')::int AS shuttle
       FROM valid`, [cid]),
     q<{ views: number }>(`SELECT COUNT(*)::int AS views FROM report_views v JOIN reports r ON r.id = v.report_id
       WHERE r.client_id = $1 AND r.hidden = 0`, [cid]),
@@ -72,7 +72,7 @@ export async function contributionOf(cid: string): Promise<Contribution> {
       WHERE r.client_id = $1 ORDER BY r.created_at DESC LIMIT 50`, [cid]),
   ]);
   const now = Date.now();
-  const base = { total: c.total, events: c.events, parking: c.parking, toilet: c.toilet, food: c.food };
+  const base = { total: c.total, events: c.events, parking: c.parking, toilet: c.toilet, shuttle: c.shuttle };
   return {
     ...base,
     views: v.views,
@@ -83,4 +83,11 @@ export async function contributionOf(cid: string): Promise<Contribution> {
       return { ...h, status };
     }),
   };
+}
+
+/** このイベントでの、この端末の投稿が見られた回数（イベントページで本人にだけ「役に立った」ことを伝える。実データのみ） */
+export async function myViewsInEvent(cid: string, eventId: number): Promise<number> {
+  const [r] = await q<{ n: number }>(`SELECT COUNT(*)::int AS n FROM report_views v JOIN reports r ON r.id = v.report_id
+    WHERE r.client_id = $1 AND r.event_id = $2 AND r.hidden = 0`, [cid, eventId]);
+  return r?.n ?? 0;
 }

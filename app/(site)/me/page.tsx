@@ -37,7 +37,7 @@ export default async function MePage() {
             <div><span>情報提供したイベント</span><strong>{c.events}</strong></div>
             <div><span>駐車場</span><strong>{c.parking}</strong></div>
             <div><span>トイレ</span><strong>{c.toilet}</strong></div>
-            <div><span>飲食エリア</span><strong>{c.food}</strong></div>
+            <div><span>シャトルバス</span><strong>{c.shuttle}</strong></div>
           </div>
           <p className="muted small">
             ※ 非表示・通報された投稿や、同じ場所への短時間の重複投稿は数えていません。
