@@ -22,7 +22,11 @@ jobs:
           mkdir -p out && cd out
           for item in $LIST; do
             theme=${item%%:*}; id=${item#*:}
-            if curl -sSfL -A 'Mozilla/5.0' -o raw.jpg "https://unsplash.com/photos/${id}/download?force=true&w=1600"; then
+            page=$(curl -sSL -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36' "https://unsplash.com/photos/${id}" || true)
+            img=$(echo "$page" | grep -o 'https://images.unsplash.com/photo-[A-Za-z0-9_-]*' | head -1)
+            plus=$(echo "$page" | grep -c 'plus.unsplash.com' || true)
+            echo "page ${id}: ${#page} bytes img=${img:-none} plus=${plus}"
+            if [ -n "$img" ] && curl -sSfL -o raw.jpg "${img}?w=1600&q=80&fm=jpg"; then
               convert raw.jpg -auto-orient -resize '1200x480^' -gravity center -extent 1200x480 -strip -quality 72 "${theme}__${id}.jpg" && echo "ok ${theme} ${id} $(stat -c%s ${theme}__${id}.jpg)"
             else echo "NG ${theme} ${id}"; fi
             rm -f raw.jpg
