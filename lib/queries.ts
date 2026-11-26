@@ -16,8 +16,15 @@ export function listGenres(): Promise<Genre[]> {
 export type SearchParams = { q?: string; genre?: string; pref?: string; when?: string; date?: string; limit?: number; includePast?: boolean };
 
 /** イベント検索。期間は「重なり」で判定（開始日 <= 範囲終了 かつ 終了日 >= 範囲開始）。 */
+/**
+ * 本番では、動作確認用のサンプル（架空のイベント）を一覧・検索・トップに出さない（初めて来た人が架空のイベントを見ないように）。
+ * ローカル開発では出す。本番でも見たいときは環境変数 SHOW_SAMPLES=1。サンプルのページ自体は URL を直接開けば見られる（noindex）。
+ */
+export const HIDE_SAMPLES = !!process.env.VERCEL && process.env.SHOW_SAMPLES !== '1';
+const NO_SAMPLE = HIDE_SAMPLES ? ' AND e.is_sample = 0' : '';
+
 export function searchEvents(p: SearchParams): Promise<EventCard[]> {
-  const where: string[] = ['e.published = 1'];
+  const where: string[] = ['e.published = 1' + NO_SAMPLE];
   const args: Param[] = [];
   const arg = (v: Param) => { args.push(v); return `$${args.length}`; };
   const today = todayJST();
@@ -42,7 +49,7 @@ export function searchEvents(p: SearchParams): Promise<EventCard[]> {
 }
 
 export function featuredEvents(): Promise<EventCard[]> {
-  return q<EventCard>(`${CARD_SELECT} WHERE e.published = 1 AND e.is_featured = 1 AND e.end_date >= $1
+  return q<EventCard>(`${CARD_SELECT} WHERE e.published = 1${NO_SAMPLE} AND e.is_featured = 1 AND e.end_date >= $1
     ORDER BY e.start_date LIMIT 10`, [todayJST()]);
 }
 
@@ -50,7 +57,7 @@ export function featuredEvents(): Promise<EventCard[]> {
 export function liveEvents(): Promise<EventCard[]> {
   return q<EventCard>(`SELECT e.*, g.name AS genre_name, g.icon AS genre_icon, g.slug AS genre_slug, g.color AS genre_color, COUNT(r.id)::int AS live_count
     FROM events e JOIN genres g ON g.id = e.genre_id JOIN reports r ON r.event_id = e.id AND r.hidden = 0 AND r.created_at >= $1
-    WHERE e.published = 1 GROUP BY e.id, g.id ORDER BY live_count DESC LIMIT 10`, [Date.now() - 3600_000]);
+    WHERE e.published = 1${NO_SAMPLE} GROUP BY e.id, g.id ORDER BY live_count DESC LIMIT 10`, [Date.now() - 3600_000]);
 }
 
 /**
