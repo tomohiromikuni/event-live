@@ -54,6 +54,8 @@ export const ZHT: Record<string, string> = {
  "Loading map…": "正在載入地圖…",
  "+ There is a toilet/parking here (report at my location)": "＋ 這裡有廁所・停車場（用當前位置報告）",
  "What is here? (Your location is sent only this once. Shown separately from official info.)": "這裡有什麼？（僅本次傳送位置。與官方資訊分開顯示。）",
+ "Report a toilet/parking not on the map": "報告地圖上沒有的廁所・停車場",
+ "Tap where you are · location sent only this once": "在所在位置點一下即可・位置只傳送這一次",
  "🚻 Toilet": "🚻 廁所",
  "🅿️ Parking": "🅿️ 停車場",
  "🚌 Bus stop": "🚌 乘車處",

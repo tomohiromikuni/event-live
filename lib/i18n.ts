@@ -46,6 +46,7 @@ const EN: Record<string, string> = {
   '仮設': 'Temporary', '臨時': 'Temporary', '公式案内': 'Official', '1人の報告': '1 visitor report', '{n}人が確認': '{n} confirmed',
   // 地図
   '{x}の地図': '{x} map', '会場の地図': 'Venue map', '地点をタップで、状況の確認・投稿ができます': 'Tap a place to see or report its status', '地図を読み込み中…': 'Loading map…',
+  '地図にないトイレ・駐車場を報告': 'Report a toilet/parking not on the map', 'いる場所で押すだけ・位置はこの1回だけ送信': 'Tap where you are · location sent only this once',
   '＋ ここにトイレ・駐車場がある（現在地で報告）': '+ There is a toilet/parking here (report at my location)',
   'いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）': 'What is here? (Your location is sent only this once. Shown separately from official info.)',
   '🚻 トイレ': '🚻 Toilet', '🅿️ 駐車場': '🅿️ Parking', '🚌 乗り場': '🚌 Bus stop', 'やめる': 'Cancel',

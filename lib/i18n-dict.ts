@@ -61,6 +61,8 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "Loading map…": ["正在加载地图…", "지도를 불러오는 중…"],
   "+ There is a toilet/parking here (report at my location)": ["＋ 这里有厕所・停车场（用当前位置报告）", "＋ 여기에 화장실·주차장이 있어요 (현재 위치로 제보)"],
   "What is here? (Your location is sent only this once. Shown separately from official info.)": ["这里有什么？（仅本次发送位置。与官方信息分开显示。）", "여기에 무엇이 있나요? (위치는 이번 한 번만 전송됩니다. 공식 정보와 구분해 표시합니다.)"],
+  "Report a toilet/parking not on the map": ["报告地图上没有的厕所・停车场", "지도에 없는 화장실·주차장 제보"],
+  "Tap where you are · location sent only this once": ["在所在位置点一下即可・位置只发送这一次", "있는 곳에서 누르기만 · 위치는 이번 한 번만 전송"],
   "🚻 Toilet": ["🚻 厕所", "🚻 화장실"],
   "🅿️ Parking": ["🅿️ 停车场", "🅿️ 주차장"],
   "🚌 Bus stop": ["🚌 乘车处", "🚌 승차장"],

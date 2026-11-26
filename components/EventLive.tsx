@@ -393,7 +393,10 @@ export default function EventLive(p: Props) {
           {p.geo && p.postable && (
             <div className="pin-report">
               {!pinMenu ? (
-                <button type="button" className="chip-btn" onClick={() => setPinMenu(true)}>{t('＋ ここにトイレ・駐車場がある（現在地で報告）')}</button>
+                <button type="button" className="pin-cta" onClick={() => setPinMenu(true)}>
+                  <span className="pin-cta-plus" aria-hidden>＋</span>
+                  <span className="pin-cta-txt">{t('地図にないトイレ・駐車場を報告')}<small>{t('いる場所で押すだけ・位置はこの1回だけ送信')}</small></span>
+                </button>
               ) : (
                 <div className="pin-menu">
                   <div className="small">{t('いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）')}</div>

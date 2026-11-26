@@ -57,6 +57,8 @@ export const MORE: Record<'vi', Record<string, string>> = {
     "Loading map…": "Đang tải bản đồ…",
     "+ There is a toilet/parking here (report at my location)": "+ Ở đây có nhà vệ sinh/bãi đỗ xe (báo cáo bằng vị trí của tôi)",
     "What is here? (Your location is sent only this once. Shown separately from official info.)": "Ở đây có gì? (Vị trí chỉ được gửi một lần này. Hiển thị tách riêng với thông tin chính thức.)",
+    "Report a toilet/parking not on the map": "Báo nhà vệ sinh/bãi đỗ xe chưa có trên bản đồ",
+    "Tap where you are · location sent only this once": "Chạm tại nơi bạn đang đứng · vị trí chỉ gửi một lần",
     "🚻 Toilet": "🚻 Nhà vệ sinh",
     "🅿️ Parking": "🅿️ Bãi đỗ xe",
     "🚌 Bus stop": "🚌 Điểm đón xe",
