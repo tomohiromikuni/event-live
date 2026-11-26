@@ -125,7 +125,13 @@ export default function EventLive(p: Props) {
   }, [meRaw, p.geo, visibleSpots]);
   const me = meRaw && p.geo && !meFar ? meRaw : null;
   /** 名前（現在地があれば「（会場から…）」を「（あなたから…）」に） */
-  const nameOf = (s: Spot) => nm((me && placed(s) && nameFromMe(s.name, me, [s.lat, s.lng])) || s.name);
+  /** 自動の名前「駐車場（会場から北へ約300m）」を、名前「駐車場」と場所「会場から北へ約300m」に分ける（場所は小さく下に出す） */
+  const nameParts = (s: Spot): { title: string; place: string } => {
+    const full = (me && placed(s) && nameFromMe(s.name, me, [s.lat, s.lng])) || s.name;
+    const m = full.match(/^(.+?)（((?:会場|あなた)から[^）]*|あなたのすぐ近く)）$/);
+    if (m) return { title: nm(m[1]), place: trAuto(m[2], lang) };
+    return { title: nm(s.name), place: fromMe(s) };
+  };
   /** 名前に方角が入っていない施設は、説明の行の先頭に「あなたから…」 */
   const fromMe = (s: Spot) => (me && placed(s) && !/（会場から[^）]*）/.test(s.name) ? trAuto(fromMeText(me, [s.lat, s.lng]), lang) : '');
   // 現在地が無いときは会場（地図の中心）から近い順
@@ -446,8 +452,8 @@ export default function EventLive(p: Props) {
                   const latest = latestBySpot.get(s.id);
                   return (
                     <button key={s.id} id={`spot-${s.id}`} className={`tc-row spot-item ${highlight === s.id ? 'highlight' : ''}`} onClick={() => setSelected(s.id)}>
-                      <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id], t); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{nearestId === s.id && <span className="origin-tag nearest">{t('いちばん近い')}</span>}{nameOf(s)}</span>
-                        <span className="tc-sub">{fromMe(s) && <>{fromMe(s)}・</>}{latest ? when(s, latest) : s.source === 'official_temp' ? `${t('投稿なし')}・${t(s.generic ? '地図の位置は未確認' : '位置は目安')}` : s.source === 'osm' && s.note.replace(/・?会場から.+$/, '') ? `${t('投稿なし')}・${trAuto(s.note.replace(/・?会場から.+$/, ''), lang)}` : t('投稿なし')}{latest?.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span></span>
+                      <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id], t); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{nearestId === s.id && <span className="origin-tag nearest">{t('いちばん近い')}</span>}{nameParts(s).title}</span>
+                        <span className="tc-sub">{nameParts(s).place && <>{nameParts(s).place}・</>}{latest ? when(s, latest) : s.source === 'official_temp' ? `${t('投稿なし')}・${t(s.generic ? '地図の位置は未確認' : '位置は目安')}` : s.source === 'osm' && s.note.replace(/・?会場から.+$/, '') ? `${t('投稿なし')}・${trAuto(s.note.replace(/・?会場から.+$/, ''), lang)}` : t('投稿なし')}{latest?.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span></span>
                       {latest && pill(latest)}<span className="tc-arrow" aria-hidden>›</span>
                     </button>
                   );
@@ -526,11 +532,13 @@ export default function EventLive(p: Props) {
             )}
             <div className="sheet-top">
               <div className="sheet-info">
-                <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{t(selCat.name)}</div>
-                <h3>{nameOf(sel)}</h3>
+                {/* 種類（駐車場など）。名前が種類と同じ「駐車場」なら重ねて出さず、名前にアイコンを付ける */}
+                {nameParts(sel).title !== t(selCat.name) && <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{t(selCat.name)}</div>}
+                <h3>{nameParts(sel).title === t(selCat.name) && <KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={20} strokeWidth={2.4} />}{nameParts(sel).title}</h3>
                 {(() => {
-                  const note = me ? sel.note.replace(/・?会場から.+$/, '') : sel.note;
-                  const parts = [note && trAuto(note, lang), me && placed(sel) ? trAuto(fromMeText(me, [sel.lat, sel.lng]), lang) : ''].filter(Boolean);
+                  // 場所（会場から・あなたから）と説明は名前の下に小さく
+                  const note = sel.note.replace(/・?会場から.+$/, '');
+                  const parts = [nameParts(sel).place || (/会場から/.test(sel.note) && !me ? trAuto(sel.note.match(/会場から.+$/)![0], lang) : ''), note && trAuto(note, lang)].filter(Boolean);
                   return parts.length ? <div className="muted small">{parts.join(lang === 'ja' ? '・' : ' · ')}</div> : null;
                 })()}
               </div>

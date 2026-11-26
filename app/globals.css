@@ -970,3 +970,4 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .ago { color: var(--ink); font-weight: 900; }
 .ago.old { color: #b45309; }
 .map-card.map-top .pin-report { margin: 0 12px 12px; }
+.sheet h3 svg { vertical-align: -3px; margin-right: 6px; }

@@ -200,6 +200,7 @@ export function trAuto(text: string, lang: Lang): string {
   let s = text
     .replace(new RegExp(`あなたから${D}へ約([\\d.]+)(m|km)`, 'g'), (_, d, n, u) => a.ofYou(n, u, a.dir[d])).replace(/あなたのすぐ近く/g, a.near)
     .replace(new RegExp(`会場から${D}へ(100m以内|約(\\d+)m)`, 'g'), (_, d, _all, m) => (m ? a.ofVenue(m, a.dir[d]) : a.within(a.dir[d])))
+    .replace(/^駐車場$/, a.parking)
     .replace(/^トイレ（(.+)）$/, (_, x) => a.paren(a.toilet, x)).replace(/^駐車場（周辺）$/, a.paren(a.parking, a.nearby)).replace(/^駐車場（(.+)）$/, (_, x) => a.paren(a.parking, x)).replace(/^トイレ$/, a.toilets)
     .replace(/規模：(大|中|小)（約(\d+)台）/, (_, z, n) => a.cars(a.size[z], n))
     .replace(/規模：(大|中|小)（目安）/, (_, z) => a.approx(a.size[z]));
