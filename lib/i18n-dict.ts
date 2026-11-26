@@ -123,7 +123,7 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "Time": ["时间", "시각"],
   "See my report": ["查看我的报告", "내 제보 보기"],
   "My contributions": ["本设备的贡献记录", "이 기기의 기여 기록"],
-  "Tell other visitors": ["告诉其他到场者", "다른 방문자에게도 알리기"],
+  "Share this with others (optional)": ["也分享给大家（可选）", "모두에게도 알리기 (선택)"],
   // メッセージ
   "Please wait {m} minutes between reports (about {n} min left)": ["连续报告请间隔{m}分钟（还需约{n}分钟）", "연속 제보는 {m}분 간격을 두어 주세요 (약 {n}분 남음)"],
   "Could not post": ["无法发送", "제보하지 못했어요"],

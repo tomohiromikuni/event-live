@@ -117,7 +117,7 @@ export const MORE: Record<'vi', Record<string, string>> = {
     "Time": "Thời gian",
     "See my report": "Xem báo cáo của tôi",
     "My contributions": "Đóng góp của tôi",
-    "Tell other visitors": "Báo cho khách khác",
+    "Share this with others (optional)": "Chia sẻ cho mọi người (tùy chọn)",
     "Please wait {m} minutes between reports (about {n} min left)": "Vui lòng chờ {m} phút giữa các báo cáo (còn khoảng {n} phút)",
     "Could not post": "Không gửi được",
     "Network error": "Lỗi mạng",

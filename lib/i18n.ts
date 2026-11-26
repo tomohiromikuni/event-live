@@ -69,7 +69,7 @@ const EN: Record<string, string> = {
   'この地点は施設の位置情報のみ掲載しています。': 'Location only for this place.',
   // お礼
   '投稿ありがとうございます！': 'Thanks for your report!', 'あなたの情報がイベント参加者に共有されました。': 'Your report is now shared with other visitors.',
-  'イベント': 'Event', '投稿内容': 'Report', '投稿日時': 'Time', '自分の投稿を見る': 'See my report', 'この端末の貢献実績を見る': 'My contributions', 'ほかの来場者にも知らせる': 'Tell other visitors',
+  'イベント': 'Event', '投稿内容': 'Report', '投稿日時': 'Time', '自分の投稿を見る': 'See my report', 'この端末の貢献実績を見る': 'My contributions', 'この情報をみんなにも（任意）': 'Share this with others (optional)',
   // メッセージ
   '投稿できませんでした': 'Could not post', '続けての投稿は{m}分あけてください（あと約{n}分）': 'Please wait {m} minutes between reports (about {n} min left)', '通信エラーが発生しました': 'Network error', '確認ありがとうございます': 'Thanks for confirming', '「見つからない」を受け付けました': '“Not found” received',
   '送れませんでした': 'Could not send', 'この端末では現在地を使えません': 'Location is not available on this device', '現在地を確認しています…': 'Getting your location…',

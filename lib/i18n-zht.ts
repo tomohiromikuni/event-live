@@ -114,7 +114,7 @@ export const ZHT: Record<string, string> = {
  "Time": "時間",
  "See my report": "檢視我的報告",
  "My contributions": "本裝置的貢獻記錄",
- "Tell other visitors": "告訴其他到場者",
+ "Share this with others (optional)": "也分享給大家（可選）",
  "Please wait {m} minutes between reports (about {n} min left)": "連續報告請間隔{m}分鐘（還需約{n}分鐘）",
  "Could not post": "無法傳送",
  "Network error": "網路錯誤",

@@ -627,7 +627,7 @@ export default function EventLive(p: Props) {
                 <button className="btn ghost" onClick={() => setThanks(null)}>{t('閉じる')}</button>
               </div>
               {s && (
-                <ShareButtons eventId={p.eventId} context="live" compact title={t('ほかの来場者にも知らせる')} url={live('copy_live')}
+                <ShareButtons eventId={p.eventId} context="live" compact title={t('この情報をみんなにも（任意）')} url={live('copy_live')}
                   xText={composePost(lines, live('x_live'), s.tags)} lineText={composePost(lines, live('line_live'), s.tags, 1000)} />
               )}
             </div>
