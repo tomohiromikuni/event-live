@@ -12,6 +12,8 @@ import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
 import ShareBlock from '@/components/ShareBlock';
 import MapThumb from '@/components/MapThumb';
+import ThemeThumb from '@/components/ThemeThumb';
+import { themeFor } from '@/lib/themes';
 import ViewBeacon from '@/components/ViewBeacon';
 import { eventTag, hashtagsFor, type TagContext } from '@/lib/hashtags';
 import { composePost, shareUrl } from '@/lib/share';
@@ -163,6 +165,11 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const extras = e.extra_info.split('\n').map((l) => l.split(/[:：]/)).filter((p) => p.length >= 2 && p[0].trim())
     .map(([k, ...v]) => [k.trim(), v.join(':').trim()] as const);
 
+  // 上部：テーマ写真（イベント名・ジャンルから自動）。時間は短いときだけ上に出し、細かい注意は開催概要へ
+  const theme = themeFor({ name: e.name, genre_slug: genre.slug });
+  const firstTime = (e.time_text || '').split(/[（(]/)[0].trim();
+  const shortTime = firstTime.length <= 16 ? firstTime : '';
+
   // 「概要」タブの中身（開催概要）
   const overview = (
     <>
@@ -223,6 +230,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <img src={e.image_url} alt={`${e.name}の写真`} />
             {e.image_credit && <figcaption>{e.image_credit}</figcaption>}
           </figure>
+        ) : theme ? (
+          <ThemeThumb theme={theme} mapLink={e.map_mode !== 'simple'} />
         ) : e.map_mode === 'geo' && (e.lat || e.lng) ? (
           <MapThumb center={[e.lat, e.lng]} spots={spots} categories={categories} genre={genre} />
         ) : (
@@ -237,11 +246,11 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         <div className="meta">
           <span>
             <svg aria-label="日時" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
-            <span>{fmtRange(e.start_date, e.end_date)}{e.time_text && `　${e.time_text}`}</span>
+            <span className="one-line">{fmtRange(e.start_date, e.end_date)}{shortTime && `　${shortTime}`}</span>
           </span>
           <span>
             <svg aria-label="場所" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
-            <span>{e.prefecture}{e.city}・{e.venue_name || '会場情報なし'}</span>
+            <span className="one-line">{e.city || e.prefecture}・{e.venue_name || '会場情報なし'}</span>
           </span>
           {!e.is_sample && views && views.total >= MIN_VIEWS_TO_SHOW && (
             <span>
@@ -258,7 +267,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           <span>このイベントでのあなたの投稿が、これまで<strong>{myViews.toLocaleString()}回</strong>見られました。ありがとうございます！<small>（あなたにだけ表示）</small></span>
         </a>
       )}
-      <h2 className="cards-title">{e.name}の駐車場・{e.shuttle_info ? 'シャトルバス・' : ''}トイレ（現地の状況）</h2>
+      <h2 className="cards-title">駐車場・{e.shuttle_info ? 'シャトルバス・' : ''}トイレの現地の状況</h2>
       <EventLive eventId={e.id} eventName={e.name} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} simple={e.map_mode === 'simple'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
         initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}
         official={{ parking: e.parking_info, shuttle: e.shuttle_info, traffic: e.traffic_info, toilet: e.toilet_info, food: e.food_info }}
