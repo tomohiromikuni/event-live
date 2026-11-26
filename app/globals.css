@@ -1023,3 +1023,5 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .now-bar { flex-wrap: wrap; row-gap: 4px; }
 .nb-time { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .toast { white-space: pre-line; text-align: center; border-radius: 18px; line-height: 1.45; width: max-content; max-width: 92vw; }
+.share.compact .share-buttons { flex-wrap: nowrap; }
+.share.compact .share-btn { flex: 1; justify-content: center; min-width: 0; }

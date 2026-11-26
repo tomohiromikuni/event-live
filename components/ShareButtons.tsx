@@ -68,14 +68,15 @@ export default function ShareButtons({ eventId, xText, lineText, url, context = 
       <div className="share-buttons">
         <a className="share-btn x" href={xIntent(xText)} target="_blank" rel="noopener noreferrer" onClick={() => record(eventId, 'x', context)}>
           <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.8 3h3.1l-6.8 7.7L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.2-8.3L1.8 3h6.4l4.4 5.8L17.8 3zm-1.1 16.2h1.7L7.4 4.7H5.6l11.1 14.5z" /></svg>
-          Xで共有
+          {compact ? '投稿' : 'Xで共有'}
         </a>
         <a className="share-btn line" href={lineShare(lineText)} target="_blank" rel="noopener noreferrer" onClick={() => record(eventId, 'line', context)}>
           <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 3.9 3.5 7.2 8.3 7.9.3.1.8.2.9.5.1.3.1.7 0 1l-.1.9c0 .3-.2 1 .9.5s5.9-3.5 8-6C21.3 14.3 22 12.7 22 11c0-4.4-4.5-8-10-8z" /></svg>
-          LINEで送る
+          {compact ? 'LINE' : 'LINEで送る'}
         </a>
         <button type="button" className="share-btn copy" onClick={copy}>{copied ? 'コピーしました' : 'URLをコピー'}</button>
-        {canNative && (
+        {/* 1行に収める（コンパクト表示では「その他」は出さない） */}
+        {canNative && !compact && (
           <button type="button" className="share-btn more" aria-label="その他の方法で共有"
             onClick={() => { navigator.share({ text: lineText }).then(() => record(eventId, 'native', context)).catch(() => {}); }}>
             その他
