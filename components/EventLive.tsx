@@ -265,7 +265,7 @@ export default function EventLive(p: Props) {
       })}
 
       {!p.simple && (
-        <div className="topic-card map-card">
+        <div className="topic-card map-card" id="map" style={{ scrollMarginTop: 70 }}>
           <div className="tc-head"><h3>会場マップ</h3></div>
           <p className="muted small one-line" style={{ margin: '0 0 8px' }}>地点をタップで、状況の確認・投稿ができます</p>
           {p.geo && <LocateButton />}

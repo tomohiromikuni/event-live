@@ -12,6 +12,7 @@ import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
 import ShareButtons from '@/components/ShareButtons';
 import XTalk from '@/components/XTalk';
+import MapThumb from '@/components/MapThumb';
 import ViewBeacon from '@/components/ViewBeacon';
 import { eventTag, hashtagsFor, type TagContext } from '@/lib/hashtags';
 import { composePost, shareUrl } from '@/lib/share';
@@ -193,6 +194,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             <img src={e.image_url} alt={`${e.name}の写真`} />
             {e.image_credit && <figcaption>{e.image_credit}</figcaption>}
           </figure>
+        ) : e.map_mode === 'geo' && (e.lat || e.lng) ? (
+          <MapThumb center={[e.lat, e.lng]} spots={spots} categories={categories} genre={genre} />
         ) : (
           <div className="event-thumb" style={{ background: genre.color }} aria-hidden>
             <span className="thumb-dot a" /><span className="thumb-dot b" />

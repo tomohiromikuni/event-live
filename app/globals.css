@@ -735,3 +735,13 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .chip-btn { font: inherit; font-size: 13px; font-weight: 800; padding: 6px 12px; border-radius: 999px; border: 2px solid var(--ink); background: #fff; color: var(--ink); text-decoration: none; cursor: pointer; }
 .home-btn { margin-top: 6px !important; }
 @media (prefers-color-scheme: dark) { .locate-far { background: #172554; border-color: #1e3a8a; color: #dbeafe; } }
+
+/* ページ上部の小さな会場マップ（押すと会場マップへ） */
+.event-thumb.map-thumb { display: block; height: 150px; background: #e5e7eb; color: var(--ink); text-decoration: none; }
+.map-thumb .mt-layer { position: absolute; inset: 0; overflow: hidden; }
+.map-thumb .mt-origin { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+.map-thumb .mt-origin img { position: absolute; width: 256px; height: 256px; max-width: none; }
+.map-thumb .mt-pin { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 0 0 1.5px var(--ink); }
+.map-thumb .thumb-genre { color: #fff; background: rgba(0,0,0,.55); display: inline-flex; align-items: center; gap: 4px; }
+.map-thumb .mt-open { position: absolute; right: 10px; bottom: 10px; z-index: 1; font-size: 13px; font-weight: 900; background: #fff; border: 2px solid var(--ink); padding: 4px 10px; border-radius: 999px; box-shadow: 0 2px 0 var(--ink); }
+.map-thumb .mt-credit { position: absolute; right: 8px; top: 6px; z-index: 1; font-size: 10px; color: #333; background: rgba(255,255,255,.75); padding: 0 6px; border-radius: 6px; }
