@@ -1022,3 +1022,4 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 @media (min-width: 720px) { .hero-b .event-thumb, .hero-b .event-thumb.theme-thumb { height: 260px; } .hero-ov h1 { font-size: 26px; } }
 .now-bar { flex-wrap: wrap; row-gap: 4px; }
 .nb-time { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.toast { white-space: pre-line; text-align: center; border-radius: 18px; line-height: 1.45; width: max-content; max-width: 92vw; }

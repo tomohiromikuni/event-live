@@ -291,8 +291,12 @@ export default function EventLive(p: Props) {
         setThanksHold(false);
         setThanks({ id: data.report.id, spotId, spot: sp?.name ?? '', label: data.report.label, level: data.report.level, at: data.report.created_at });
       } else {
-        const wait = (data.error ?? '').match(/続けての投稿は(\d+)分あけてください（あと約(\d+)分）/);
-        setToast({ msg: wait ? t('続けての投稿は{m}分あけてください（あと約{n}分）', { m: wait[1], n: wait[2] }) : t(data.error ?? '投稿できませんでした'), error: true });
+        // 制限のときは2行（1行目＝理由、2行目＝あと何秒・何分）。改行は文の切れ目で入れる
+        const w = typeof data.wait === 'number' ? data.wait : 0;
+        const left = w < 60 ? t('あと約{s}秒', { s: Math.max(5, Math.ceil(w / 5) * 5) }) : t('あと約{m}分', { m: Math.ceil(w / 60) });
+        const head = data.code === 'same_spot' ? t('同じ場所への投稿は1分あけてください') : data.code === 'same_value' ? t('同じ内容の投稿は30秒あけてください')
+          : data.code === 'too_many' ? t('短時間の投稿が多すぎます') : '';
+        setToast({ msg: head ? `${head}\n${left}` : t(data.error ?? '投稿できませんでした'), error: true });
       }
     } catch {
       setToast({ msg: t('通信エラーが発生しました'), error: true });

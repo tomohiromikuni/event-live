@@ -5,9 +5,16 @@ import { one, q } from './db';
 import { isOngoing } from './dates';
 import type { ReportOption } from './types';
 
-/** 投稿制限のルール */
+/**
+ * 投稿制限のルール（判定はすべてサーバー側。同じ人＝ブラウザの匿名ID（Cookie））。
+ * リアルタイムの混雑を共有するため、別の場所・別の種類への投稿は続けてできる。
+ * - 同じ場所（＝同じイベント・同じ種類の同じ地点）への投稿は1分に1回
+ * - 同じ内容（同じ選択肢）を続けて投稿するときは30秒あける（あちこちに同じ内容を連投するのを防ぐ）
+ * - 短時間の大量投稿は止める（ブラウザ単位10分10件・回線（IPのハッシュ）単位10分40件）
+ */
 export const LIMITS = {
-  anyIntervalMin: 5, // 同じ人の連続投稿の間隔（ほかの地点・トイレなども含めて。運営者の判断）
+  sameSpotIntervalSec: 60,
+  sameValueIntervalSec: 30,
   perClientWindowMin: 10, // ブラウザ単位の投稿数制限（10分で最大10件）
   perClientMax: 10,
   perIpMax: 40, // 同一IP（会場Wi-Fiなどで共有され得るため緩め）
@@ -34,7 +41,13 @@ export async function ipHash(): Promise<string> {
   return createHash('sha256').update((process.env.IP_HASH_SALT || process.env.ADMIN_SECRET || 'dev-salt') + ip).digest('hex').slice(0, 32);
 }
 
-export type PostResult = { ok: true; report: { id: number; event_id: number; spot_id: number; value: string; label: string; level: number; created_at: number; flag_count: number } } | { ok: false; error: string };
+export type PostResult = { ok: true; report: { id: number; event_id: number; spot_id: number; value: string; label: string; level: number; created_at: number; flag_count: number } }
+  | { ok: false; error: string; code?: 'same_spot' | 'same_value' | 'too_many'; wait?: number };
+
+/** 次に投稿できるまでの時間（「あと約40秒」「あと約3分」） */
+export function waitText(sec: number) {
+  return sec < 60 ? `あと約${Math.max(5, Math.ceil(sec / 5) * 5)}秒` : `あと約${Math.ceil(sec / 60)}分`;
+}
 
 export async function createReport(spotId: number, value: string): Promise<PostResult> {
   if (!Number.isInteger(spotId)) return { ok: false, error: '地点が見つかりません' };
@@ -52,17 +65,27 @@ export async function createReport(spotId: number, value: string): Promise<PostR
   const iph = await ipHash();
   const now = Date.now();
 
-  // 同じ人（この端末）の投稿は、どの地点でも前の投稿から5分あける
-  const last = await one<{ created_at: number }>('SELECT created_at FROM reports WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1', [cid]);
-  if (last && now - last.created_at < LIMITS.anyIntervalMin * 60000) {
-    const left = Math.max(1, Math.ceil((LIMITS.anyIntervalMin * 60000 - (now - last.created_at)) / 60000));
-    return { ok: false, error: `続けての投稿は${LIMITS.anyIntervalMin}分あけてください（あと約${left}分）` };
+  // 1) 同じ場所への投稿は1分に1回
+  const lastSpot = await one<{ created_at: number }>('SELECT created_at FROM reports WHERE client_id = $1 AND spot_id = $2 ORDER BY created_at DESC LIMIT 1', [cid, spotId]);
+  if (lastSpot && now - lastSpot.created_at < LIMITS.sameSpotIntervalSec * 1000) {
+    const wait = Math.ceil((LIMITS.sameSpotIntervalSec * 1000 - (now - lastSpot.created_at)) / 1000);
+    return { ok: false, code: 'same_spot', wait, error: `同じ場所への投稿は1分あけてください\n（${waitText(wait)}）` };
   }
-  const since = now - LIMITS.perClientWindowMin * 60000;
-  const byClient = (await one<{ n: number }>('SELECT COUNT(*)::int AS n FROM reports WHERE client_id = $1 AND created_at >= $2', [cid, since]))!;
-  if (byClient.n >= LIMITS.perClientMax) return { ok: false, error: '短時間の投稿が多すぎます。しばらくしてからお試しください' };
-  const byIp = (await one<{ n: number }>('SELECT COUNT(*)::int AS n FROM reports WHERE ip_hash = $1 AND created_at >= $2', [iph, since]))!;
-  if (byIp.n >= LIMITS.perIpMax) return { ok: false, error: '短時間の投稿が多すぎます。しばらくしてからお試しください' };
+  // 2) 同じ内容（同じ選択肢）を続けて投稿するときは30秒あける
+  const last = await one<{ created_at: number; value: string; label: string }>('SELECT created_at, value, label FROM reports WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1', [cid]);
+  if (last && last.label === opt.label && now - last.created_at < LIMITS.sameValueIntervalSec * 1000) {
+    const wait = Math.ceil((LIMITS.sameValueIntervalSec * 1000 - (now - last.created_at)) / 1000);
+    return { ok: false, code: 'same_value', wait, error: `同じ内容の投稿は30秒あけてください\n（${waitText(wait)}）` };
+  }
+  // 3) 短時間の大量投稿（ブラウザ単位・回線単位）。いちばん古い投稿が枠から外れるまでの時間を知らせる
+  const windowMs = LIMITS.perClientWindowMin * 60000, since = now - windowMs;
+  const tooMany = async (col: 'client_id' | 'ip_hash', val: string, max: number) => {
+    const r = (await one<{ n: number; oldest: number | null }>(`SELECT COUNT(*)::int AS n, MIN(created_at) AS oldest FROM (
+      SELECT created_at FROM reports WHERE ${col} = $1 AND created_at >= $2 ORDER BY created_at DESC LIMIT $3) x`, [val, since, max]))!;
+    return r.n >= max ? Math.ceil((Number(r.oldest) + windowMs - now) / 1000) : 0;
+  };
+  const wait = (await tooMany('client_id', cid, LIMITS.perClientMax)) || (await tooMany('ip_hash', iph, LIMITS.perIpMax));
+  if (wait > 0) return { ok: false, code: 'too_many', wait, error: `短時間の投稿が多すぎます\n（${waitText(wait)}）` };
 
   const r = (await one<{ id: number }>(`INSERT INTO reports (event_id, spot_id, value, label, level, client_id, ip_hash, created_at)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`, [spot.event_id, spotId, opt.value, opt.label, opt.level, cid, iph, now]))!;

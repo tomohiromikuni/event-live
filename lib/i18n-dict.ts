@@ -143,6 +143,11 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "Share this with others (optional)": ["也分享给大家（可选）", "모두에게도 알리기 (선택)"],
   // メッセージ
   "Please wait {m} minutes between reports (about {n} min left)": ["连续报告请间隔{m}分钟（还需约{n}分钟）", "연속 제보는 {m}분 간격을 두어 주세요 (약 {n}분 남음)"],
+  "Please wait 1 minute before reporting the same place again": ["同一地点请间隔1分钟再报告", "같은 장소는 1분 뒤에 다시 제보해 주세요"],
+  "Please wait 30 seconds before sending the same report again": ["相同内容请间隔30秒再报告", "같은 내용은 30초 뒤에 다시 제보해 주세요"],
+  "Too many reports in a short time": ["短时间内报告过多", "짧은 시간에 제보가 너무 많아요"],
+  "about {s} sec left": ["还需约{s}秒", "약 {s}초 남음"],
+  "about {m} min left": ["还需约{m}分钟", "약 {m}분 남음"],
   "Could not post": ["无法发送", "제보하지 못했어요"],
   "Network error": ["网络错误", "통신 오류"],
   "Thanks for confirming": ["感谢确认", "확인해 주셔서 감사합니다"],

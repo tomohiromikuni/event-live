@@ -72,7 +72,7 @@ const EN: Record<string, string> = {
   '投稿ありがとうございます！': 'Thanks for your report!', 'あなたの情報がイベント参加者に共有されました。': 'Your report is now shared with other visitors.',
   'イベント': 'Event', '投稿内容': 'Report', '投稿日時': 'Time', '自分の投稿を見る': 'See my report', 'この端末の貢献実績を見る': 'My contributions', 'この情報をみんなにも（任意）': 'Share this with others (optional)',
   // メッセージ
-  '投稿できませんでした': 'Could not post', '続けての投稿は{m}分あけてください（あと約{n}分）': 'Please wait {m} minutes between reports (about {n} min left)', '通信エラーが発生しました': 'Network error', '確認ありがとうございます': 'Thanks for confirming', '「見つからない」を受け付けました': '“Not found” received',
+  '投稿できませんでした': 'Could not post', '同じ場所への投稿は1分あけてください': 'Please wait 1 minute before reporting the same place again', '同じ内容の投稿は30秒あけてください': 'Please wait 30 seconds before sending the same report again', '短時間の投稿が多すぎます': 'Too many reports in a short time', 'あと約{s}秒': 'about {s} sec left', 'あと約{m}分': 'about {m} min left', '通信エラーが発生しました': 'Network error', '確認ありがとうございます': 'Thanks for confirming', '「見つからない」を受け付けました': '“Not found” received',
   '送れませんでした': 'Could not send', 'この端末では現在地を使えません': 'Location is not available on this device', '現在地を確認しています…': 'Getting your location…',
   '報告できませんでした': 'Could not report', 'すでに報告がある場所でした。確認として受け付けました': 'Already reported here — counted as a confirmation',
   '報告しました。ほかの人が確認すると、地図にはっきり出ます': 'Reported. It shows clearly once others confirm it.', '現在地を取得できませんでした': 'Could not get your location',
