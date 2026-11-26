@@ -825,3 +825,6 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .theme-thumb .tt-credit a { color: inherit; text-decoration: underline; }
 .theme-thumb .mt-open { position: absolute; right: 10px; bottom: 10px; z-index: 1; font-size: 13px; font-weight: 900; background: #fff; color: var(--ink); border: 2px solid var(--ink); padding: 4px 10px; border-radius: 999px; box-shadow: 0 2px 0 var(--ink); }
 .cards-title small { display: inline; font-size: 12px; font-weight: 700; color: var(--muted); margin-left: 4px; }
+/* 上部の日程・場所：長いときは枠の中で「…」にする（はみ出さない） */
+.event-head .meta > span { min-width: 0; max-width: 100%; }
+.event-head .meta > span > .one-line { min-width: 0; flex: 1 1 auto; }
