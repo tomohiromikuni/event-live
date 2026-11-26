@@ -4,6 +4,7 @@ import { one, q } from '../db';
 import { fetchHtml, htmlToPage } from './web';
 import { collectModel, extractorReady } from './extract';
 import { addSpend, costYen, discoverSettings, monthSpend } from './discover';
+import { cleanInfoText } from '../infoText';
 
 /**
  * 公式情報の補完：カードの「公式情報」（駐車場・シャトルバス・交通規制・トイレ）が空のとき、
@@ -11,7 +12,7 @@ import { addSpend, costYen, discoverSettings, monthSpend } from './discover';
  * 空の項目だけを埋める（管理画面で入れた内容は上書きしない）。同じイベントは30日に1回まで。費用は1件1〜2円（月の上限金額の中）。
  */
 const KEY = /(アクセス|交通|駐車|パーキング|トイレ|シャトル|臨時バス|会場案内|来場|access|parking|traffic|toilet|shuttle)/i;
-const FIELDS = ['parking_info', 'shuttle_info', 'traffic_info', 'toilet_info'] as const;
+const FIELDS = ['parking_info', 'shuttle_info', 'traffic_info', 'toilet_info', 'city', 'address'] as const;
 type Info = Record<(typeof FIELDS)[number], string>;
 
 const SCHEMA = {
@@ -23,7 +24,8 @@ const SYSTEM = `あなたはイベントの公式ページから、来場者向�
 - shuttle_info：シャトルバス・臨時バス（乗り場・運行時間・料金）
 - traffic_info：交通規制・通行止め・周辺道路の案内
 - toilet_info：トイレ（場所・仮設トイレ・利用できる施設）
-本文に書かれている内容だけを、来場者が読んで分かるように短く（各120字以内）まとめる。書かれていなければ空文字。
+- city：会場の市区町村（例：「洞爺湖町」「札幌市」）。address：会場の住所（都道府県から。番地が無ければ地区名まで）
+本文に書かれている内容だけを、来場者が読んで分かるように短く（各120字以内）まとめる。書かれていなければ空文字（「記載はありません」などと書かない）。
 対象のイベント以外の情報（別の催し・別の年）は使わない。推測で補わない。`;
 
 /** 内側のリンクから、アクセス・駐車場などのページを探す（同じサイト内・最大 limit 件） */
@@ -46,7 +48,7 @@ let client: Anthropic | null = null;
 
 export async function enrichOfficialInfo(eventId: number): Promise<string> {
   const ev = await one<Info & { name: string; official_url: string; source_url: string; enrich_at: number }>(
-    'SELECT name, official_url, source_url, enrich_at, parking_info, shuttle_info, traffic_info, toilet_info FROM events WHERE id = $1', [eventId]);
+    'SELECT name, official_url, source_url, enrich_at, parking_info, shuttle_info, traffic_info, toilet_info, city, address FROM events WHERE id = $1', [eventId]);
   if (!ev) return '';
   const empty = FIELDS.filter((f) => !ev[f]?.trim());
   if (!empty.length) return '';
@@ -88,12 +90,13 @@ export async function enrichOfficialInfo(eventId: number): Promise<string> {
   const got = JSON.parse(res.content.map((b) => (b.type === 'text' ? b.text : '')).join('')) as Partial<Info>;
   const filled: string[] = [];
   for (const f of empty) {
-    const v = (got[f] ?? '').trim().slice(0, 300);
+    const raw = (got[f] ?? '').trim();
+    const v = (f === 'city' || f === 'address' ? raw.slice(0, f === 'city' ? 20 : 120) : cleanInfoText(raw).slice(0, 300));
     if (!v) continue;
     await q(`UPDATE events SET ${f} = $1, updated_at = $2 WHERE id = $3 AND ${f} = ''`, [v, Date.now(), eventId]);
-    filled.push({ parking_info: '駐車場', shuttle_info: 'シャトルバス', traffic_info: '交通規制', toilet_info: 'トイレ' }[f]);
+    filled.push({ parking_info: '駐車場', shuttle_info: 'シャトルバス', traffic_info: '交通規制', toilet_info: 'トイレ', city: '市区町村', address: '住所' }[f]);
   }
   return filled.length
-    ? `公式サイト（${seen.size}ページ）から ${filled.join('・')} の情報を入れました`
+    ? `公式サイト（${seen.size}ページ）から ${filled.join('・')} を入れました`
     : `公式サイト（${seen.size}ページ）に、駐車場・トイレなどの案内は見つかりませんでした`;
 }

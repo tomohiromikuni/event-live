@@ -1,5 +1,6 @@
 import 'server-only';
 import type { Q } from './db';
+import { cityFromAddress } from './infoText';
 
 /**
  * 会場マップの自動作成（第1段階）：会場の周りにある「常設の」トイレ・駐車場を OpenStreetMap から取り込む。
@@ -27,14 +28,18 @@ type Geo = [number, number];
 
 /** 住所・会場名から緯度経度を求める（見つからなければ null。推測はしない） */
 export async function geocode(e: { prefecture: string; city: string; venue_name: string; address: string }): Promise<Geo | null> {
-  const queries = [e.address, e.venue_name && `${e.prefecture}${e.city}${e.venue_name}`, e.venue_name].filter((x): x is string => !!x && x.length >= 2);
+  // 市区町村が分からないと、同じ名前の別の場所（例：札幌の「にぎわい広場」）を拾ってしまうので、位置を決めない
+  const city = (e.city || cityFromAddress(e.address)).trim();
+  if (!city) return null;
+  const queries = [e.address, e.venue_name && `${e.prefecture}${e.city || city}${e.venue_name}`].filter((x): x is string => !!x && x.length >= 2);
   for (const q of queries) {
     try {
       const res = await fetch(`${GSI_SEARCH}?q=${encodeURIComponent(q)}`, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10000), cache: 'no-store' });
       if (!res.ok) continue;
       const hits = (await res.json()) as { geometry: { coordinates: [number, number] }; properties: { title: string } }[];
       // 同じ名前が全国にある場合があるので、都道府県が一致するものだけを使う
-      const hit = hits.find((h) => !e.prefecture || h.properties.title.startsWith(e.prefecture));
+      // 都道府県と市区町村が一致するものだけを使う（同じ名前が全国にあるため）
+      const hit = hits.find((h) => (!e.prefecture || h.properties.title.startsWith(e.prefecture)) && h.properties.title.includes(city));
       if (hit) return [hit.geometry.coordinates[1], hit.geometry.coordinates[0]];
     } catch { /* 次の候補で試す */ }
   }

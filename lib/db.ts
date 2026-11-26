@@ -2,6 +2,8 @@ import 'server-only';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';
 import { migrateCoarseOptions, migrateShuttle, seed } from './seed';
+import { cleanInfoText } from './infoText';
+import { enableSimpleMode } from './simple';
 import { convertEventToCanvas } from './canvas';
 
 /**
@@ -453,7 +455,30 @@ const V30 = `UPDATE events e SET osm_pending = 1, osm_tried_at = 0 WHERE e.is_sa
 const V31 = `ALTER TABLE events ADD COLUMN IF NOT EXISTS enrich_at BIGINT NOT NULL DEFAULT 0;
 UPDATE events SET automap_at = 0 WHERE is_sample = 0 AND (parking_info = '' OR toilet_info = '')`;
 
-const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31];
+/**
+ * 修復：①公式情報に入った「記載はありません」などの文を消す（未確認として表示する）
+ * ②市区町村・住所が無いのに自動で位置を決めた地図（同じ名前の別の場所を拾っていた）を外し、地図なしの表示に戻して作り直す
+ */
+async function repairAutoData(q: Q) {
+  const rows = await q<{ id: number; parking_info: string; shuttle_info: string; traffic_info: string; toilet_info: string }>(
+    'SELECT id, parking_info, shuttle_info, traffic_info, toilet_info FROM events WHERE is_sample = 0');
+  for (const r of rows) {
+    for (const f of ['parking_info', 'shuttle_info', 'traffic_info', 'toilet_info'] as const) {
+      const v = cleanInfoText(r[f]);
+      if (v !== r[f]) await q(`UPDATE events SET ${f} = $1 WHERE id = $2`, [v, r.id]);
+    }
+  }
+  const bad = await q<{ id: number }>(`SELECT e.id FROM events e WHERE e.is_sample = 0 AND e.map_mode = 'geo' AND e.city = '' AND e.address = ''
+    AND EXISTS (SELECT 1 FROM spots s WHERE s.event_id = e.id AND s.source IN ('osm', 'guide'))
+    AND NOT EXISTS (SELECT 1 FROM spots s WHERE s.event_id = e.id AND s.generic = 0 AND s.source NOT IN ('osm', 'guide'))`);
+  for (const { id } of bad) {
+    await q(`DELETE FROM spots s WHERE s.event_id = $1 AND s.source IN ('osm', 'guide') AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.spot_id = s.id)`, [id]);
+    await q(`UPDATE events SET lat = 0, lng = 0, automap_at = 0, enrich_at = 0, osm_pending = 0 WHERE id = $1`, [id]);
+    await enableSimpleMode(q, id);
+  }
+}
+
+const MIGRATIONS: (string | ((q: Q) => Promise<void>))[] = [SCHEMA, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, migrateShuttle, V16, V17, V18, V19, V20, V21, V22, V23, V24, V25, V26, V27, V28, V29, migrateCoarseOptions, V30, V31, repairAutoData];
 
 export type Param = string | number | null;
 /** SQL を実行して行を返す（プレースホルダは $1, $2 …） */

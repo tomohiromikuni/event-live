@@ -13,12 +13,12 @@ import { enrichOfficialInfo } from './collect/enrich';
  */
 export async function autoMap(eventId: number, opts: { guide?: boolean } = {}): Promise<string> {
   const msgs: string[] = [];
+  // 先に公式情報を補う（会場の市区町村・住所が分かれば、地図の位置を正しく決められる）
+  try { const m = await enrichOfficialInfo(eventId); if (m) msgs.push(m); } catch (e) { msgs.push(`公式情報の補完に失敗：${e instanceof Error ? e.message : e}`); }
   const steps = opts.guide === false ? [importOsmFacilities] : [importOsmFacilities, importGuideMap];
   for (const step of steps) {
     try { msgs.push((await step(q, eventId)).message); } catch (e) { msgs.push(e instanceof Error ? e.message : String(e)); }
   }
-  // 公式情報（駐車場・トイレなど）が空なら、公式サイトのアクセス・駐車場などのページから補う
-  try { const m = await enrichOfficialInfo(eventId); if (m) msgs.push(m); } catch (e) { msgs.push(`公式情報の補完に失敗：${e instanceof Error ? e.message : e}`); }
   return msgs.join(' ／ ');
 }
 
