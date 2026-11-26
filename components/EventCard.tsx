@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { fmtRange, isOngoing } from '@/lib/dates';
 import KindIcon from '@/components/Icon';
+import { themeFor } from '@/lib/themes';
 import { levelColor } from '@/lib/freshness';
 import type { EventCard as EventCardT, SpotStatus } from '@/lib/types';
 
@@ -15,12 +16,15 @@ export function StatusBadges({ e }: { e: EventCardT }) {
   );
 }
 
-function thumbStyle(e: EventCardT) {
-  // 画像は利用権限が確認できたもののみ登録する前提。無い場合はジャンルの配色で代替表示。
-  return e.image_url
-    ? { backgroundImage: `url(${e.image_url})` }
-    : { background: `linear-gradient(135deg, ${e.genre_color}33, ${e.genre_color}77)` };
+function thumbStyle(e: EventCardT, small = false) {
+  // 画像は利用権限が確認できたもののみ登録する前提。無ければテーマ写真（イメージ・詳細ページと同じ）、それも無ければジャンルの配色。
+  if (e.image_url) return { backgroundImage: `url(${e.image_url})` };
+  const t = themeFor({ name: e.name, genre_slug: e.genre_slug });
+  if (t) return { backgroundImage: `url(/themes/${small ? 'sm/' : ''}${t.key}.webp)`, backgroundSize: 'cover', backgroundPosition: 'center' };
+  return { background: `linear-gradient(135deg, ${e.genre_color}33, ${e.genre_color}77)` };
 }
+/** 写真（登録した写真かテーマ写真）があるか。あればジャンルのアイコンは出さない */
+const hasPhoto = (e: EventCardT) => !!e.image_url || !!themeFor({ name: e.name, genre_slug: e.genre_slug });
 
 /** 地点ごとのいまの状況（トップの大きなカード用） */
 function LiveStatusList({ items, now }: { items: SpotStatus[]; now: number }) {
@@ -49,7 +53,8 @@ export default function EventCard({ e, hero = false, statuses, now = 0 }: { e: E
           <span className="badge genre" style={{ background: e.genre_color }}><KindIcon kind="genre" slug={e.genre_slug} emoji={e.genre_icon} size={13} strokeWidth={2.6} />{e.genre_name}</span>
           <StatusBadges e={e} />
         </div>
-        {!e.image_url && <span className="thumb-icon"><KindIcon kind="genre" slug={e.genre_slug} emoji={e.genre_icon} size={hero ? 64 : 44} strokeWidth={2} /></span>}
+        {!e.image_url && hasPhoto(e) && <span className="thumb-note">イメージ</span>}
+        {!hasPhoto(e) && <span className="thumb-icon"><KindIcon kind="genre" slug={e.genre_slug} emoji={e.genre_icon} size={hero ? 64 : 44} strokeWidth={2} /></span>}
       </div>
       <div className="body">
         <h3>{e.name}</h3>
@@ -68,7 +73,7 @@ export default function EventCard({ e, hero = false, statuses, now = 0 }: { e: E
 export function EventItem({ e }: { e: EventCardT }) {
   return (
     <Link href={`/events/${e.slug}`} className="event-item">
-      <span className="ico" style={thumbStyle(e)} aria-hidden>{!e.image_url && <KindIcon kind="genre" slug={e.genre_slug} emoji={e.genre_icon} size={34} strokeWidth={2.1} />}</span>
+      <span className="ico" style={thumbStyle(e, true)} aria-hidden>{!hasPhoto(e) && <KindIcon kind="genre" slug={e.genre_slug} emoji={e.genre_icon} size={34} strokeWidth={2.1} />}</span>
       <span className="txt">
         <span className="kicker" style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
           {e.genre_name}<StatusBadges e={e} />

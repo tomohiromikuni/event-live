@@ -859,3 +859,8 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .chip-btn.ghost { border-color: transparent; background: transparent; }
 .pin-check { margin: 8px 0; padding: 8px 10px; border-radius: 12px; background: #eef2ff; display: grid; gap: 6px; }
 @media (prefers-color-scheme: dark) { .pin-menu, .pin-check { background: #1e1b4b; border-color: #312e81; } }
+
+/* 一覧のカード：テーマ写真のときは「イメージ」と小さく出す */
+.event-card .thumb { position: relative; }
+.event-card .thumb .thumb-note { position: absolute; right: 8px; bottom: 6px; font-size: 10px; font-weight: 800; color: #fff; background: rgba(0,0,0,.5); padding: 0 7px; border-radius: 999px; }
+.credit-list { padding-left: 1.2em; line-height: 1.8; }

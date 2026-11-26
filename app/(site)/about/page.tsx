@@ -4,6 +4,8 @@ import { SITE_NAME, UNOFFICIAL } from '@/lib/site';
 
 export const metadata: Metadata = { title: 'このサイトについて' };
 
+import { THEMES } from '@/lib/themes';
+
 export default function About() {
   return (
     <div className="container prose" style={{ maxWidth: 820 }}>
@@ -37,6 +39,20 @@ export default function About() {
         <h2>投稿について</h2>
         <p>投稿はログイン不要・匿名です。連続投稿の制限や通報の仕組みを設けており、不適切な投稿は削除することがあります。
           IPアドレスはそのまま保存せず、不正対策のために変換した値のみを保存しています。</p>
+      </section>
+      <section className="section" id="photo-credits" style={{ scrollMarginTop: 70 }}>
+        <h2>写真のクレジット</h2>
+        <p className="small">イベントのページや一覧の写真は、テーマごとの<strong>イメージ写真</strong>です（実際のイベントの写真ではありません）。
+          すべて Wikimedia Commons の写真を、横長・正方形に切り抜いて縮小して使っています。</p>
+        <ul className="small credit-list">
+          {Object.values(THEMES).map((t) => (
+            <li key={t.key}>
+              <strong>{t.label}</strong>：{t.credit
+                ? <>写真 <a href={t.credit.page} target="_blank" rel="noopener noreferrer">{t.credit.artist}</a>（{t.credit.license}）</>
+                : 'パブリックドメイン／CC0（クレジット表記不要）'}
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );

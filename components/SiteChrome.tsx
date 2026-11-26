@@ -35,6 +35,7 @@ export function SiteFooter() {
         <p>最新・正確な情報は必ず各イベントの公式サイトでご確認ください。現地の状況は来場者による投稿で、内容の正確性は保証されません。</p>
         <p>
           <Link href="/about" style={{ textDecoration: 'underline' }}>このサイトについて</Link>
+          <Link href="/about#photo-credits" style={{ textDecoration: 'underline', marginLeft: 12 }}>写真のクレジット</Link>
           {'　'}<Link href="/contact" style={{ textDecoration: 'underline' }}>お問い合わせ</Link>
         </p>
       </div>
