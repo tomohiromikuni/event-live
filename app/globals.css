@@ -997,3 +997,8 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .spot-chips.in-sheet { margin-top: 6px; }
 .spot-chips.in-sheet .spot-chip { font-size: 12px; padding: 2px 10px; }
 .spot-none { font-size: 11px; font-weight: 700; color: var(--muted); align-self: center; margin-left: 2px; }
+.event-head { position: relative; }
+.fav-btn { position: absolute; right: 12px; top: 12px; z-index: 5; width: 44px; height: 44px; border-radius: 50%; background: #fff; border: 2.5px solid var(--ink); box-shadow: 0 3px 0 var(--ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.fav-btn.on { background: #fff1f2; }
+.fav-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.fav-list .event-item .txt { padding-left: 4px; }

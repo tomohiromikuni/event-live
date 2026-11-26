@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import EventCard, { CardRow, ItemList } from '@/components/EventCard';
+import { FavList } from '@/components/Favorites';
 import { latestSpotStatuses, liveEvents, searchEvents } from '@/lib/queries';
 import { UNOFFICIAL } from '@/lib/site';
 import SearchSuggest from '@/components/SearchSuggest';
@@ -33,6 +34,8 @@ export default async function Home() {
         </section>
 
 
+
+        <FavList />
 
         {live.length > 0 && (
           <section className="section" style={{ marginTop: 18 }}>

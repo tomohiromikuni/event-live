@@ -57,6 +57,9 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "~{d} from you": ["距你约{d}", "내 위치에서 약 {d}"],
   "Right by the venue": ["就在会场旁边", "행사장 바로 옆"],
   "~{d} from the venue": ["距会场约{d}", "행사장에서 약 {d}"],
+  "Add to favorites": ["加入收藏", "즐겨찾기에 추가"],
+  "Remove from favorites": ["取消收藏", "즐겨찾기에서 삭제"],
+  "Favorites": ["收藏", "즐겨찾기"],
   "Nearest": ["最近", "가장 가까움"],
   " (blue dot = you)": ["（蓝点是你）", " (파란 점이 나)"],
   // 地図

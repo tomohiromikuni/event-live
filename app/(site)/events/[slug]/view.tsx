@@ -13,6 +13,7 @@ import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
 import ShareBlock from '@/components/ShareBlock';
+import { FavButton } from '@/components/Favorites';
 import MapThumb from '@/components/MapThumb';
 import ThemeThumb from '@/components/ThemeThumb';
 import { themeFor } from '@/lib/themes';
@@ -267,6 +268,8 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
       {e.status === 'postponed' && <div className="banner postponed"><span className="banner-label">延期</span><span><strong>延期</strong>　{e.status_note}</span></div>}
 
       <div className="event-head">
+        {/* お気に入り（この端末だけ・写真の右上） */}
+        {!e.is_sample && <FavButton lang={lang} ev={{ slug: e.slug, name: e.name, start: e.start_date, end: e.end_date, place: `${fmt(e.start_date, e.end_date)}・${place}` }} />}
         {/* ページ上部のサムネイル：利用許諾済みの写真があればそれ、無ければジャンルの色とイラストで作る（公式サイトの画像は転載しない） */}
         {e.image_url ? (
           <figure className="event-thumb photo">

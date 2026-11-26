@@ -4,6 +4,7 @@ import { ItemList } from '@/components/EventCard';
 import { searchEvents } from '@/lib/queries';
 import { applyLang } from '@/lib/translate';
 import SearchSuggest from '@/components/SearchSuggest';
+import { FavList } from '@/components/Favorites';
 import { getLang } from '@/lib/lang';
 import { altLanguages, lp, makeTx } from '@/lib/i18n';
 
@@ -40,6 +41,7 @@ export default async function HomeForeign() {
         <span>{tx('Toilet etiquette, trash rules, IC cards and saving a spot for fireworks.')}</span>
         <span className="go">{tx('Read the tips →')}</span>
       </a>
+      <FavList lang={lang} base={base} />
       <section className="section">
         <div className="section-head"><h2>{tx('Happening now')}</h2><Link href={`${base}/search`}>{tx('See all')}</Link></div>
         <ItemList events={todayL} empty={tx('No events are happening right now.')} lang={lang} />
