@@ -1,7 +1,7 @@
 /**
  * EVENOW ロゴ（MIX-A）
  * - BubbleMark: 吹き出しマーク。ヘッダーなど小さいサイズ用（中は点のみ）
- * - LogoLockup: 吹き出し（点＋電波）＋「EVEN✺W」（O が花火：光の筋と火の粉）のフルロゴ
+ * - LogoLockup: 吹き出し（点＋電波）＋「EVEN✺W」（O が花火）のフルロゴ
  */
 const BUBBLE = 'M22 8h66a16 16 0 0 1 16 16v38a16 16 0 0 1-16 16H48L26 96V78h-4A16 16 0 0 1 6 62V24A16 16 0 0 1 22 8z';
 const INK = '#1b1530';
@@ -18,27 +18,13 @@ export function BubbleMark({ size = 32 }: { size?: number }) {
 }
 
 /**
- * 「NOW」の O（花火）。中心から光の筋が伸び、先に火の粉が付く。ピンクと黄色が交互。
- * 小さいサイズ（40px未満）では筋を減らして潰れないようにする。
+ * 「NOW」の O（花火）。画像は public/brand/spark-o.png（背景を抜いた PNG）。
  */
 function SparkO({ size }: { size: number }) {
-  const n = size < 40 ? 8 : 12;
-  const rays = Array.from({ length: n }, (_, i) => {
-    const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
-    const at = (r: number) => [42 + r * Math.cos(a), 42 + r * Math.sin(a)].map((v) => Math.round(v * 10) / 10);
-    return { from: at(9), to: at(25), dot: at(32), color: i % 2 ? YELLOW : PINK };
-  });
   return (
-    <svg aria-hidden width={size} height={size} viewBox="0 0 84 84" style={{ margin: `0 ${-size * 0.045}px`, flex: 'none' }}>
-      {rays.map((r, i) => (
-        <g key={i}>
-          <line x1={r.from[0]} y1={r.from[1]} x2={r.to[0]} y2={r.to[1]} stroke={INK} strokeWidth="6" strokeLinecap="round" />
-          <line x1={r.from[0]} y1={r.from[1]} x2={r.to[0]} y2={r.to[1]} stroke={r.color} strokeWidth="2.8" strokeLinecap="round" />
-          <circle cx={r.dot[0]} cy={r.dot[1]} r="4.2" fill={r.color} stroke={INK} strokeWidth="2.2" />
-        </g>
-      ))}
-      <circle cx="42" cy="42" r="3.5" fill={INK} />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/brand/spark-o.png" alt="" aria-hidden width={size} height={size}
+      style={{ width: size, height: size, margin: `0 ${size * 0.02}px`, flex: 'none', display: 'block' }} />
   );
 }
 
