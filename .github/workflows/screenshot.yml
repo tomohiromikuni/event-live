@@ -32,6 +32,7 @@ jobs:
               await p.screenshot({ path: `shot-${i}-top.jpg`, type: 'jpeg', quality: 55 });
               await p.screenshot({ path: `shot-${i}-full.png`, fullPage: true });
               console.log(i, path, await p.title());
+              for (const t of await p.locator('.topic-card').allInnerTexts()) console.log('CARD', t.replace(/\s+/g, ' ').slice(0, 400));
             }
             await b.close();
           })();
