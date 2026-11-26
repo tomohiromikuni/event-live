@@ -177,7 +177,7 @@ export default function EventLive(p: Props) {
       <div className="now-sum">
         {!p.postable ? p.postBlockedReason
           : fresh.length ? <><span className="live-dot" />直近{FRESH_MIN}分で来場者から{fresh.length}件の投稿・最終 {relTime(newest!.created_at, now)}</>
-          : <>まだ直近の投稿はありません。項目をタップして、いまの状況を投稿できます（登録不要）</>}
+          : <>まだ投稿はありません。タップで投稿できます（登録不要）</>}
       </div>
 
       <div className="status-tiles" role="list" aria-label="いまの状況">
@@ -267,8 +267,8 @@ export default function EventLive(p: Props) {
       {!p.simple && (
         <div className="topic-card map-card">
           <div className="tc-head"><h3>会場マップ</h3></div>
-          <p className="muted small" style={{ margin: '0 0 8px' }}>位置の目安を示す簡易マップです。地点をタップしても、状況の確認・投稿ができます。</p>
-          {p.geo && <LocateButton />}
+          <p className="muted small one-line" style={{ margin: '0 0 8px' }}>地点をタップで、状況の確認・投稿ができます</p>
+          {p.geo && <LocateButton venue={p.center} />}
           <div className="live-map">
             <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes}
               onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} />
@@ -279,8 +279,8 @@ export default function EventLive(p: Props) {
               {visibleSpots.some((s) => s.source === 'guide') && <span><i className="est-i" />破線の枠＝位置は目安</span>}
             </div>
             {visibleSpots.some((s) => s.source === 'osm') && (
-              <div className="muted small" style={{ padding: '0 12px 10px' }}>
-                トイレ・駐車場の一部は <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a> のデータです（常設の施設のみ）
+              <div className="muted small one-line" style={{ padding: '0 12px 10px' }}>
+                施設の一部：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>
               </div>
             )}
           </div>
@@ -411,19 +411,28 @@ function Confetti() {
 }
 
 /** 地図の上の大きな「現在地」ボタン。押したときだけ端末に位置情報の許可を求める（位置は画面に出すだけで、送信・保存しない） */
-function LocateButton() {
-  const [state, setState] = useState<{ on: boolean; error: string }>({ on: false, error: '' });
+function LocateButton({ venue }: { venue?: [number, number] }) {
+  const [state, setState] = useState<{ on: boolean; error: string; far: number }>({ on: false, error: '', far: 0 });
   useEffect(() => {
-    const h = (e: Event) => setState((e as CustomEvent<{ on: boolean; error: string }>).detail);
+    const h = (e: Event) => setState({ far: 0, ...(e as CustomEvent<{ on: boolean; error: string; far?: number }>).detail } as { on: boolean; error: string; far: number });
     window.addEventListener('evenow:locate-state', h);
     return () => window.removeEventListener('evenow:locate-state', h);
   }, []);
+  const km = state.far >= 10_000 ? `${Math.round(state.far / 1000)}km` : `${(state.far / 1000).toFixed(1)}km`;
   return (
     <div className="locate-big">
       <button type="button" className={`tc-btn locate-big-btn ${state.on ? 'on' : ''}`} onClick={() => { setState((s) => ({ ...s, error: '' })); window.dispatchEvent(new Event('evenow:locate')); }}>
         {state.on ? '📍 現在地の表示をやめる' : '📍 自分の位置を地図に表示する'}
       </button>
-      <div className="muted small">押すと位置情報の許可を求められます。位置は地図に表示するだけで、送信・保存はしません。</div>
+      {state.on && state.far > 0 ? (
+        <div className="locate-far">
+          <div className="one-line">いまの場所は会場から<strong>約{km}</strong>（地図は会場のまま）</div>
+          <div className="locate-far-btns">
+            <button type="button" className="chip-btn" onClick={() => window.dispatchEvent(new Event('evenow:show-me'))}>自分の位置を見る</button>
+            {venue && <a className="chip-btn" href={`https://www.google.com/maps/dir/?api=1&destination=${venue[0]},${venue[1]}`} target="_blank" rel="noopener noreferrer">会場までの道順 ↗</a>}
+          </div>
+        </div>
+      ) : <div className="muted small one-line">位置は画面に出すだけで、送信・保存しません</div>}
       {state.error && <div className="locate-err" role="alert">{state.error}</div>}
     </div>
   );

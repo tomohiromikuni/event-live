@@ -30,6 +30,8 @@ type Props = {
  * - 見取り図（canvas）: 背景地図は使わず、白い用紙の上にエリア・線・施設を描く（Leaflet の CRS.Simple）。
  * - 地図（geo）: 緯度経度で描き、背景に国土地理院の淡色地図を表示する（会場が街全体に広がるイベント向け）。
  */
+/** 現在地が会場からこれより遠ければ、地図を動かさない */
+const FAR_M = 3000;
 const GSI_TILE = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
 const GSI_ATTR = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院（地理院タイル）</a>';
 
@@ -37,6 +39,8 @@ export default function LeafletMap(props: Props) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const libRef = useRef<typeof L | null>(null);
+  const homeRef = useRef<(() => void) | null>(null);
+  const venueRef = useRef<L.LatLng | null>(null);
   const markerLayer = useRef<L.LayerGroup | null>(null);
   const shapeLayer = useRef<L.LayerGroup | null>(null);
   const cbRef = useRef(props);
@@ -57,8 +61,14 @@ export default function LeafletMap(props: Props) {
         map = lib.map(el.current, { minZoom: 5, maxZoom: 18, zoomSnap: 0.25, zoomDelta: 0.5 });
         map.attributionControl.setPrefix(false);
         lib.tileLayer(GSI_TILE, { maxZoom: 18, maxNativeZoom: 18, attribution: GSI_ATTR }).addTo(map);
-        if (pts.length > 1) map.fitBounds(lib.latLngBounds(pts), { padding: [36, 36] });
-        else map.setView(pts[0] ?? cbRef.current.center ?? [36.5, 138], pts.length || cbRef.current.center ? 16 : 5);
+        // 会場の表示（最初の表示・「会場へ」ボタンで戻る先）
+        const m0 = map;
+        homeRef.current = () => {
+          if (pts.length > 1) m0.fitBounds(lib.latLngBounds(pts), { padding: [36, 36] });
+          else m0.setView(pts[0] ?? cbRef.current.center ?? [36.5, 138], pts.length || cbRef.current.center ? 16 : 5);
+        };
+        venueRef.current = pts.length ? lib.latLngBounds(pts).getCenter() : cbRef.current.center ? lib.latLng(cbRef.current.center) : null;
+        homeRef.current();
       } else {
         const { w, h } = cbRef.current.canvas;
         const bounds = lib.latLngBounds([0, 0], [h, w]);
@@ -120,7 +130,10 @@ export default function LeafletMap(props: Props) {
         b.type = 'button'; b.textContent = '📍 現在地'; b.title = '現在地を表示（位置は送信・保存されません）';
         lib.DomEvent.disableClickPropagation(b);
         // 地図の外の大きなボタン（EventLive）からも押せるようにし、状態・うまくいかない理由を知らせる
-        const tell = (on: boolean, error = '') => window.dispatchEvent(new CustomEvent('evenow:locate-state', { detail: { on, error } }));
+        const tell = (on: boolean, error = '', far = 0) => window.dispatchEvent(new CustomEvent('evenow:locate-state', { detail: { on, error, far } }));
+        let last: L.LatLng | null = null;
+        window.addEventListener('evenow:home', () => homeRef.current?.());
+        window.addEventListener('evenow:show-me', () => { if (last) map.setView(last, 16); });
         const stop = () => {
           if (watch != null) navigator.geolocation.clearWatch(watch);
           watch = null; dot?.remove(); ring?.remove(); dot = ring = null; first = true;
@@ -137,7 +150,17 @@ export default function LeafletMap(props: Props) {
               ring = lib.circle(ll, { radius: pos.coords.accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.12, interactive: false }).addTo(map);
               dot = lib.circleMarker(ll, { radius: 8, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1, interactive: false }).addTo(map);
             } else { dot.setLatLng(ll); ring!.setLatLng(ll).setRadius(pos.coords.accuracy); }
-            if (first) { first = false; map.panTo(ll); }
+            last = lib.latLng(ll);
+            if (first) {
+              first = false;
+              const venue = venueRef.current;
+              const d = venue ? map.distance(last, venue) : 0;
+              // 会場から遠い（3km超）ときは地図を会場のままにして、距離と道順を案内する（遠くの自分の位置へ飛ばない）
+              if (venue && d > FAR_M) { tell(true, '', d); return; }
+              // 会場の近くなら、会場と自分の両方が入るように表示
+              map.fitBounds(lib.latLngBounds([last, ...(venue ? [venue] : [])]).pad(0.3), { maxZoom: 17 });
+              tell(true);
+            }
           }, (err) => {
             stop();
             tell(false, locateHelp(err.code === 1 ? 'denied' : 'failed'));
@@ -147,6 +170,16 @@ export default function LeafletMap(props: Props) {
       },
     });
     new Ctl({ position: 'topright' }).addTo(map);
+    const Home = lib.Control.extend({
+      onAdd() {
+        const b = lib.DomUtil.create('button', 'locate-btn home-btn');
+        b.type = 'button'; b.textContent = '🎪 会場へ'; b.title = '会場の表示に戻る';
+        lib.DomEvent.disableClickPropagation(b);
+        b.onclick = () => homeRef.current?.();
+        return b;
+      },
+    });
+    new Home({ position: 'topright' }).addTo(map);
   }
 
   function renderShapes() {

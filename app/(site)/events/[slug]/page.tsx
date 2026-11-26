@@ -6,7 +6,6 @@ import { StatusBadges } from '@/components/EventCard';
 import { eventCategories, eventShapes, eventSpots, getEventBySlug, listGenres, recentReports, redirectedSlug, searchEvents } from '@/lib/queries';
 import { fmtRange, isEnded, isOngoing } from '@/lib/dates';
 import EndedEvent from '@/components/EndedEvent';
-import { ItemList } from '@/components/EventCard';
 import { eventDescription, eventTitle } from '@/lib/seo';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
@@ -86,6 +85,9 @@ function eventJsonLd(e: EventCard, url: string) {
 }
 
 const NONE = <span className="none">情報なし</span>;
+/** 開催概要の項目のアイコン（文字を減らして見やすく） */
+const INFO_ICON: Record<string, string> = { time_text: '🕒', venue: '📍', access: '🚃', nearest_station: '🚉', ticket_info: '🎫', organizer: '🏢', official_url: '🔗' };
+const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 /** 上のカード（駐車場・シャトルバス・トイレ／交通規制は駐車場カード内）に出す項目は、開催概要の表には出さない（飲食エリアは扱わない） */
 const CARD_FIELDS = ['parking_info', 'shuttle_info', 'traffic_info', 'toilet_info', 'food_info'];
 
@@ -94,7 +96,7 @@ function fieldValue(e: EventCard, key: string): React.ReactNode {
     case 'venue':
       return e.venue_name || e.address ? <>{e.venue_name}{e.address && <><br /><span className="muted small">{e.address}</span></>}</> : NONE;
     case 'official_url':
-      return e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">{e.official_url}</a> : NONE;
+      return e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">公式サイトを開く ↗</a> : NONE;
     case 'extra_info':
       return null; // 個別の行として展開
     default: {
@@ -162,7 +164,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const postable = e.status === 'scheduled' && ongoing;
   const blocked = e.status === 'canceled' ? 'このイベントは中止のため、投稿を受け付けていません。'
     : e.status === 'postponed' ? 'このイベントは延期のため、投稿を受け付けていません。'
-    : !ongoing ? `現地情報の投稿は開催期間中（${fmtRange(e.start_date, e.end_date)}）に受け付けます。施設の位置は事前に確認できます。` : '';
+    : !ongoing ? `投稿の受付は開催中（${fmtRange(e.start_date, e.end_date)}）だけです` : '';
 
   // 駐車場・シャトルバス・交通・トイレ・飲食は「来場の情報」の見出しで出すので、開催概要の表からは外す
   const fieldKeys = (genre.info_fields || INFO_FIELDS.map((f) => f.key).join(',')).split(',').map((s) => s.trim())
@@ -234,24 +236,37 @@ export default async function EventPage({ params, searchParams }: { params: Prom
 
       <section className="section" id="info" style={{ scrollMarginTop: 70 }}>
         <div className="section-head"><h2>開催概要</h2></div>
-        <p style={{ marginTop: 0, whiteSpace: 'pre-wrap' }}>{e.summary || '概要の情報はありません'}</p>
-        <dl className="info-table" style={{ margin: 0 }}>
-          {fieldKeys.map((key) => {
+        {e.summary && <p style={{ marginTop: 0, whiteSpace: 'pre-wrap' }}>{e.summary}</p>}
+        {(() => {
+          // 情報のある項目だけをアイコン付きで出し、確認できない項目は1行にまとめる（推測で埋めない）
+          const rows: { key: string; icon: string; label: string; value: React.ReactNode }[] = [];
+          const missing: string[] = [];
+          for (const key of fieldKeys) {
             const def = INFO_FIELDS.find((f) => f.key === key);
-            if (!def) return null;
+            if (!def) continue;
             if (key === 'extra_info') {
-              return extras.map(([k, v]) => (
-                <div className="row" key={`x-${k}`}><dt>{k}</dt><dd>{v || NONE}</dd></div>
-              ));
+              for (const [k, v] of extras) if (v) rows.push({ key: `x-${k}`, icon: '📝', label: k, value: v }); else missing.push(k);
+              continue;
             }
-            return <div className="row" key={key}><dt>{def.label}</dt><dd>{fieldValue(e, key)}</dd></div>;
-          })}
-          <div className="row"><dt>開催状況</dt><dd>{e.status === 'canceled' ? '中止' : e.status === 'postponed' ? '延期' : '開催予定'}{e.status_note && `（${e.status_note}）`}</dd></div>
-        </dl>
-        <p className="muted small">
-          情報元：{e.source_url ? <a href={e.source_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>{e.source_url}</a> : (e.is_sample ? 'サンプルデータ' : '情報なし')}
-          {e.source_checked_at && `（${e.source_checked_at} 確認）`}<br />
-          掲載情報は変更される場合があります。最新情報は必ず公式サイトでご確認ください。
+            const has = key === 'venue' ? !!(e.venue_name || e.address) : !!(e as unknown as Record<string, string>)[key];
+            if (has) rows.push({ key, icon: INFO_ICON[key] ?? '・', label: def.label, value: fieldValue(e, key) });
+            else missing.push(def.label);
+          }
+          rows.push({ key: 'status', icon: e.status === 'scheduled' ? '✅' : '⚠️', label: '開催状況', value: <>{e.status === 'canceled' ? '中止' : e.status === 'postponed' ? '延期' : '開催予定'}{e.status_note && `（${e.status_note}）`}</> });
+          return (
+            <>
+              <ul className="info-icons">
+                {rows.map((r) => (
+                  <li key={r.key}><span className="ii-icon" aria-hidden="true">{r.icon}</span><span className="ii-label">{r.label}</span><span className="ii-val">{r.value}</span></li>
+                ))}
+              </ul>
+              {missing.length > 0 && <p className="muted small one-line" title={missing.join('・')}>未確認：{missing.join('・')}</p>}
+            </>
+          );
+        })()}
+        <p className="muted small one-line">
+          情報元：{e.source_url ? <a href={e.source_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>{hostOf(e.source_url)}</a> : (e.is_sample ? 'サンプルデータ' : '情報なし')}
+          {e.source_checked_at && `（${e.source_checked_at.slice(5).replace('-', '/')} 確認）`}
         </p>
         {!e.is_sample && e.published ? (
           <ShareButtons eventId={e.id} title="このイベントを共有" url={shareUrl(base, eventPath, 'copy')}
@@ -259,21 +274,29 @@ export default async function EventPage({ params, searchParams }: { params: Prom
             lineText={composePost(shareLines, shareUrl(base, eventPath, 'line'), tags, 1000)} />
         ) : null}
         {UNOFFICIAL && (
-          <p className="muted small">
-            このページは<strong>非公式</strong>の情報ページです。{e.organizer ? `「${e.organizer}」` : '主催者'}とは関係ありません。
-            正確な情報は{e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>公式サイト</a> : '公式発表'}でご確認ください。
+          <p className="muted small one-line">
+            <strong>非公式</strong>ページです。最新は{e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>公式サイト</a> : '公式発表'}で確認を
           </p>
         )}
-        <p className="small">
-          主催者・関係者の方へ：<a href={`/contact?type=removal&event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">このイベントの掲載停止を申請する</a>
-          {'　'}<a href={`/contact?event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">内容の訂正・お問い合わせ</a>
+        <p className="small one-line">
+          <a href={`/contact?event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">訂正・お問い合わせ</a>
+          {'　｜　'}<a href={`/contact?type=removal&event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">掲載停止の申請</a>
         </p>
       </section>
 
       {related.length > 0 && (
         <section className="section">
-          <div className="section-head"><h2>ほかのイベント（{e.prefecture}・{genre.name}）</h2></div>
-          <ItemList events={related} empty="" />
+          <div className="section-head"><h2>近くのイベント</h2></div>
+          <ul className="related-lines">
+            {related.slice(0, 3).map((r) => (
+              <li key={r.id}>
+                <a href={`/events/${r.slug}`}>
+                  <span className="rl-name">{r.name}</span>
+                  <span className="rl-date">{fmtRange(r.start_date, r.end_date)}・{r.city || r.prefecture}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </div>

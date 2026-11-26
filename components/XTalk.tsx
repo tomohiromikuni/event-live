@@ -10,13 +10,13 @@ export default function XTalk({ tag, tags, url }: { tag: string; tags: string[];
   return (
     <section className="x-talk" aria-labelledby="x-talk-h">
       <h2 id="x-talk-h">X でみんなと情報交換</h2>
-      <p>来場する人どうしの会話は X で。このハッシュタグを付けて投稿すると、同じイベントに行く人と現地の様子を伝え合えます。</p>
+      <p className="one-line">来場者どうしの会話は X で</p>
       <div className="x-tag">{tag}</div>
       <a className="x-btn primary" href={xIntent(text)} target="_blank" rel="noopener noreferrer">
         <span aria-hidden="true" className="x-logo">𝕏</span>このタグで投稿する
       </a>
       <a className="x-btn" href={search} target="_blank" rel="noopener noreferrer">X でみんなの投稿を見る</a>
-      <p className="muted small" style={{ margin: '8px 0 0' }}>X の投稿は X のサービスです。イベナウは内容を確認していません。</p>
+      <p className="muted small one-line" style={{ margin: '8px 0 0' }}>X の投稿はイベナウでは確認していません</p>
     </section>
   );
 }
