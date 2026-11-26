@@ -155,6 +155,30 @@ export default function EventLive(p: Props) {
     if (distM(me, venueAt) <= 1000) { tabChosen.current = true; setTab('toilet'); }
   }, [me]); // eslint-disable-line react-hooks/exhaustive-deps
   const pinUsable = !geoDenied && !(meRaw && venueAt && distM(meRaw, venueAt) > 1500);
+  /**
+   * 施設の説明を丸枠（チップ）で：距離（方角は出さない。現在地が会場の近くにあれば「あなたから」、無ければ「会場から」）＋ 有料・台数などの説明。
+   * 臨時・仮設などの出どころは名前の前の印で示すので、ここには出さない
+   */
+  const fmtD = (m: number) => (m < 1000 ? `${Math.max(100, Math.round(m / 50) * 50)}m` : `${(m / 1000).toFixed(1)}km`);
+  const chipsOf = (s: Spot): { text: string; dist?: boolean }[] => {
+    const out: { text: string; dist?: boolean }[] = [];
+    if (placed(s) && me) { const d = distM(me, [s.lat, s.lng]); out.push({ text: d < 60 ? t('あなたのすぐ近く') : t('あなたから約{d}', { d: fmtD(d) }), dist: true }); }
+    else if (placed(s) && venueAt) { const d = distM(venueAt, [s.lat, s.lng]); out.push({ text: d < 100 ? t('会場のすぐ近く') : t('会場から約{d}', { d: fmtD(d) }), dist: true }); }
+    // 「・」で区切る（かっこの中の「・」では切らない）
+    const parts: string[] = []; let cur = '', depth = 0;
+    for (const ch of s.note) { if ('（('.includes(ch)) depth++; if ('）)'.includes(ch)) depth = Math.max(0, depth - 1); if (ch === '・' && !depth) { parts.push(cur.trim()); cur = ''; } else cur += ch; }
+    parts.push(cur.trim());
+    for (const part of parts) {
+      if (!part || /^会場から/.test(part) || /（公式・/.test(part) || /^来場者が現地から/.test(part) || /^位置はガイドマップからの推定/.test(part)) continue;
+      const x = part.replace(/^位置は名前からの目安$/, '位置は目安').replace(/^規模：(大|中|小)（約(\d+)台）$/, '約$2台').replace(/^規模：(大|中|小)（目安）$/, '$1規模');
+      out.push({ text: trAuto(x, lang) });
+    }
+    return out;
+  };
+  const Chips = ({ s, className = '' }: { s: Spot; className?: string }) => {
+    const cs = chipsOf(s);
+    return cs.length ? <span className={`spot-chips ${className}`}>{cs.map((c) => <span key={c.text} className={`spot-chip ${c.dist ? 'dist' : ''}`}>{c.text}</span>)}</span> : null;
+  };
   const distOf = (s: Spot) => (!placed(s) ? Infinity : me ? distM(me, [s.lat, s.lng]) : venueAt ? distM(venueAt, [s.lat, s.lng]) : Infinity);
 
   // タブ：駐車場・（シャトルバス）・トイレ・地図・概要。最初は駐車場（検索でいちばん探される）。#toilet などで開くタブを指定できる
@@ -487,7 +511,8 @@ export default function EventLive(p: Props) {
                   return (
                     <button key={s.id} id={`spot-${s.id}`} className={`tc-row spot-item ${highlight === s.id ? 'highlight' : ''}`} onClick={() => setSelected(s.id)}>
                       <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id], t); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{nearestId === s.id && <span className="origin-tag nearest">{t('いちばん近い')}</span>}{nameParts(s).title}</span>
-                        <span className="tc-sub">{nameParts(s).place && <>{nameParts(s).place}・</>}{latest ? when(s, latest) : s.source === 'official_temp' ? `${t('投稿なし')}・${t(s.generic ? '地図の位置は未確認' : '位置は目安')}` : s.source === 'osm' && s.note.replace(/・?会場から.+$/, '') ? `${t('投稿なし')}・${trAuto(s.note.replace(/・?会場から.+$/, ''), lang)}` : t('投稿なし')}{latest?.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span></span>
+                        <span className="tc-sub">{latest ? when(s, latest) : t('投稿なし')}{latest?.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span>
+                        <Chips s={s} /></span>
                       {latest && pill(latest)}<span className="tc-arrow" aria-hidden>›</span>
                     </button>
                   );
@@ -571,12 +596,7 @@ export default function EventLive(p: Props) {
                 {/* 種類（駐車場など）。名前が種類と同じ「駐車場」なら重ねて出さず、名前にアイコンを付ける */}
                 {nameParts(sel).title !== t(selCat.name) && <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{t(selCat.name)}</div>}
                 <h3>{nameParts(sel).title === t(selCat.name) && <KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={20} strokeWidth={2.4} />}{nameParts(sel).title}</h3>
-                {(() => {
-                  // 場所（会場から・あなたから）と説明は名前の下に小さく
-                  const note = sel.note.replace(/・?会場から.+$/, '');
-                  const parts = [nameParts(sel).place || (/会場から/.test(sel.note) && !me ? trAuto(sel.note.match(/会場から.+$/)![0], lang) : ''), note && trAuto(note, lang)].filter(Boolean);
-                  return parts.length ? <div className="muted small">{parts.join(lang === 'ja' ? '・' : ' · ')}</div> : null;
-                })()}
+                <Chips s={sel} className="in-sheet" />
               </div>
               {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
                 <a className="go-round" href={`https://www.google.com/maps/dir/?api=1&destination=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer"

@@ -54,7 +54,7 @@ const EN: Record<string, string> = {
   '施設・会場の範囲の一部：': 'Some places & venue area: ',
   '📍 自分から近い順': '📍 Nearest to you', '🚩 会場から近い順': '🚩 Nearest to the venue',
   '会場から離れているので、会場からの方角で表示しています': 'You are far from the venue, so directions are from the venue.',
-  'いちばん近い': 'Nearest', '（青い点があなた）': ' (blue dot = you)',
+  'いちばん近い': 'Nearest', 'あなたのすぐ近く': 'Right near you', 'あなたから約{d}': '~{d} from you', '会場のすぐ近く': 'Right by the venue', '会場から約{d}': '~{d} from the venue', '（青い点があなた）': ' (blue dot = you)',
   '📍 自分の位置を地図に表示する': '📍 Show my location', '📍 現在地の表示をやめる': '📍 Hide my location', '位置は画面に出すだけで、送信・保存しません': 'Your location stays on your phone and is never sent or saved',
   'いまの場所は会場から': 'You are ', '。地図は会場付近のままです': ' from the venue. The map stays on the venue.',
   '行きたい駐車場などの地点をタップ →「📍 この場所に行く」で、そこまでの道順が出ます': 'Tap a parking lot or other place → “📍 Go here” for directions',
@@ -204,7 +204,8 @@ export function trAuto(text: string, lang: Lang): string {
     .replace(/^駐車場$/, a.parking)
     .replace(/^トイレ（(.+)）$/, (_, x) => a.paren(a.toilet, x)).replace(/^駐車場（周辺）$/, a.paren(a.parking, a.nearby)).replace(/^駐車場（(.+)）$/, (_, x) => a.paren(a.parking, x)).replace(/^トイレ$/, a.toilets)
     .replace(/規模：(大|中|小)（約(\d+)台）/, (_, z, n) => a.cars(a.size[z], n))
-    .replace(/規模：(大|中|小)（目安）/, (_, z) => a.approx(a.size[z]));
+    .replace(/規模：(大|中|小)（目安）/, (_, z) => a.approx(a.size[z]))
+    .replace(/^(大|中|小)規模$/, (_, z) => a.size[z]).replace(/^約(\d+)台$/, (_, n) => ({ en: `~${n} cars`, zh: `约${n}辆`, 'zh-tw': `約${n}輛`, ko: `약 ${n}대`, vi: `~${n} xe` } as Record<string, string>)[lang] ?? `~${n}`);
   for (const [r, w] of a.words) s = s.replace(r, w);
   return s.replace(/・/g, a.sep);
 }

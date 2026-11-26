@@ -53,6 +53,10 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "📍 Nearest to you": ["📍 离你最近的顺序", "📍 내 위치에서 가까운 순"],
   "🚩 Nearest to the venue": ["🚩 离会场最近的顺序", "🚩 행사장에서 가까운 순"],
   "You are far from the venue, so directions are from the venue.": ["你离会场较远，因此显示从会场出发的方向。", "행사장에서 멀리 있어 행사장 기준 방향으로 표시합니다."],
+  "Right near you": ["就在你附近", "바로 근처"],
+  "~{d} from you": ["距你约{d}", "내 위치에서 약 {d}"],
+  "Right by the venue": ["就在会场旁边", "행사장 바로 옆"],
+  "~{d} from the venue": ["距会场约{d}", "행사장에서 약 {d}"],
   "Nearest": ["最近", "가장 가까움"],
   " (blue dot = you)": ["（蓝点是你）", " (파란 점이 나)"],
   // 地図
