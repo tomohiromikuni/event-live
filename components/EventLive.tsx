@@ -249,9 +249,6 @@ export default function EventLive(p: Props) {
   // 下から出る画面（地点の投稿・お礼）を開いている間は、後ろのページをスクロールさせない。
   // iPhone の Safari は overflow:hidden だけでは止まらないので、body を固定して、閉じたら元の位置に戻す
   const sheetOpen = selected != null || !!thanks;
-  // 施設の画面の地図：最初は小さく、押すと大きく（施設を変えたら小さく戻す）
-  const [bigMap, setBigMap] = useState(false);
-  useEffect(() => setBigMap(false), [selected]);
   // 下にスワイプして閉じる
   const swipeSel = useSwipeClose(() => setSelected(null));
   const swipeThanks = useSwipeClose(() => setThanks(null));
@@ -504,16 +501,15 @@ export default function EventLive(p: Props) {
           <div className="sheet-backdrop" onClick={() => setSelected(null)} />
           <div className="sheet" role="dialog" aria-label={t('{x}の状況', { x: nm(sel.name) })} {...swipeSel}>
             <div className="sheet-grip" />
-            {/* 上：小さな地図（押すと大きく）＋名前・説明・「ここへ行く」 */}
-            <div className={`sheet-top ${bigMap ? 'big' : ''}`}>
-              {placed(sel) && !p.simple && (
-                <div className="sheet-map">
-                  <LeafletMap key={`${sel.id}-${bigMap}`} mini still={!bigMap} canvas={p.canvas} geo={p.geo} center={[sel.lat, sel.lng]} me={me}
-                    markers={markers.filter((m) => m.id === sel.id)} shapes={mapShapes.filter((sh) => sh.style === 'venue')} className="map mini-map" lang={lang} />
-                  {!bigMap && <button type="button" className="sheet-map-open" aria-label={t('地図を大きく')} onClick={() => setBigMap(true)} />}
-                  {bigMap && me && <span className="sheet-map-note">{t('青い点があなた')}</span>}
-                </div>
-              )}
+            {/* 上：地図（施設と現在地が一緒に入る）、その下に名前・説明と丸い「行く」ボタン */}
+            {placed(sel) && !p.simple && (
+              <div className="sheet-map">
+                <LeafletMap key={sel.id} mini canvas={p.canvas} geo={p.geo} center={[sel.lat, sel.lng]} me={me}
+                  markers={markers.filter((m) => m.id === sel.id)} shapes={mapShapes.filter((sh) => sh.style === 'venue')} className="map mini-map" lang={lang} />
+                {me && <span className="sheet-map-note">{t('青い点があなた')}</span>}
+              </div>
+            )}
+            <div className="sheet-top">
               <div className="sheet-info">
                 <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{t(selCat.name)}</div>
                 <h3>{nameOf(sel)}</h3>
@@ -522,12 +518,13 @@ export default function EventLive(p: Props) {
                   const parts = [note && trAuto(note, lang), me && placed(sel) ? trAuto(fromMeText(me, [sel.lat, sel.lng]), lang) : ''].filter(Boolean);
                   return parts.length ? <div className="muted small">{parts.join(lang === 'ja' ? '・' : ' · ')}</div> : null;
                 })()}
-                {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
-                  <a className="go-pill" href={`https://www.google.com/maps/dir/?api=1&destination=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer">
-                    {t(sel.source === 'guide' ? '📍 この辺りへ行く' : '📍 ここへ行く')}
-                  </a>
-                ) : null}
               </div>
+              {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
+                <a className="go-round" href={`https://www.google.com/maps/dir/?api=1&destination=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer"
+                  aria-label={t(sel.source === 'guide' ? '📍 この辺りへ行く' : '📍 ここへ行く')}>
+                  <span className="go-round-i" aria-hidden>➤</span><span className="go-round-l">{t('行く')}</span>
+                </a>
+              ) : null}
             </div>
             {sel.source === 'user' && (
               <div className="pin-check">

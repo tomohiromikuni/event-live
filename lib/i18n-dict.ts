@@ -87,7 +87,7 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "Show my location (never sent or saved)": ["显示当前位置（不会发送或保存）", "현재 위치 표시 (전송·저장되지 않음)"],
   "Back to the venue": ["回到会场显示", "행사장 표시로 돌아가기"],
   // 地点の画面
-  "Enlarge map": ["放大地图", "지도 크게 보기"],
+  "Go": ["前往", "가기"],
   "📍 Go here": ["📍 前往这里", "📍 여기로 가기"],
   "📍 Go near here": ["📍 前往这附近", "📍 이 근처로 가기"],
   "Blue dot = you": ["蓝点是你", "파란 점이 나"],
