@@ -381,6 +381,23 @@ export default function EventLive(p: Props) {
             )}
           </div>
           {p.geo && <LocateNote t={t} />}
+          {/* 来場者の場所の報告（地図のすぐ下） */}
+          {p.geo && p.postable && (
+            <div className="pin-report">
+              {!pinMenu ? (
+                <button type="button" className="chip-btn" onClick={() => setPinMenu(true)}>{t('＋ ここにトイレ・駐車場がある（現在地で報告）')}</button>
+              ) : (
+                <div className="pin-menu">
+                  <div className="small">{t('いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）')}</div>
+                  <div className="pin-btns">
+                    <button type="button" className="chip-btn" onClick={() => reportPin('toilet')}>{t('🚻 トイレ')}</button>
+                    <button type="button" className="chip-btn" onClick={() => reportPin('parking')}>{t('🅿️ 駐車場')}</button>
+                    <button type="button" className="chip-btn ghost" onClick={() => setPinMenu(false)}>{t('やめる')}</button>
+                  </div>
+                </div>
+              )}
+                </div>
+              )}
         </div>
       )}
 
@@ -466,23 +483,6 @@ export default function EventLive(p: Props) {
         );
       })}
 
-      {/* 来場者の場所の報告（一覧の下） */}
-      {p.geo && p.postable && !p.simple && (
-            <div className="pin-report">
-              {!pinMenu ? (
-                <button type="button" className="chip-btn" onClick={() => setPinMenu(true)}>{t('＋ ここにトイレ・駐車場がある（現在地で報告）')}</button>
-              ) : (
-                <div className="pin-menu">
-                  <div className="small">{t('いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）')}</div>
-                  <div className="pin-btns">
-                    <button type="button" className="chip-btn" onClick={() => reportPin('toilet')}>{t('🚻 トイレ')}</button>
-                    <button type="button" className="chip-btn" onClick={() => reportPin('parking')}>{t('🅿️ 駐車場')}</button>
-                    <button type="button" className="chip-btn ghost" onClick={() => setPinMenu(false)}>{t('やめる')}</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
       {hasFood && (
         <div className={`topic-card colored ${tab === 'food' ? '' : 'tab-off'}`} role="tabpanel" id="topic-food" style={{ ['--c' as string]: '#ea580c', scrollMarginTop: 70 }}>
           <div className="tc-head">

@@ -969,3 +969,4 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .now-ago small { font-size: 11px; color: var(--muted); font-weight: 700; }
 .ago { color: var(--ink); font-weight: 900; }
 .ago.old { color: #b45309; }
+.map-card.map-top .pin-report { margin: 0 12px 12px; }
