@@ -30,6 +30,8 @@ type Props = {
   mini?: boolean;
   /** 自分の位置（mini のときに青い点で出す。端末の画面の中だけ） */
   me?: [number, number] | null;
+  /** 動かせない地図（小さな見本。押すと大きくする側で扱う） */
+  still?: boolean;
 };
 
 /**
@@ -40,6 +42,7 @@ type Props = {
 /** 現在地が会場からこれより遠ければ、地図を動かさない */
 const FAR_M = 3000;
 const GSI_TILE = 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png';
+const GSI_ATTR_SHORT = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>';
 const GSI_ATTR = '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">出典：国土地理院（地理院タイル）</a>';
 
 export default function LeafletMap(props: Props) {
@@ -65,9 +68,10 @@ export default function LeafletMap(props: Props) {
           ...cbRef.current.markers.map((m) => [m.lat, m.lng] as [number, number]),
           ...(cbRef.current.shapes ?? []).flatMap((s) => s.coords),
         ];
-        map = lib.map(el.current, { minZoom: 5, maxZoom: 18, zoomSnap: 0.25, zoomDelta: 0.5, zoomControl: !cbRef.current.mini });
+        map = lib.map(el.current, { minZoom: 5, maxZoom: 18, zoomSnap: 0.25, zoomDelta: 0.5, zoomControl: !cbRef.current.mini,
+          ...(cbRef.current.still ? { dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false } : {}) });
         map.attributionControl.setPrefix(false);
-        lib.tileLayer(GSI_TILE, { maxZoom: 18, maxNativeZoom: 18, attribution: GSI_ATTR }).addTo(map);
+        lib.tileLayer(GSI_TILE, { maxZoom: 18, maxNativeZoom: 18, attribution: cbRef.current.still ? GSI_ATTR_SHORT : GSI_ATTR }).addTo(map);
         // 会場の表示（最初の表示・「会場へ」ボタンで戻る先）
         const m0 = map;
         homeRef.current = () => {
@@ -123,8 +127,9 @@ export default function LeafletMap(props: Props) {
     if (!m) return;
     const me = cbRef.current.geo ? cbRef.current.me : null;
     if (me) lib.circleMarker(me, { radius: 7, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1, interactive: false }).addTo(map);
-    if (me && map.distance(me, [m.lat, m.lng]) < 2000) map.fitBounds(lib.latLngBounds([me, [m.lat, m.lng]]), { padding: [34, 34], maxZoom: 16 });
-    else map.setView([m.lat, m.lng], cbRef.current.geo ? 16 : map.getZoom() + 1.5);
+    const still = cbRef.current.still;
+    if (me && map.distance(me, [m.lat, m.lng]) < 2000) map.fitBounds(lib.latLngBounds([me, [m.lat, m.lng]]), { padding: still ? [16, 16] : [34, 34], maxZoom: 16 });
+    else map.setView([m.lat, m.lng], cbRef.current.geo ? (still ? 15.5 : 16) : map.getZoom() + 1.5);
   }
 
   /** 現在地がうまく使えないときの案内（端末・アプリ別） */

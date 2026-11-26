@@ -249,6 +249,9 @@ export default function EventLive(p: Props) {
   // 下から出る画面（地点の投稿・お礼）を開いている間は、後ろのページをスクロールさせない。
   // iPhone の Safari は overflow:hidden だけでは止まらないので、body を固定して、閉じたら元の位置に戻す
   const sheetOpen = selected != null || !!thanks;
+  // 施設の画面の地図：最初は小さく、押すと大きく（施設を変えたら小さく戻す）
+  const [bigMap, setBigMap] = useState(false);
+  useEffect(() => setBigMap(false), [selected]);
   // 下にスワイプして閉じる
   const swipeSel = useSwipeClose(() => setSelected(null));
   const swipeThanks = useSwipeClose(() => setThanks(null));
@@ -501,21 +504,31 @@ export default function EventLive(p: Props) {
           <div className="sheet-backdrop" onClick={() => setSelected(null)} />
           <div className="sheet" role="dialog" aria-label={t('{x}の状況', { x: nm(sel.name) })} {...swipeSel}>
             <div className="sheet-grip" />
-            <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{t(selCat.name)}</div>
-            <h3>{nameOf(sel)}</h3>
-            {(me ? sel.note.replace(/・?会場から.+$/, '') : sel.note) && <div className="muted small">{trAuto(me ? sel.note.replace(/・?会場から.+$/, '') : sel.note, lang)}</div>}
-            {placed(sel) && !p.simple && (
-              <div className="sheet-map">
-                <LeafletMap key={sel.id} mini canvas={p.canvas} geo={p.geo} center={[sel.lat, sel.lng]} me={me}
-                  markers={markers.filter((m) => m.id === sel.id)} shapes={mapShapes.filter((sh) => sh.style === 'venue')} className="map mini-map" lang={lang} />
-                {me && <div className="sheet-map-note">{trAuto(fromMeText(me, [sel.lat, sel.lng]), lang)}{t('（青い点があなた）')}</div>}
+            {/* 上：小さな地図（押すと大きく）＋名前・説明・「ここへ行く」 */}
+            <div className={`sheet-top ${bigMap ? 'big' : ''}`}>
+              {placed(sel) && !p.simple && (
+                <div className="sheet-map">
+                  <LeafletMap key={`${sel.id}-${bigMap}`} mini still={!bigMap} canvas={p.canvas} geo={p.geo} center={[sel.lat, sel.lng]} me={me}
+                    markers={markers.filter((m) => m.id === sel.id)} shapes={mapShapes.filter((sh) => sh.style === 'venue')} className="map mini-map" lang={lang} />
+                  {!bigMap && <button type="button" className="sheet-map-open" aria-label={t('地図を大きく')} onClick={() => setBigMap(true)} />}
+                  {bigMap && me && <span className="sheet-map-note">{t('青い点があなた')}</span>}
+                </div>
+              )}
+              <div className="sheet-info">
+                <div className="muted small sheet-kind"><KindIcon kind="category" slug={selCat.slug} emoji={selCat.icon} size={15} strokeWidth={2.4} />{t(selCat.name)}</div>
+                <h3>{nameOf(sel)}</h3>
+                {(() => {
+                  const note = me ? sel.note.replace(/・?会場から.+$/, '') : sel.note;
+                  const parts = [note && trAuto(note, lang), me && placed(sel) ? trAuto(fromMeText(me, [sel.lat, sel.lng]), lang) : ''].filter(Boolean);
+                  return parts.length ? <div className="muted small">{parts.join(lang === 'ja' ? '・' : ' · ')}</div> : null;
+                })()}
+                {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
+                  <a className="go-pill" href={`https://www.google.com/maps/dir/?api=1&destination=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer">
+                    {t(sel.source === 'guide' ? '📍 この辺りへ行く' : '📍 ここへ行く')}
+                  </a>
+                ) : null}
               </div>
-            )}
-            {p.geo && !sel.generic && (sel.lat || sel.lng) ? (
-              <a className="btn ghost go-btn" href={`https://www.google.com/maps/dir/?api=1&destination=${sel.lat.toFixed(6)}%2C${sel.lng.toFixed(6)}`} target="_blank" rel="noopener noreferrer">
-                {t(sel.source === 'guide' ? '📍 この辺りに行く（Googleマップ）' : '📍 この場所に行く（Googleマップ）')}
-              </a>
-            ) : null}
+            </div>
             {sel.source === 'user' && (
               <div className="pin-check">
                 <div className="small"><strong>{t('来場者の報告')}</strong>{t('（公式の情報ではありません）')}・{(pins[sel.id]?.yes ?? 1) >= 2 ? t('{n}人が「ここにある」と確認', { n: pins[sel.id]!.yes }) : t('まだ1人の報告です')}{(pins[sel.id]?.no ?? 0) > 0 && `・${t('見つからない {n}人', { n: pins[sel.id]!.no })}`}</div>
@@ -529,25 +542,26 @@ export default function EventLive(p: Props) {
             )}
             {selCat.options.length > 0 && selCat.slug !== 'food' ? (
               <>
-                {!p.postable && (
-                  <div className="current">
-                    {t('現在の状況：')}
-                    {selLatest ? <strong style={{ color: levelColor(selLatest.level) }}>{lab(selLatest.label)}</strong> : <span className="muted">{t('現在の情報はありません')}</span>}
-                  </div>
-                )}
+                <div className="sheet-now">
+                  <span>{t(p.postable ? 'いま見た状況をタップ' : '現在の状況')}</span>
+                  <span className="sheet-now-val">{p.postable && t('現在：')}{selLatest ? <strong style={{ color: levelColor(selLatest.level) }}>{lab(selLatest.label)}</strong> : t('投稿なし')}</span>
+                </div>
                 {p.postable ? (
                   <>
-                    <div className="sheet-ask">{t('あなたが見た、いまの状況は？')}</div>
-                    <p className="muted small" style={{ margin: '-4px 0 8px' }}>{t('ほかの人の投稿ではなく、実際に見た状況を選んでください')}</p>
-                    <div className="option-grid">
-                      {selCat.options.map((o) => (
-                        <button key={o.value} className="option-btn" disabled={posting}
-                          onClick={() => post(sel.id, o.value)}>
-                          <span className="lv" style={{ background: levelColor(o.level) }} aria-hidden />{lab(o.label)}
-                        </button>
-                      ))}
+                    {/* 信号機の帯：色だけで分かるように横一列（緑→オレンジ→赤） */}
+                    <div className="option-band" role="group" aria-label={t('あなたが見た、いまの状況は？')}>
+                      {selCat.options.map((o) => {
+                        const [main, ...rest] = lab(o.label).split(/[・（(]/);
+                        const sub = rest.join(' ').replace(/[）)]$/, '');
+                        return (
+                          <button key={o.value} className="band-btn" disabled={posting} style={{ background: levelColor(o.level) }}
+                            onClick={() => post(sel.id, o.value)}>
+                            {main}{sub && <small>{sub}</small>}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <p className="muted small" style={{ marginBottom: 0 }}>{t('投稿は匿名で、投稿時刻とともに公開されます。')}</p>
+                    <p className="muted small band-note">{t('実際に見た状況を選んでください・匿名で時刻とともに公開')}</p>
                     {selLatest && statusBySpot.get(sel.id) && (
                       <p className="muted small current-ref">{t('参考：いまの表示は「{x}」（{t}）', { x: lab(selLatest.label), t: `${rel(selLatest.created_at, now)}・${consensusNote(statusBySpot.get(sel.id)!, lang, lab) || (lang === 'en' ? 'old' : '古い情報')}` })}</p>
                     )}

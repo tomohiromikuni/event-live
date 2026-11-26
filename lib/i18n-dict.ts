@@ -87,6 +87,13 @@ export const DICT: Record<string, [zh: string, ko: string]> = {
   "Show my location (never sent or saved)": ["显示当前位置（不会发送或保存）", "현재 위치 표시 (전송·저장되지 않음)"],
   "Back to the venue": ["回到会场显示", "행사장 표시로 돌아가기"],
   // 地点の画面
+  "Enlarge map": ["放大地图", "지도 크게 보기"],
+  "📍 Go here": ["📍 前往这里", "📍 여기로 가기"],
+  "📍 Go near here": ["📍 前往这附近", "📍 이 근처로 가기"],
+  "Blue dot = you": ["蓝点是你", "파란 점이 나"],
+  "Tap what you see now": ["点选你现在看到的情况", "지금 보이는 상황을 누르세요"],
+  "Status now": ["现在的情况", "현재 상황"],
+  "Choose what you actually see · anonymous, shown with the time": ["请选择实际看到的情况・匿名并附时间公开", "직접 본 상황을 골라 주세요 · 익명, 시각과 함께 공개"],
   "{x} status": ["{x}的情况", "{x} 상황"],
   "📍 Go here (Google Maps)": ["📍 前往这里（Google 地图）", "📍 여기로 가기 (Google 지도)"],
   "📍 Go near here (Google Maps)": ["📍 前往这附近（Google 地图）", "📍 이 근처로 가기 (Google 지도)"],
