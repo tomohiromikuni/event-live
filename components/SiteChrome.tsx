@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LangMenuCloser from '@/components/LangMenuCloser';
 import { BubbleMark, LogoLockup } from '@/components/Logo';
 import { SITE_NAME, SITE_NAME_KANA, UNOFFICIAL } from '@/lib/site';
 import { currentPath, getLang, langPath } from '@/lib/lang';
@@ -16,6 +17,7 @@ function LangMenu({ lang, path }: { lang: Lang; path: string }) {
           <a key={l} href={langPath(path, l)} hrefLang={LANG_META[l].hreflang} lang={LANG_META[l].html} className={l === lang ? 'on' : ''}>{LANG_META[l].label}</a>
         ))}
       </div>
+      <LangMenuCloser />
     </details>
   );
 }
