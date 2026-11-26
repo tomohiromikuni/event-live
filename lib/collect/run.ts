@@ -147,6 +147,7 @@ function clean(e: Extracted, sourcePref: string): Extracted | null {
   return {
     ...e, name, start_date: start, end_date: start ? end : null, prefecture: pref ?? (sourcePref || null),
     time_text: s(e.time_text, 100), city: s(e.city, 40), venue_name: s(e.venue_name, 100), address: s(e.address, 200),
+    official_hashtag: s(e.official_hashtag, 40),
     summary: s(e.summary, 200), organizer: s(e.organizer, 100), official_url: url && /^https?:\/\//.test(url) ? url : null,
     access: s(e.access), nearest_station: s(e.nearest_station, 100), parking_info: s(e.parking_info), traffic_info: s(e.traffic_info), ticket_info: s(e.ticket_info),
     shuttle_info: s(e.shuttle_info), toilet_info: s(e.toilet_info), food_info: s(e.food_info),

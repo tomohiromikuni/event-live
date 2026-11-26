@@ -5,6 +5,7 @@ import { PREFECTURES } from '../prefectures';
 import { enableSimpleMode } from '../simple';
 import type { Extracted } from './extract';
 import { getSetting } from './run';
+import { cleanTag, OFFICIAL_TAG } from '../hashtags';
 
 /**
  * 候補からイベントを作る（手動の承認・自動公開で共通）。
@@ -18,15 +19,18 @@ export async function createEventFromCandidate(
   const genre = await one<{ id: number }>('SELECT id FROM genres WHERE slug = $1', [d.genre]) ?? await one<{ id: number }>("SELECT id FROM genres WHERE slug = 'other'");
   const now = Date.now();
   const v = (x: string | null | undefined) => x ?? '';
+  // 公式ハッシュタグがあれば、X の会話・共有ではそれを使う（同じタグに来場者・主催者の投稿が集まるように）
+  const officialTag = d.official_hashtag ? cleanTag(d.official_hashtag) : null;
+  const hashtags = officialTag && officialTag !== OFFICIAL_TAG ? officialTag : '';
   return tx(async (tq: Q) => {
     const [{ id }] = await tq<{ id: number }>(`INSERT INTO events (slug, name, genre_id, prefecture, city, venue_name, address, start_date, end_date, time_text,
         summary, organizer, official_url, access, nearest_station, traffic_info, parking_info, ticket_info, status,
-        source_url, source_checked_at, published, is_sample, created_at, updated_at, shuttle_info, toilet_info, food_info, auto_published)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,0,$23,$23,$24,$25,$26,$27) RETURNING id`,
+        source_url, source_checked_at, published, is_sample, created_at, updated_at, shuttle_info, toilet_info, food_info, auto_published, hashtags)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,0,$23,$23,$24,$25,$26,$27,$28) RETURNING id`,
       [`ev-${now.toString(36)}${Math.random().toString(36).slice(2, 5)}`, o.name.slice(0, 120), genre!.id, o.pref, v(d.city), v(d.venue_name), v(d.address), o.start, o.end, v(d.time_text),
         v(d.summary), v(d.organizer), v(d.official_url), v(d.access), v(d.nearest_station), v(d.traffic_info), v(d.parking_info), v(d.ticket_info),
         d.status === 'canceled' || d.status === 'postponed' ? d.status : 'scheduled', c.source_url, todayJST(), o.publish ? 1 : 0, now,
-        v(d.shuttle_info), v(d.toilet_info), v(d.food_info), o.auto ? 1 : 0]);
+        v(d.shuttle_info), v(d.toilet_info), v(d.food_info), o.auto ? 1 : 0, hashtags]);
     await tq("UPDATE event_candidates SET status = $1, event_id = $2, updated_at = $3 WHERE id = $4", [o.auto ? 'auto' : 'approved', id, now, c.id]);
     if (!d.map_links?.length) await enableSimpleMode(tq, id);
     return id;
