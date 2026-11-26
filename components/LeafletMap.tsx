@@ -99,6 +99,17 @@ export default function LeafletMap(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** 現在地がうまく使えないときの案内（端末・アプリ別） */
+  function locateHelp(kind: 'denied' | 'failed' | 'unsupported') {
+    const ua = navigator.userAgent;
+    if (/Line\/|FBAN|FBAV|Instagram|Twitter/i.test(ua)) return 'アプリの中のブラウザでは現在地を使えないことがあります。右上（または右下）のメニューから「Safari／ブラウザで開く」を選んで、開き直してください。';
+    if (kind === 'unsupported') return 'この端末・ブラウザでは現在地を使えません。';
+    if (kind === 'failed') return '現在地を取得できませんでした。電波の良い場所で、もう一度お試しください。';
+    if (/iPhone|iPad|iPod/.test(ua)) return '位置情報が許可されていません。iPhone の「設定」→「プライバシーとセキュリティ」→「位置情報サービス」をオンにし、「Safari の Web サイト」を「使用中のみ」にしてから、もう一度押してください。';
+    if (/Android/.test(ua)) return '位置情報が許可されていません。アドレスバー左の鍵（またはⓘ）のマーク →「権限」→「位置情報」を許可にしてから、もう一度押してください（端末の位置情報がオフのときはオンにしてください）。';
+    return '位置情報が許可されていません。ブラウザのアドレスバーの鍵のマークから、このサイトの位置情報を許可してください。';
+  }
+
   /** 現在地ボタン：押すと端末の位置を地図に表示（もう一度押すと止める）。位置はどこにも送らない */
   function addLocateControl(map: L.Map, lib: typeof L) {
     let watch: number | null = null;
@@ -108,13 +119,18 @@ export default function LeafletMap(props: Props) {
         const b = lib.DomUtil.create('button', 'locate-btn');
         b.type = 'button'; b.textContent = '📍 現在地'; b.title = '現在地を表示（位置は送信・保存されません）';
         lib.DomEvent.disableClickPropagation(b);
+        // 地図の外の大きなボタン（EventLive）からも押せるようにし、状態・うまくいかない理由を知らせる
+        const tell = (on: boolean, error = '') => window.dispatchEvent(new CustomEvent('evenow:locate-state', { detail: { on, error } }));
+        const stop = () => {
+          if (watch != null) navigator.geolocation.clearWatch(watch);
+          watch = null; dot?.remove(); ring?.remove(); dot = ring = null; first = true;
+          b.classList.remove('on');
+        };
+        window.addEventListener('evenow:locate', () => b.click());
         b.onclick = () => {
-          if (watch != null) {
-            navigator.geolocation.clearWatch(watch); watch = null; dot?.remove(); ring?.remove(); dot = ring = null; first = true;
-            b.classList.remove('on'); return;
-          }
-          if (!('geolocation' in navigator)) { alert('この端末では現在地を使えません'); return; }
-          b.classList.add('on');
+          if (watch != null) { stop(); tell(false); return; }
+          if (!('geolocation' in navigator)) { tell(false, locateHelp('unsupported')); return; }
+          b.classList.add('on'); tell(true);
           watch = navigator.geolocation.watchPosition((pos) => {
             const ll: [number, number] = [pos.coords.latitude, pos.coords.longitude];
             if (!dot) {
@@ -123,9 +139,8 @@ export default function LeafletMap(props: Props) {
             } else { dot.setLatLng(ll); ring!.setLatLng(ll).setRadius(pos.coords.accuracy); }
             if (first) { first = false; map.panTo(ll); }
           }, (err) => {
-            alert(err.code === 1 ? '位置情報の利用が許可されていません（端末の設定で許可してください）' : '現在地を取得できませんでした');
-            if (watch != null) navigator.geolocation.clearWatch(watch);
-            watch = null; b.classList.remove('on');
+            stop();
+            tell(false, locateHelp(err.code === 1 ? 'denied' : 'failed'));
           }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
         };
         return b;

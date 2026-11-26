@@ -268,6 +268,7 @@ export default function EventLive(p: Props) {
         <div className="topic-card map-card">
           <div className="tc-head"><h3>会場マップ</h3></div>
           <p className="muted small" style={{ margin: '0 0 8px' }}>位置の目安を示す簡易マップです。地点をタップしても、状況の確認・投稿ができます。</p>
+          {p.geo && <LocateButton />}
           <div className="live-map">
             <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes}
               onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} />
@@ -405,6 +406,25 @@ function Confetti() {
           ['--x' as string]: `${c.x}px`, ['--y' as string]: `${c.y}px`, ['--r' as string]: `${c.r}deg`,
         }} />
       ))}
+    </div>
+  );
+}
+
+/** 地図の上の大きな「現在地」ボタン。押したときだけ端末に位置情報の許可を求める（位置は画面に出すだけで、送信・保存しない） */
+function LocateButton() {
+  const [state, setState] = useState<{ on: boolean; error: string }>({ on: false, error: '' });
+  useEffect(() => {
+    const h = (e: Event) => setState((e as CustomEvent<{ on: boolean; error: string }>).detail);
+    window.addEventListener('evenow:locate-state', h);
+    return () => window.removeEventListener('evenow:locate-state', h);
+  }, []);
+  return (
+    <div className="locate-big">
+      <button type="button" className={`tc-btn locate-big-btn ${state.on ? 'on' : ''}`} onClick={() => { setState((s) => ({ ...s, error: '' })); window.dispatchEvent(new Event('evenow:locate')); }}>
+        {state.on ? '📍 現在地の表示をやめる' : '📍 自分の位置を地図に表示する'}
+      </button>
+      <div className="muted small">押すと位置情報の許可を求められます。位置は地図に表示するだけで、送信・保存はしません。</div>
+      {state.error && <div className="locate-err" role="alert">{state.error}</div>}
     </div>
   );
 }
