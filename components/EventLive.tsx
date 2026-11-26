@@ -332,12 +332,22 @@ export default function EventLive(p: Props) {
           // 最新の状況（複数か所なら一番新しく投稿があった場所）
           const best = spots.map((s) => latestBySpot.get(s.id)).filter(Boolean).sort((a, b) => b!.created_at - a!.created_at)[0];
           const stale = best && freshness(best.created_at, now) === 'stale';
+          // 地点が複数あるときは「何か所が どの状況か」を数で見せる（1か所の満車で全部が満車に見えないように）
+          const fresh = spots.map((s) => latestBySpot.get(s.id)).filter((r): r is Report => !!r && freshness(r.created_at, now) !== 'stale');
+          const counts = [...fresh.reduce((m, r) => m.set(r.label, { level: r.level, n: (m.get(r.label)?.n ?? 0) + 1 }), new Map<string, { level: number; n: number }>())]
+            .sort((x, y) => x[1].level - y[1].level);
           return (
             <button key={tp.id} type="button" role="tab" aria-selected={tab === tp.id} aria-controls={`topic-${tp.id}`}
               className={`ev-tab ${tab === tp.id ? 'on' : ''}`} style={{ ['--c' as string]: cat?.color ?? '#64748b' }} onClick={() => openTab(tp.id)}>
               <span className="et-head"><span className="et-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={16} />}</span>
               <span className="et-name">{tp.id === 'shuttle' ? t('バス') : t(tp.title)}</span></span>
-              {best ? <span className={`et-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{lab(best.label)}</span>
+              {spots.length > 1 && counts.length > 0 ? (
+                <span className="et-val multi">
+                  {counts.slice(0, 2).map(([label, c]) => (
+                    <span key={label}><i style={{ background: levelColor(c.level) }} />{lab(label).split(/[・（(]/)[0]}{counts.length === 1 ? ` ${t('{n}か所', { n: c.n })}` : c.n}</span>
+                  ))}
+                </span>
+              ) : best ? <span className={`et-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{lab(best.label)}</span>
                 : <span className="et-val none">{t('投稿なし')}</span>}
             </button>
           );

@@ -954,3 +954,7 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .sb-me { display: block; text-align: center; margin-top: 10px; font-size: 12px; font-weight: 800; color: var(--muted); text-decoration: underline; }
 .go-round-l { font-size: 10px; white-space: nowrap; }
 .map-top ~ .pin-report, .topic-card + .pin-report { margin-top: 14px; }
+/* タブ：地点が複数あるときは「状況ごとの数」（色の点＋言葉＋数） */
+.et-val.multi { background: #fff !important; color: var(--ink) !important; border: 1.5px solid var(--border); display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; max-width: 100%; overflow: hidden; }
+.et-val.multi span { display: inline-flex; align-items: center; gap: 3px; }
+.et-val.multi i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--ink); display: inline-block; flex: none; }
