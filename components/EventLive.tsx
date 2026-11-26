@@ -175,9 +175,10 @@ export default function EventLive(p: Props) {
     }
     return out;
   };
-  const Chips = ({ s, className = '' }: { s: Spot; className?: string }) => {
+  const Chips = ({ s, className = '', none = false }: { s: Spot; className?: string; none?: boolean }) => {
     const cs = chipsOf(s);
-    return cs.length ? <span className={`spot-chips ${className}`}>{cs.map((c) => <span key={c.text} className={`spot-chip ${c.dist ? 'dist' : ''}`}>{c.text}</span>)}</span> : null;
+    if (!cs.length && !none) return null;
+    return <span className={`spot-chips ${className}`}>{cs.map((c) => <span key={c.text} className={`spot-chip ${c.dist ? 'dist' : ''}`}>{c.text}</span>)}{none && <span className="spot-none">{t('投稿なし')}</span>}</span>;
   };
   const distOf = (s: Spot) => (!placed(s) ? Infinity : me ? distM(me, [s.lat, s.lng]) : venueAt ? distM(venueAt, [s.lat, s.lng]) : Infinity);
 
@@ -511,8 +512,9 @@ export default function EventLive(p: Props) {
                   return (
                     <button key={s.id} id={`spot-${s.id}`} className={`tc-row spot-item ${highlight === s.id ? 'highlight' : ''}`} onClick={() => setSelected(s.id)}>
                       <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id], t); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{nearestId === s.id && <span className="origin-tag nearest">{t('いちばん近い')}</span>}{nameParts(s).title}</span>
-                        <span className="tc-sub">{latest ? when(s, latest) : t('投稿なし')}{latest?.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span>
-                        <Chips s={s} /></span>
+                        {/* 投稿があれば時間の行、無ければ「投稿なし」はチップと同じ行に（2段に収める） */}
+                        {latest && <span className="tc-sub">{when(s, latest)}{latest.mine && <span className="mine-tag">{t('あなたの投稿')}</span>}</span>}
+                        <Chips s={s} none={!latest} /></span>
                       {latest && pill(latest)}<span className="tc-arrow" aria-hidden>›</span>
                     </button>
                   );
