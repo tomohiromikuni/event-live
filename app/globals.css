@@ -828,3 +828,14 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 /* 上部の日程・場所：長いときは枠の中で「…」にする（はみ出さない） */
 .event-head .meta > span { min-width: 0; max-width: 100%; }
 .event-head .meta > span > .one-line { min-width: 0; flex: 1 1 auto; }
+
+/* 画面には出さず、検索エンジン・読み上げにだけ伝える */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+/* タブの上の1行：「いまの混雑」 */
+.now-bar { display: flex; align-items: baseline; gap: 10px; margin: 16px 2px 0; min-width: 0; }
+.now-bar .nb-title { font-weight: 900; font-size: 17px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.now-bar .nb-sub { font-size: 12px; font-weight: 700; color: var(--muted); min-width: 0; }
+.now-bar + .ev-tabs.seg { margin-top: 8px; }
+/* タブの状況を大きく（混んでる・空いてるが一目で分かるように） */
+.ev-tabs.seg .et-val { font-size: 12px; padding: 1px 8px; margin-top: 2px; }
+.ev-tabs.seg .et-val:not(.none) { border: 1.5px solid #fff; }

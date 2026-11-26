@@ -221,10 +221,14 @@ export default function EventLive(p: Props) {
 
   return (
     <section id="live" className="live-cards" style={{ scrollMarginTop: 70 }}>
-      <div className="now-sum">
-        {!p.postable ? p.postBlockedReason
-          : fresh.length ? <><span className="live-dot" />直近{FRESH_MIN}分で来場者から{fresh.length}件の投稿・最終 {relTime(newest!.created_at, now)}</>
-          : <>まだ投稿はありません。タップで投稿できます（登録不要）</>}
+      {/* タブの上は1行だけ：「いまの混雑」と、最終更新（または投稿の受付について） */}
+      <div className="now-bar">
+        <span className="nb-title">{fresh.length ? <span className="live-dot" /> : <span aria-hidden>📡</span>}いまの混雑</span>
+        <span className="nb-sub one-line">
+          {!p.postable ? p.postBlockedReason
+            : fresh.length ? `来場者${fresh.length}件・最終 ${relTime(newest!.created_at, now)}`
+            : '来場者がタップで共有（登録不要）'}
+        </span>
       </div>
 
       <div className="ev-tabs seg" role="tablist" aria-label="表示の切り替え" ref={tabsRef} style={{ ['--n' as string]: tabIds.length }}>

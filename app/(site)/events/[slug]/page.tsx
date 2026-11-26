@@ -267,7 +267,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           <span>このイベントでのあなたの投稿が、これまで<strong>{myViews.toLocaleString()}回</strong>見られました。ありがとうございます！<small>（あなたにだけ表示）</small></span>
         </a>
       )}
-      <h2 className="cards-title">駐車場・{e.shuttle_info ? 'シャトルバス・' : ''}トイレの現地の状況</h2>
+      {/* 検索エンジン向けの見出し（画面には出さない。すぐ下の「いまの混雑」が同じ役目） */}
+      <h2 className="sr-only">駐車場・{e.shuttle_info ? 'シャトルバス・' : ''}トイレの現地の状況</h2>
       <EventLive eventId={e.id} eventName={e.name} canvas={{ w: e.map_w, h: e.map_h }} geo={e.map_mode === 'geo'} simple={e.map_mode === 'simple'} center={e.lat || e.lng ? [e.lat, e.lng] : undefined} categories={categories} spots={spots} shapes={shapes}
         initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}
         official={{ parking: e.parking_info, shuttle: e.shuttle_info, traffic: e.traffic_info, toilet: e.toilet_info, food: e.food_info }}
