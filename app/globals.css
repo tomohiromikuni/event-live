@@ -38,7 +38,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .logo { font-weight: 900; font-size: 22px; letter-spacing: .01em; display: flex; align-items: center; gap: 8px; }
 .header-link { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; border-radius: 14px; border: var(--pop-border); background: #fff; box-shadow: 2px 2px 0 var(--ink); font-size: 14px; font-weight: 800; }
 .header-link:active { transform: translate(2px, 2px); box-shadow: none; }
-.site-footer { margin-top: 48px; padding: 24px 0 40px; border-top: 2.5px solid var(--ink); font-size: 12px; color: var(--muted); }
+.site-footer { margin-top: 28px; padding: 22px 0 36px; border-top: 2.5px solid var(--ink); font-size: 12px; color: var(--muted); }
 .site-footer p { margin: 4px 0; }
 .footer-logo { margin-bottom: 14px; }
 
@@ -1046,3 +1046,15 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .home-more { font-weight: 900; color: var(--brand); }
 @media (min-width: 720px) { .home-info { grid-template-columns: repeat(4, 1fr); } .home-steps { flex-direction: row; } .home-steps li { flex: 1; } }
 .hero-pitch.one { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; font-size: min(12.5px, 3.2vw); }
+/* フッター */
+.site-footer .footer-logo { margin-bottom: 12px; }
+.footer-links { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; margin: 0 0 14px; }
+.footer-links a { display: block; padding: 7px 0; font-size: 13px; font-weight: 800; color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--border); }
+.footer-note { font-size: 11px; line-height: 1.65; margin: 0 0 12px !important; }
+.footer-langs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; margin: 0 0 10px !important; }
+.footer-langs a { color: var(--muted); text-decoration: none; font-weight: 700; }
+.footer-langs a.on { color: var(--ink); text-decoration: underline; }
+.footer-copy { font-size: 11px; margin: 0 !important; }
+@media (min-width: 720px) { .footer-links { grid-template-columns: repeat(4, 1fr); } }
+/* 詳細ページの下の注意書きとフッターの間を詰める */
+.page-note { margin-top: 18px; padding-top: 12px; }

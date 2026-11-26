@@ -47,45 +47,36 @@ export async function SiteHeader() {
   );
 }
 
-/** 公開サイトのフッター */
+/** 公開サイトのフッター：ロゴ・リンク（2列）・短い注意書き・言語・著作表示 */
 export async function SiteFooter() {
   const lang = await getLang();
-  if (lang !== 'ja') {
-    const tx = makeTx(lang);
-    return (
-      <footer className="site-footer">
-        <div className="container">
-          <div className="footer-logo"><LogoLockup fontSize={30} /></div>
-          <p><strong>{tx('{site} is an unofficial service.', { site: SITE_NAME })}</strong> {tx('It is not affiliated with, approved by or partnered with any event organizer or venue.')}</p>
-          <p>{tx('Always check the official website for the latest information. Live status is reported by visitors and is not guaranteed to be accurate. Event information is machine-translated from Japanese.')}</p>
-          <p>
-            <Link href={`${lp(lang)}/guide`} style={{ textDecoration: 'underline' }}>{tx('Tips for events in Japan')}</Link>
-            {'　'}<Link href="/about#photo-credits" style={{ textDecoration: 'underline' }}>{tx('Photo credits')}</Link>
-            {'　'}<Link href="/contact" style={{ textDecoration: 'underline' }}>{tx('Contact (Japanese)')}</Link>
-          </p>
-          <p className="footer-langs">{LANGS.map((l) => <a key={l} href={langPath('/', l)} hrefLang={LANG_META[l].hreflang} lang={LANG_META[l].html}>{LANG_META[l].label}</a>)}</p>
-        </div>
-      </footer>
-    );
-  }
+  const ja = lang === 'ja';
+  const tx = makeTx(lang);
+  const links: [string, string][] = ja ? [
+    ['/about', 'イベナウについて'], ['/contact', 'お問い合わせ'],
+    ['/terms', '利用規約'], ['/privacy', 'プライバシーポリシー'],
+    ['/me', 'あなたの貢献実績'], ['/sponsor', 'スポンサー募集'],
+    ['/about#operator', '運営情報'], ['/about#photo-credits', '写真のクレジット'],
+  ] : [
+    [`${lp(lang)}/guide`, tx('Tips for events in Japan')], ['/contact', tx('Contact (Japanese)')],
+    ['/about#photo-credits', tx('Photo credits')],
+  ];
   return (
     <footer className="site-footer">
       <div className="container">
-        <div className="footer-logo"><LogoLockup fontSize={30} /></div>
-        {UNOFFICIAL && (
-          <p><strong>{SITE_NAME}（{SITE_NAME_KANA}）は非公式のサービスです。</strong>掲載している各イベントの主催者・運営団体・会場とは一切関係がなく、承認や提携も受けていません。</p>
-        )}
-        <p>最新・正確な情報は必ず各イベントの公式サイトでご確認ください。現地の状況は来場者による投稿で、内容の正確性は保証されません。</p>
-        <p>
-          <Link href="/about" style={{ textDecoration: 'underline' }}>イベナウについて・運営情報</Link>
-          <Link href="/terms" style={{ textDecoration: 'underline', marginLeft: 12 }}>利用規約</Link>
-          <Link href="/privacy" style={{ textDecoration: 'underline', marginLeft: 12 }}>プライバシーポリシー</Link>
-          <Link href="/me" style={{ textDecoration: 'underline', marginLeft: 12 }}>あなたの貢献実績</Link>
-          <Link href="/sponsor" style={{ textDecoration: 'underline', marginLeft: 12 }}>スポンサー募集</Link>
-          <Link href="/about#photo-credits" style={{ textDecoration: 'underline', marginLeft: 12 }}>写真のクレジット</Link>
-          {'　'}<Link href="/contact" style={{ textDecoration: 'underline' }}>お問い合わせ</Link>
+        <div className="footer-logo"><LogoLockup fontSize={24} /></div>
+        <nav className="footer-links" aria-label={ja ? 'サイトの案内' : 'Site'}>
+          {links.map(([href, label]) => <Link key={href} href={href}>{label}</Link>)}
+        </nav>
+        <p className="footer-note">
+          {ja
+            ? <>{UNOFFICIAL && <>{SITE_NAME}は<strong>非公式</strong>のサービスで、各イベントの主催者・会場とは関係ありません。</>}最新の情報は各イベントの公式サイトでご確認ください。現地の状況は来場者の投稿で、正確性は保証されません。</>
+            : <><strong>{tx('{site} is an unofficial service.', { site: SITE_NAME })}</strong> {tx('Always check the official website for the latest information. Live status is reported by visitors and is not guaranteed to be accurate. Event information is machine-translated from Japanese.')}</>}
         </p>
-        <p className="footer-langs">{LANGS.filter((l) => l !== 'ja').map((l) => <a key={l} href={langPath('/', l)} hrefLang={LANG_META[l].hreflang} lang={LANG_META[l].html}>{LANG_META[l].label}</a>)}</p>
+        <p className="footer-langs" aria-label="Language">
+          <span aria-hidden>🌐</span>{LANGS.map((l) => <a key={l} href={langPath('/', l)} hrefLang={LANG_META[l].hreflang} lang={LANG_META[l].html} className={l === lang ? 'on' : ''}>{LANG_META[l].label}</a>)}
+        </p>
+        <p className="footer-copy">© {new Date().getFullYear()} {SITE_NAME}</p>
       </div>
     </footer>
   );
