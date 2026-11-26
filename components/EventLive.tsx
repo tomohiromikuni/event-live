@@ -344,9 +344,10 @@ export default function EventLive(p: Props) {
               <span className="et-name">{tp.id === 'shuttle' ? t('バス') : t(tp.title)}</span></span>
               {spots.length > 1 && counts.length > 0 ? (
                 <span className="et-val multi">
-                  {counts.slice(0, 2).map(([label, c]) => (
-                    <span key={label}><i style={{ background: levelColor(c.level) }} />{lab(label).split(/[・（(]/)[0]}{counts.length === 1 ? ` ${t('{n}か所', { n: c.n })}` : c.n}</span>
-                  ))}
+                  {/* 1種類なら「● 満車 1か所」、2種類以上は色の点と数だけ（「●2 ●1」。色の意味は地図の凡例と同じ） */}
+                  {counts.length === 1
+                    ? counts.map(([label, c]) => <span key={label} title={lab(label)}><i style={{ background: levelColor(c.level) }} />{lab(label).split(/[・（(]/)[0]} {t('{n}か所', { n: c.n })}</span>)
+                    : counts.map(([label, c]) => <span key={label} title={`${lab(label)} ${t('{n}か所', { n: c.n })}`}><i style={{ background: levelColor(c.level) }} />{c.n}</span>)}
                 </span>
               ) : best ? <span className={`et-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{lab(best.label)}</span>
                 : <span className="et-val none">{t('投稿なし')}</span>}
