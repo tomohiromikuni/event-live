@@ -33,6 +33,8 @@ type Props = {
   postBlockedReason: string;
   /** 公式情報（管理者が情報元で確認した内容）。カードの「公式情報」に出す。空なら「未確認」 */
   official?: { parking?: string; shuttle?: string; traffic?: string; toilet?: string; food?: string };
+  /** 来場者の報告（ピン）の確認人数（spot_id → ある／見つからない／この端末の票） */
+  pins?: Record<number, { yes: number; no: number; mine: number }>;
   /** 「概要」タブの中身（開催概要。サーバーで作って渡す） */
   overview?: React.ReactNode;
   /** 現地情報を投稿した直後に出す共有（サンプル・非公開イベントでは出さない） */
@@ -53,8 +55,9 @@ const TOPICS = [
 ] as const;
 
 /** 公式の臨時・仮設、来場者の報告の目印（常設の施設と見分けるため） */
-function originTag(s: Spot, catSlug: string | undefined): { text: string; cls: string } | null {
+function originTag(s: Spot, catSlug: string | undefined, pin?: { yes: number }): { text: string; cls: string } | null {
   if (s.source === 'official_temp') return { text: catSlug === 'toilet' ? '仮設' : catSlug === 'parking' ? '臨時' : '公式', cls: 'temp' };
+  if (s.source === 'user') return (pin?.yes ?? 1) >= 2 ? { text: `${pin!.yes}人が確認`, cls: 'user ok' } : { text: '1人の報告', cls: 'user' };
   return null;
 }
 
@@ -75,7 +78,10 @@ export default function EventLive(p: Props) {
   const [highlight, setHighlight] = useState<number | null>(null);
 
   const catById = useMemo(() => new Map(p.categories.map((c) => [c.id, c])), [p.categories]);
-  const visibleSpots = useMemo(() => p.spots.filter((s) => catById.has(s.category_id)), [p.spots, catById]);
+  // 来場者の報告（この画面で追加したピンと、確認人数）
+  const [addedSpots, setAddedSpots] = useState<Spot[]>([]);
+  const [pins, setPins] = useState(p.pins ?? {});
+  const visibleSpots = useMemo(() => [...p.spots, ...addedSpots].filter((s) => catById.has(s.category_id)), [p.spots, addedSpots, catById]);
   const spotById = useMemo(() => new Map(visibleSpots.map((s) => [s.id, s])), [visibleSpots]);
 
   // タブ：駐車場・（シャトルバス）・トイレ・地図・概要。最初は駐車場（検索でいちばん探される）。#toilet などで開くタブを指定できる
@@ -164,9 +170,9 @@ export default function EventLive(p: Props) {
     const badge = latest && !stale ? `<span class="mk-badge" style="background:${levelColor(latest.level)}">${escapeHtml(latest.label)}</span>` : '';
     return {
       id: s.id, lat: s.lat, lng: s.lng, title: s.name,
-      html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}${s.source === 'guide' ? ' est' : ''}${s.source === 'official_temp' ? ' temp' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge || (originTag(s, c.slug) ? `<span class="mk-tag">${originTag(s, c.slug)!.text}</span>` : '')}</div>`,
+      html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}${s.source === 'guide' ? ' est' : ''}${s.source === 'official_temp' ? ' temp' : ''}${s.source === 'user' ? ` userpin${(pins[s.id]?.yes ?? 1) < 2 ? ' faint' : ''}` : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge || (originTag(s, c.slug, pins[s.id]) ? `<span class="mk-tag ${originTag(s, c.slug, pins[s.id])!.cls}">${originTag(s, c.slug, pins[s.id])!.text}</span>` : '')}</div>`,
     };
-  }), [visibleSpots, catById, latestBySpot, selected, now, tabCats, tab]);
+  }), [visibleSpots, catById, latestBySpot, selected, now, tabCats, tab, pins]);
 
   async function post(spotId: number, value: string) {
     if (posting) return;
@@ -206,6 +212,35 @@ export default function EventLive(p: Props) {
       window.scrollTo(0, y);
     };
   }, [sheetOpen]);
+
+  async function votePin(spotId: number, vote: number) {
+    try {
+      const res = await fetch('/api/pins/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spotId, vote }) });
+      const d = await res.json();
+      if (d.ok) { setPins((x) => ({ ...x, [spotId]: d.stat })); setToast({ msg: vote === 1 ? '確認ありがとうございます' : '「見つからない」を受け付けました' }); }
+      else setToast({ msg: d.error ?? '送れませんでした', error: true });
+    } catch { setToast({ msg: '通信エラーが発生しました', error: true }); }
+  }
+  async function reportPin(kind: 'toilet' | 'parking' | 'shuttle') {
+    setPinMenu(false);
+    if (!('geolocation' in navigator)) { setToast({ msg: 'この端末では現在地を使えません', error: true }); return; }
+    setToast({ msg: '現在地を確認しています…' });
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const res = await fetch('/api/pins', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId: p.eventId, kind, lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }) });
+        const d = await res.json();
+        if (!d.ok) { setToast({ msg: d.error ?? '報告できませんでした', error: true }); return; }
+        setPins((x) => ({ ...x, [d.spotId]: d.stat }));
+        if (d.spot) setAddedSpots((x) => [...x, d.spot as Spot]);
+        const cat = p.categories.find((c) => c.slug === kind);
+        if (cat && TOPICS.some((t) => t.id === kind)) setTab(kind);
+        setToast({ msg: d.merged ? 'すでに報告がある場所でした。確認として受け付けました' : '報告しました。ほかの人が確認すると、地図にはっきり出ます' });
+      } catch { setToast({ msg: '通信エラーが発生しました', error: true }); }
+    }, (err) => setToast({ msg: err.code === 1 ? '位置情報が許可されていません（上の「自分の位置を地図に表示する」で直し方を表示できます）' : '現在地を取得できませんでした', error: true }),
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+  }
+  const [pinMenu, setPinMenu] = useState(false);
 
   const sel = selected != null ? spotById.get(selected) : undefined;
   const selCat = sel ? catById.get(sel.category_id) : undefined;
@@ -291,7 +326,7 @@ export default function EventLive(p: Props) {
                   const latest = latestBySpot.get(s.id);
                   return (
                     <button key={s.id} id={`spot-${s.id}`} className={`tc-row spot-item ${highlight === s.id ? 'highlight' : ''}`} onClick={() => setSelected(s.id)}>
-                      <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{s.name}</span>
+                      <span className="tc-name"><span className="spot-name">{(() => { const tg = originTag(s, catById.get(s.category_id)?.slug, pins[s.id]); return tg ? <span className={`origin-tag ${tg.cls}`}>{tg.text}</span> : null; })()}{s.name}</span>
                         <span className="tc-sub">{latest ? when(s, latest) : s.source === 'official_temp' ? `投稿なし・${s.generic ? '地図の位置は未確認' : '位置は目安'}` : '投稿なし'}{latest?.mine && <span className="mine-tag">あなたの投稿</span>}</span></span>
                       {latest && pill(latest)}<span className="tc-arrow" aria-hidden>›</span>
                     </button>
@@ -354,6 +389,23 @@ export default function EventLive(p: Props) {
           <div className="tc-head"><h3>{tab === 'food' ? '屋台' : TOPICS.find((t) => t.id === tab)?.title ?? '会場'}の地図</h3></div>
           <p className="muted small one-line" style={{ margin: '0 0 8px' }}>地点をタップで、状況の確認・投稿ができます</p>
           {p.geo && <LocateButton />}
+          {p.geo && p.postable && (
+            <div className="pin-report">
+              {!pinMenu ? (
+                <button type="button" className="chip-btn" onClick={() => setPinMenu(true)}>＋ ここにトイレ・駐車場がある（現在地で報告）</button>
+              ) : (
+                <div className="pin-menu">
+                  <div className="small">いる場所に何がありますか？（位置をこの1回だけ送ります。公式の情報とは分けて表示します）</div>
+                  <div className="pin-btns">
+                    <button type="button" className="chip-btn" onClick={() => reportPin('toilet')}>🚻 トイレ</button>
+                    <button type="button" className="chip-btn" onClick={() => reportPin('parking')}>🅿️ 駐車場</button>
+                    <button type="button" className="chip-btn" onClick={() => reportPin('shuttle')}>🚌 乗り場</button>
+                    <button type="button" className="chip-btn ghost" onClick={() => setPinMenu(false)}>やめる</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="live-map">
             <LeafletMap canvas={p.canvas} geo={p.geo} center={p.center} markers={markers} shapes={mapShapes}
               onMarkerClick={setSelected} focus={sel && !sel.generic ? { lat: sel.lat, lng: sel.lng } : null} locate={p.geo} />
@@ -389,6 +441,17 @@ export default function EventLive(p: Props) {
                 📍 {sel.source === 'guide' ? 'この辺りに行く' : 'この場所に行く'}（Googleマップ）
               </a>
             ) : null}
+            {sel.source === 'user' && (
+              <div className="pin-check">
+                <div className="small"><strong>来場者の報告</strong>（公式の情報ではありません）・{(pins[sel.id]?.yes ?? 1) >= 2 ? `${pins[sel.id]!.yes}人が「ここにある」と確認` : 'まだ1人の報告です'}{(pins[sel.id]?.no ?? 0) > 0 && `・見つからない ${pins[sel.id]!.no}人`}</div>
+                {p.postable && (
+                  <div className="pin-btns">
+                    <button type="button" className={`chip-btn ${pins[sel.id]?.mine === 1 ? 'on' : ''}`} onClick={() => votePin(sel.id, 1)}>✓ ここにある</button>
+                    <button type="button" className={`chip-btn ${pins[sel.id]?.mine === -1 ? 'on' : ''}`} onClick={() => votePin(sel.id, -1)}>✗ 見つからない</button>
+                  </div>
+                )}
+              </div>
+            )}
             {selCat.options.length > 0 && selCat.slug !== 'food' ? (
               <>
                 {!p.postable && (

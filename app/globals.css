@@ -845,3 +845,17 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .origin-tag.temp { background: #ea580c; color: #fff; }
 .mk.temp { box-shadow: 0 0 0 2px var(--ink), 0 0 0 5px #ea580c; }
 .mk .mk-tag { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%); font-size: 10px; font-weight: 900; color: #fff; background: #ea580c; padding: 0 5px; border-radius: 999px; white-space: nowrap; }
+
+/* 来場者の報告（ピン）：1人目は薄く、確認が増えると普通に */
+.origin-tag.user { background: #e0e7ff; color: #3730a3; }
+.origin-tag.user.ok { background: #4338ca; color: #fff; }
+.mk.userpin { border-style: dashed !important; }
+.mk.userpin.faint { opacity: .55; }
+.mk .mk-tag.user { background: #4338ca; }
+.pin-report { margin: 0 0 10px; }
+.pin-menu { display: grid; gap: 6px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 8px 10px; }
+.pin-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip-btn.on { background: var(--ink); color: #fff; }
+.chip-btn.ghost { border-color: transparent; background: transparent; }
+.pin-check { margin: 8px 0; padding: 8px 10px; border-radius: 12px; background: #eef2ff; display: grid; gap: 6px; }
+@media (prefers-color-scheme: dark) { .pin-menu, .pin-check { background: #1e1b4b; border-color: #312e81; } }

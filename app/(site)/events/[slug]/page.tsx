@@ -14,6 +14,7 @@ import ShareBlock from '@/components/ShareBlock';
 import MapThumb from '@/components/MapThumb';
 import ThemeThumb from '@/components/ThemeThumb';
 import { themeFor } from '@/lib/themes';
+import { pinStats, pinVisible } from '@/lib/pins';
 import ViewBeacon from '@/components/ViewBeacon';
 import { eventTag, hashtagsFor, type TagContext } from '@/lib/hashtags';
 import { composePost, shareUrl } from '@/lib/share';
@@ -124,9 +125,11 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   if (isEnded(e.end_date)) return <EndedEvent e={e} />;
   const cid = await currentClientId();
   if (e.published) await recordViews(e.id).catch(() => {}); // 閲覧数の記録（貢献実績用）
-  const [genres, categories, spots, reports, shapes] = await Promise.all([
-    listGenres(), eventCategories(e.id, e.genre_id), eventSpots(e.id), recentReports(e.id, cid), eventShapes(e.id),
+  const [genres, categories, allSpots, reports, shapes, pins] = await Promise.all([
+    listGenres(), eventCategories(e.id, e.genre_id), eventSpots(e.id), recentReports(e.id, cid), eventShapes(e.id), pinStats(e.id).catch(() => ({})),
   ]);
+  // 来場者の報告（ピン）は「見つからない」が多いものを出さない
+  const spots = allSpots.filter((s) => s.source !== 'user' || pinVisible((pins as Record<number, { yes: number; no: number; mine: number }>)[s.id]));
   const genre = genres.find((g) => g.id === e.genre_id)!;
   // 前に投稿した人へ：その投稿が見られた回数（本人にだけ表示・実データのみ・少ないうちは出さない）
   const myViews = cid && !e.is_sample ? await myViewsInEvent(cid, e.id).catch(() => 0) : 0;
@@ -273,7 +276,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}
         official={{ parking: e.parking_info, shuttle: e.shuttle_info, traffic: e.traffic_info, toilet: e.toilet_info, food: e.food_info }}
         share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined}
-        overview={overview} />
+        overview={overview} pins={pins} />
 
       {!e.is_sample && e.published && (
         <ShareBlock eventId={e.id} tag={talkTag} url={shareUrl(base, eventPath, 'copy')}

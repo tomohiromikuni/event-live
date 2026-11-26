@@ -83,7 +83,7 @@ export async function hasUsefulInfo(eventId: number): Promise<boolean> {
   const r = await one<{ info: boolean; spots: number }>(`SELECT
       (e.parking_info <> '' OR e.shuttle_info <> '' OR e.toilet_info <> '' OR e.traffic_info <> '') AS info,
       (SELECT COUNT(*)::int FROM spots s JOIN spot_categories c ON c.id = s.category_id
-        WHERE s.event_id = e.id AND (s.generic = 0 OR s.source = 'official_temp') AND c.slug IN ('toilet', 'parking', 'shuttle')) AS spots
+        WHERE s.event_id = e.id AND (s.generic = 0 OR s.source = 'official_temp') AND s.source <> 'user' AND c.slug IN ('toilet', 'parking', 'shuttle')) AS spots
     FROM events e WHERE e.id = $1`, [eventId]);
   return !!r && (r.info || r.spots > 0);
 }
