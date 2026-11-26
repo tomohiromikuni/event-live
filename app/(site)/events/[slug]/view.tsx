@@ -348,14 +348,6 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
 
       {/* 注意書き・連絡先（いちばん下に小さく） */}
       <footer className="page-note">
-        {UNOFFICIAL && isEn && (
-          <p><strong>{tx('Unofficial')}</strong>　{tx('Please check the official announcements for the latest information.')}{e.official_url && <>{' '}<a href={e.official_url} target="_blank" rel="noopener noreferrer">{tx('Official site')} ↗</a></>}</p>
-        )}
-        {UNOFFICIAL && !isEn && (
-          <p>
-            <strong>非公式</strong>ページです。最新の情報は{e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">公式サイト</a> : '公式発表'}でご確認ください。
-          </p>
-        )}
         <p>
           <a href={`/contact?event=${encodeURIComponent(e.slug)}`} rel="nofollow">{t('訂正・お問い合わせ')}</a>
           {'　・　'}<a href={`/contact?type=removal&event=${encodeURIComponent(e.slug)}`} rel="nofollow">{t('掲載停止の申請')}</a>
