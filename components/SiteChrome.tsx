@@ -77,7 +77,9 @@ export async function SiteFooter() {
         )}
         <p>最新・正確な情報は必ず各イベントの公式サイトでご確認ください。現地の状況は来場者による投稿で、内容の正確性は保証されません。</p>
         <p>
-          <Link href="/about" style={{ textDecoration: 'underline' }}>このサイトについて</Link>
+          <Link href="/about" style={{ textDecoration: 'underline' }}>イベナウについて・運営情報</Link>
+          <Link href="/terms" style={{ textDecoration: 'underline', marginLeft: 12 }}>利用規約</Link>
+          <Link href="/privacy" style={{ textDecoration: 'underline', marginLeft: 12 }}>プライバシーポリシー</Link>
           <Link href="/me" style={{ textDecoration: 'underline', marginLeft: 12 }}>あなたの貢献実績</Link>
           <Link href="/sponsor" style={{ textDecoration: 'underline', marginLeft: 12 }}>スポンサー募集</Link>
           <Link href="/about#photo-credits" style={{ textDecoration: 'underline', marginLeft: 12 }}>写真のクレジット</Link>

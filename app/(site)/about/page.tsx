@@ -37,8 +37,17 @@ export default function About() {
       </section>
       <section className="section">
         <h2>投稿について</h2>
-        <p>投稿はログイン不要・匿名です。連続投稿の制限や通報の仕組みを設けており、不適切な投稿は削除することがあります。
+        <p>投稿はログイン不要・匿名です。連続投稿の制限を設けており、不適切な投稿は運営が確認して非表示・削除することがあります。
           IPアドレスはそのまま保存せず、不正対策のために変換した値のみを保存しています。</p>
+      </section>
+      <section className="section" id="operator" style={{ scrollMarginTop: 70 }}>
+        <h2>運営情報</h2>
+        <ul>
+          <li>サービス名：{SITE_NAME}（イベナウ）</li>
+          <li>運営：イベナウ運営（個人で運営しています）</li>
+          <li>連絡先：<Link href="/contact">お問い合わせフォーム</Link>（メールアドレスは迷惑メール対策のため掲載していません）</li>
+          <li><Link href="/terms">利用規約</Link>／<Link href="/privacy">プライバシーポリシー</Link></li>
+        </ul>
       </section>
       <section className="section" id="photo-credits" style={{ scrollMarginTop: 70 }}>
         <h2>写真のクレジット</h2>

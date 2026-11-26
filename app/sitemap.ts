@@ -17,6 +17,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/`, changeFrequency: 'hourly', priority: 1 },
     { url: `${base}/search`, changeFrequency: 'daily', priority: 0.6 },
     { url: `${base}/about`, changeFrequency: 'monthly', priority: 0.3 },
+    { url: `${base}/terms`, changeFrequency: 'yearly', priority: 0.1 },
+    { url: `${base}/privacy`, changeFrequency: 'yearly', priority: 0.1 },
+    { url: `${base}/sponsor`, changeFrequency: 'monthly', priority: 0.2 },
     ...events.map((e) => ({ url: `${base}/events/${e.slug}`, lastModified: new Date(e.updated_at), changeFrequency: 'hourly' as const, priority: 0.8 })),
     // 外国語版（英語・中国語・韓国語。イベントは訳のあるものだけ）
     ...FOREIGN.flatMap((l) => [
