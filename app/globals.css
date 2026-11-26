@@ -879,3 +879,5 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .search-box { position: relative; }
 .search-box .suggest-wrap { position: static; display: flex; }
 .search-box .suggest-list { left: 0; right: 0; }
+
+.page-info { margin-top: 24px; }

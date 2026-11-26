@@ -276,13 +276,18 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         initialReports={reports} serverNow={nowMs} postable={postable} postBlockedReason={blocked}
         official={{ parking: e.parking_info, shuttle: e.shuttle_info, traffic: e.traffic_info, toilet: e.toilet_info, food: e.food_info }}
         share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined}
-        overview={overview} pins={pins} />
+        pins={pins} />
 
       {!e.is_sample && e.published && (
         <ShareBlock eventId={e.id} tag={talkTag} url={shareUrl(base, eventPath, 'copy')}
           xText={composePost(shareLines, shareUrl(base, eventPath, 'x'), tags)}
           lineText={composePost(shareLines, shareUrl(base, eventPath, 'line'), tags, 1000)} />
       )}
+
+      {/* 開催概要（「みんなに伝える」の下） */}
+      <div className="topic-card info-card page-info" id="info" style={{ scrollMarginTop: 70 }}>
+        {overview}
+      </div>
 
       {/* 注意書き・連絡先（いちばん下に小さく） */}
       <footer className="page-note">
