@@ -1,6 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
-import { eventEn, type EventEn } from '@/lib/translate';
-import { fmtRangeEn, makeT, prefEn, type Lang } from '@/lib/i18n';
+import { eventI18n, translatedLangs, type EventEn } from '@/lib/translate';
+import { fmtRangeL, LANG_META, lp, makeT, makeTx, prefName, type Lang } from '@/lib/i18n';
 import type { Metadata } from 'next';
 import KindIcon from '@/components/Icon';
 import EventLive from '@/components/EventLive';
@@ -25,23 +25,27 @@ import { currentClientId, MIN_VIEWS_TO_SHOW, myViewsInEvent, recordViews } from 
 import { todayJST, weekendRange } from '@/lib/dates';
 
 
-/** 日本語版・英語版のページの情報（タイトル・説明・言語の対応） */
+/** 日本語版・外国語版のページの情報（タイトル・説明・言語の対応） */
 export async function eventMetadata(slug: string, lang: Lang): Promise<Metadata> {
   const e = await getEventBySlug(slug);
   if (!e) return {};
-  const en = await eventEn(e.id).catch(() => null);
-  const languages = en ? { ja: `/events/${e.slug}`, en: `/en/events/${e.slug}` } : undefined;
-  if (lang === 'en') {
-    const name = en?.name ?? e.name;
+  // 訳がある言語どうしを hreflang で結ぶ（訳が無い言語のページは検索エンジンに出さない）
+  const has = await translatedLangs(e.id);
+  const languages = has.length ? Object.fromEntries([['ja', `/events/${e.slug}`], ...has.map((l) => [LANG_META[l].hreflang, `${lp(l)}/events/${e.slug}`])]) : undefined;
+  if (lang !== 'ja') {
+    const tr = await eventI18n(e.id, lang).catch(() => null);
+    const tx = makeTx(lang);
+    const name = tr?.name ?? e.name;
     const year = /20\d\d/.test(name) ? '' : ` ${e.start_date.slice(0, 4)}`;
-    const title = `${name}${year}: parking, toilets & crowds now | EVENOW (unofficial)`;
-    const description = `${fmtRangeEn(e.start_date, e.end_date)} · ${en?.city ?? prefEn(e.prefecture)}${en?.venue_name ? `, ${en.venue_name}` : ''}. Live parking, shuttle and toilet status shared by visitors, plus official info and a venue map.`;
+    const title = tx('{name}{year}: parking, toilets & crowds now | EVENOW (unofficial)', { name, year });
+    const place = `${tr?.city ?? prefName(e.prefecture, lang)}${tr?.venue_name ? `, ${tr.venue_name}` : ''}`;
+    const description = tx('{d} · {place}. Live parking, shuttle and toilet status shared by visitors, plus official info and a venue map.', { d: fmtRangeL(e.start_date, e.end_date, lang), place });
     return {
       title: { absolute: title }, description,
-      alternates: { canonical: `/en/events/${e.slug}`, languages },
-      openGraph: { title, description, type: 'article', url: `/en/events/${e.slug}`, locale: 'en_US', images: [e.image_url || { url: `/og/${e.slug}`, width: 1200, height: 630, alt: title }] },
+      alternates: { canonical: `${lp(lang)}/events/${e.slug}`, languages },
+      openGraph: { title, description, type: 'article', url: `${lp(lang)}/events/${e.slug}`, locale: LANG_META[lang].og, images: [e.image_url || { url: `/og/${e.slug}`, width: 1200, height: 630, alt: title }] },
       // 訳がまだ無い・終了・サンプル・非公開は検索エンジンに出さない
-      robots: !en || isEnded(e.end_date) || e.is_sample || !e.published ? { index: false, follow: true } : undefined,
+      robots: !tr || isEnded(e.end_date) || e.is_sample || !e.published ? { index: false, follow: true } : undefined,
     };
   }
   if (isEnded(e.end_date)) {
@@ -105,7 +109,7 @@ function eventJsonLd(e: EventCard, url: string) {
 }
 
 const NONE = <span className="none">情報なし</span>;
-const NONE_EN = <span className="none">No info</span>;
+const noneL = (lang: Lang) => <span className="none">{makeTx(lang)('No info')}</span>;
 /** 開催概要の項目のアイコン（文字を減らして見やすく） */
 const INFO_ICON: Record<string, string> = { time_text: '🕒', venue: '📍', access: '🚃', nearest_station: '🚉', ticket_info: '🎫', organizer: '🏢', official_url: '🔗' };
 const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
@@ -113,12 +117,12 @@ const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\.
 const CARD_FIELDS = ['parking_info', 'shuttle_info', 'traffic_info', 'toilet_info', 'food_info'];
 
 function fieldValue(e: EventCard, key: string, lang: Lang = 'ja'): React.ReactNode {
-  const none = lang === 'en' ? NONE_EN : NONE;
+  const none = lang !== 'ja' ? noneL(lang) : NONE;
   switch (key) {
     case 'venue':
       return e.venue_name || e.address ? <>{e.venue_name}{e.address && <><br /><span className="muted small">{e.address}</span></>}</> : none;
     case 'official_url':
-      return e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">{lang === 'en' ? 'Open official site ↗' : '公式サイトを開く ↗'}</a> : none;
+      return e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">{lang !== 'ja' ? makeTx(lang)('Open official site ↗') : '公式サイトを開く ↗'}</a> : none;
     case 'extra_info':
       return null; // 個別の行として展開
     default: {
@@ -131,11 +135,12 @@ function fieldValue(e: EventCard, key: string, lang: Lang = 'ja'): React.ReactNo
 /** イベントページ（日本語版・英語版で共通）。英語版は AI で訳した中身（無ければ日本語のまま）と英語の画面の文字 */
 export async function EventView({ slug, searchParams, lang }: { slug: string; searchParams: Promise<{ ref?: string }>; lang: Lang }) {
   const t = makeT(lang);
-  const isEn = lang === 'en';
-  const prefix = isEn ? '/en' : '';
+  const isEn = lang !== 'ja'; // 外国語版
+  const tx = makeTx(lang);
+  const prefix = lp(lang);
   const raw = await getEventBySlug(slug);
   // 英語版：訳した項目で置き換える（訳の無い項目は日本語のまま）
-  const en: EventEn | null = isEn && raw ? await eventEn(raw.id).catch(() => null) : null;
+  const en: EventEn | null = isEn && raw ? await eventI18n(raw.id, lang).catch(() => null) : null;
   const e = raw && en ? ({ ...raw, ...Object.fromEntries(Object.entries(en).filter(([k, v]) => k !== 'spots' && typeof v === 'string' && v)) } as EventCard) : raw;
   if (!e) {
     // URLを変えたイベントの古いURL → いまのURLへ転送（?ref= などはそのまま引き継ぐ）
@@ -148,7 +153,7 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
   if (!e || !e.published) notFound();
   // 終了したイベントは「終了しました」の案内だけ（マップ・投稿・混雑状況は見せない。データは管理画面に残る）
   if (isEnded(e.end_date)) {
-    if (isEn) return <div className="container" style={{ paddingTop: 16 }}><h1>{e.name}</h1><p>This event has ended ({fmtRangeEn(e.start_date, e.end_date)}).</p></div>;
+    if (isEn) return <div className="container" style={{ paddingTop: 16 }}><h1>{e.name}</h1><p>{tx('This event has ended ({d}).', { d: fmtRangeL(e.start_date, e.end_date, lang) })}</p></div>;
     return <EndedEvent e={e} />;
   }
   const cid = await currentClientId();
@@ -181,10 +186,10 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
     : e.start_date <= wkEnd && e.end_date >= wkStart ? 'weekend' : 'default';
   // ハッシュタグは日本語の名前から（日本の来場者と同じタグに集まるように）
   const tags = hashtagsFor({ ...raw!, genre_slug: genre.slug }, tagCtx);
-  const fmt = isEn ? fmtRangeEn : fmtRange;
-  const place = isEn ? `${e.city || prefEn(raw!.prefecture)}` : `${e.city || e.prefecture}`;
+  const fmt = (a: string, b: string) => (isEn ? fmtRangeL(a, b, lang) : fmtRange(a, b));
+  const place = isEn ? `${e.city || prefName(raw!.prefecture, lang)}` : `${e.city || e.prefecture}`;
   const shareLines = isEn
-    ? [e.name, `📅 ${fmt(e.start_date, e.end_date)}`, `📍 ${place}, Japan`, 'Live parking & toilet status at the venue']
+    ? [e.name, `📅 ${fmt(e.start_date, e.end_date)}`, `📍 ${place}${lang === 'en' ? ', Japan' : ''}`, tx('Live parking & toilet status at the venue')]
     : [e.name, `📅 ${fmtRange(e.start_date, e.end_date)}`, `📍 ${e.prefecture}${e.city}`, 'トイレ・駐車場の混雑や待ち時間をチェック！'];
   const eventPath = `${prefix}/events/${e.slug}`;
   const liveTags = hashtagsFor({ ...raw!, genre_slug: genre.slug }, 'live');
@@ -192,7 +197,7 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
   const ongoing = isOngoing(e.start_date, e.end_date);
   const postable = e.status === 'scheduled' && ongoing;
   const blocked = isEn
-    ? (e.status === 'canceled' ? 'This event is canceled.' : e.status === 'postponed' ? 'This event is postponed.' : !ongoing ? `Reports open during the event (${fmt(e.start_date, e.end_date)})` : '')
+    ? (e.status === 'canceled' ? tx('This event is canceled.') : e.status === 'postponed' ? tx('This event is postponed.') : !ongoing ? tx('Reports open during the event ({d})', { d: fmt(e.start_date, e.end_date) }) : '')
     : e.status === 'canceled' ? 'このイベントは中止のため、投稿を受け付けていません。'
     : e.status === 'postponed' ? 'このイベントは延期のため、投稿を受け付けていません。'
     : !ongoing ? `投稿の受付は開催中（${fmtRange(e.start_date, e.end_date)}）だけです` : '';
@@ -242,8 +247,8 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
         })()}
         <p className="muted small one-line">
           {t('情報元：')}{e.source_url ? <a href={e.source_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>{hostOf(e.source_url)}</a> : (e.is_sample ? 'サンプルデータ' : '情報なし')}
-          {e.source_checked_at && (isEn ? ` (checked ${e.source_checked_at.slice(5).replace('-', '/')})` : `（${e.source_checked_at.slice(5).replace('-', '/')} 確認）`)}
-          {isEn && <><br />Event information is machine-translated from Japanese.</>}
+          {e.source_checked_at && (isEn ? ` (${tx('checked')} ${e.source_checked_at.slice(5).replace('-', '/')})` : `（${e.source_checked_at.slice(5).replace('-', '/')} 確認）`)}
+          {isEn && <><br />{tx('Event information is machine-translated from Japanese.')}</>}
         </p>
     </>
   );
@@ -290,7 +295,7 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
           </span>
           <span>
             <svg aria-label="場所" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
-            <span className="one-line">{place}{isEn ? ' · ' : '・'}{e.venue_name || (isEn ? 'Venue not confirmed' : '会場情報なし')}</span>
+            <span className="one-line">{place}{isEn ? ' · ' : '・'}{e.venue_name || (isEn ? tx('Venue not confirmed') : '会場情報なし')}</span>
           </span>
           {!isEn && !e.is_sample && views && views.total >= MIN_VIEWS_TO_SHOW && (
             <span>
@@ -322,10 +327,10 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
       )}
 
       {isEn && (
-        <a className="jp-tips" href="/en/guide">
-          <b>🇯🇵 First time at a Japanese event?</b>
-          <span>Toilet etiquette, trash rules, IC cards and saving a spot for fireworks.</span>
-          <span className="go">Read the tips →</span>
+        <a className="jp-tips" href={`${prefix}/guide`}>
+          <b>{tx('🇯🇵 First time at a Japanese event?')}</b>
+          <span>{tx('Toilet etiquette, trash rules, IC cards and saving a spot for fireworks.')}</span>
+          <span className="go">{tx('Read the tips →')}</span>
         </a>
       )}
 
@@ -337,7 +342,7 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
       {/* 注意書き・連絡先（いちばん下に小さく） */}
       <footer className="page-note">
         {UNOFFICIAL && isEn && (
-          <p><strong>Unofficial</strong> page. Check the {e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">official website</a> : 'official announcements'} for the latest information.</p>
+          <p><strong>{tx('Unofficial')}</strong>　{tx('Please check the official announcements for the latest information.')}{e.official_url && <>{' '}<a href={e.official_url} target="_blank" rel="noopener noreferrer">{tx('Official site')} ↗</a></>}</p>
         )}
         {UNOFFICIAL && !isEn && (
           <p>

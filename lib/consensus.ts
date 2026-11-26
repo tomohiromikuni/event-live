@@ -1,3 +1,4 @@
+import { makeTx, type Lang } from './i18n';
 import { FRESH_MIN, EXPIRE_MIN } from './freshness';
 
 /**
@@ -51,12 +52,13 @@ export function consensus<T extends Vote>(reports: T[], now: number): Consensus<
 }
 
 /** 表示用の短い説明（例：「3人中2人」「情報が分かれています（待ちなし／20分以上）」） */
-export function consensusNote(c: Consensus<Vote>, lang: 'ja' | 'en' = 'ja', tr: (l: string) => string = (l) => l): string {
+export function consensusNote(c: Consensus<Vote>, lang: Lang = 'ja', tr: (l: string) => string = (l) => l): string {
   if (c.stale) return '';
-  if (lang === 'en') {
-    if (c.split) return `mixed reports (${tr(c.report.label)} / ${tr(c.other ?? '')})`;
-    if (c.voters >= 2) return `${c.count} of ${c.voters} people`;
-    return '1 report';
+  if (lang !== 'ja') {
+    const tx = makeTx(lang);
+    if (c.split) return tx('mixed reports ({a} / {b})', { a: tr(c.report.label), b: tr(c.other ?? '') });
+    if (c.voters >= 2) return tx('{c} of {v} people', { c: c.count, v: c.voters });
+    return tx('1 report');
   }
   if (c.split) return `情報が分かれています（${c.report.label}／${c.other}）`;
   if (c.voters >= 2) return `${c.voters}人中${c.count}人`;

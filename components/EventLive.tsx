@@ -5,7 +5,7 @@ import KindIcon from '@/components/Icon';
 import { iconHtml } from '@/lib/icons';
 import { clockTime, FRESH_MIN, freshness, LEVEL_COLORS, levelColor, relTime } from '@/lib/freshness';
 import { consensus, consensusNote, type Consensus } from '@/lib/consensus';
-import { makeT, relTimeEn, trAuto, trLabel, type Lang, type T } from '@/lib/i18n';
+import { makeT, makeTx, relTimeL, trAuto, trLabel, type Lang, type T } from '@/lib/i18n';
 import type { Category, Report, Spot } from '@/lib/types';
 import type { MapMarker } from './LeafletMap';
 import ShareButtons from './ShareButtons';
@@ -79,7 +79,7 @@ function escapeHtml(s: string) {
 export default function EventLive(p: Props) {
   const lang: Lang = p.lang ?? 'ja';
   const t = useMemo(() => makeT(lang), [lang]);
-  const rel = (ts: number, n: number) => (lang === 'en' ? relTimeEn(ts, n) : relTime(ts, n));
+  const rel = (ts: number, n: number) => (lang !== 'ja' ? relTimeL(ts, n, lang) : relTime(ts, n));
   const lab = (l: string) => trLabel(l, lang);
   const nm = (x: string) => trAuto(p.spotNames?.[x] ?? x, lang);
   const [reports, setReports] = useState<Report[]>(p.initialReports);
@@ -304,7 +304,7 @@ export default function EventLive(p: Props) {
   const when = (s: Spot, latest: Report | undefined) => {
     const c = statusBySpot.get(s.id);
     if (!latest || !c) return '';
-    if (c.stale) return lang === 'en' ? `⚠️ from ${rel(latest.created_at, now)}` : `⚠️ ${rel(latest.created_at, now)}の情報`;
+    if (c.stale) return lang !== 'ja' ? makeTx(lang)('⚠️ from {t}', { t: rel(latest.created_at, now) }) : `⚠️ ${rel(latest.created_at, now)}の情報`;
     return `${rel(latest.created_at, now)}・${consensusNote(c, lang, lab)}`;
   };
 
@@ -401,6 +401,7 @@ export default function EventLive(p: Props) {
             )}
             {(() => {
               const traffic = tp.id === 'parking' ? p.official?.traffic?.trim() ?? '' : '';
+              if (!official && !traffic) return null; // 公式の案内が無いときは枠ごと出さない
               const long = official.length + traffic.length > 70;
               const body = (
                 <>
@@ -444,7 +445,7 @@ export default function EventLive(p: Props) {
             </div>
           )}
           {foodAreas.length > 0 && <div className="tc-when">{t('地図のオレンジの範囲が、屋台・飲食エリアです')}</div>}
-          <div className="tc-off"><span className="src-tag official">{t('公式情報')}</span><div style={{ whiteSpace: 'pre-wrap' }}>{p.official?.food?.trim() || <span className="none">{t('未確認')}</span>}</div></div>
+          {p.official?.food?.trim() && <div className="tc-off"><span className="src-tag official">{t('公式情報')}</span><div style={{ whiteSpace: 'pre-wrap' }}>{p.official.food.trim()}</div></div>}
         </div>
       )}
 

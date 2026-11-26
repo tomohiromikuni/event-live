@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import type * as L from 'leaflet';
 import { shapeStyle, type MapShape } from '@/lib/shapes';
+import { makeTx, type Lang } from '@/lib/i18n';
 
 export type MapMarker = { id: number; lat: number; lng: number; html: string; title: string; draggable?: boolean };
 
@@ -24,7 +25,7 @@ type Props = {
   /** geo のとき「現在地」ボタンを出す（位置はこの端末の画面に表示するだけ。サーバーには送らない・保存しない） */
   locate?: boolean;
   /** 地図のボタン・案内の言語 */
-  lang?: 'ja' | 'en';
+  lang?: Lang;
   /** 小さな地図（タップした施設の場所を見せる）：その施設を中心に表示し、近くにいれば自分の位置も入れる */
   mini?: boolean;
   /** 自分の位置（mini のときに青い点で出す。端末の画面の中だけ） */
@@ -129,13 +130,15 @@ export default function LeafletMap(props: Props) {
   /** 現在地がうまく使えないときの案内（端末・アプリ別） */
   function locateHelp(kind: 'denied' | 'failed' | 'unsupported') {
     const ua = navigator.userAgent;
-    if (cbRef.current.lang === 'en') {
-      if (/Line\/|FBAN|FBAV|Instagram|Twitter/i.test(ua)) return 'Location may not work inside apps. Open this page in Safari or your browser from the app menu.';
-      if (kind === 'unsupported') return 'Location is not available on this device or browser.';
-      if (kind === 'failed') return 'Could not get your location. Try again where the signal is better.';
-      if (/iPhone|iPad|iPod/.test(ua)) return 'Location is not allowed. On iPhone: Settings → Privacy & Security → Location Services → turn on, and set “Safari Websites” to “While Using”. Then tap again.';
-      if (/Android/.test(ua)) return 'Location is not allowed. Tap the lock (or ⓘ) icon in the address bar → Permissions → Location → Allow. Then tap again.';
-      return 'Location is not allowed. Allow location for this site from the lock icon in the address bar.';
+    const lang = cbRef.current.lang ?? 'ja';
+    if (lang !== 'ja') {
+      const tx = makeTx(lang);
+      if (/Line\/|FBAN|FBAV|Instagram|Twitter/i.test(ua)) return tx('Location may not work inside apps. Open this page in Safari or your browser from the app menu.');
+      if (kind === 'unsupported') return tx('Location is not available on this device or browser.');
+      if (kind === 'failed') return tx('Could not get your location. Try again where the signal is better.');
+      if (/iPhone|iPad|iPod/.test(ua)) return tx('Location is not allowed. On iPhone: Settings → Privacy & Security → Location Services → turn on, and set “Safari Websites” to “While Using”. Then tap again.');
+      if (/Android/.test(ua)) return tx('Location is not allowed. Tap the lock (or ⓘ) icon in the address bar → Permissions → Location → Allow. Then tap again.');
+      return tx('Location is not allowed. Allow location for this site from the lock icon in the address bar.');
     }
     if (/Line\/|FBAN|FBAV|Instagram|Twitter/i.test(ua)) return 'アプリの中のブラウザでは現在地を使えないことがあります。右上（または右下）のメニューから「Safari／ブラウザで開く」を選んで、開き直してください。';
     if (kind === 'unsupported') return 'この端末・ブラウザでは現在地を使えません。';
@@ -152,7 +155,8 @@ export default function LeafletMap(props: Props) {
     const Ctl = lib.Control.extend({
       onAdd() {
         const b = lib.DomUtil.create('button', 'locate-btn');
-        b.type = 'button'; b.textContent = cbRef.current.lang === 'en' ? '📍 My location' : '📍 現在地'; b.title = cbRef.current.lang === 'en' ? 'Show my location (never sent or saved)' : '現在地を表示（位置は送信・保存されません）';
+        b.type = 'button'; const tx = makeTx(cbRef.current.lang ?? 'ja'), ja = (cbRef.current.lang ?? 'ja') === 'ja';
+        b.textContent = ja ? '📍 現在地' : tx('📍 My location'); b.title = ja ? '現在地を表示（位置は送信・保存されません）' : tx('Show my location (never sent or saved)');
         lib.DomEvent.disableClickPropagation(b);
         // 地図の外の大きなボタン（EventLive）からも押せるようにし、状態・うまくいかない理由を知らせる
         const tell = (on: boolean, error = '', far = 0) => window.dispatchEvent(new CustomEvent('evenow:locate-state', { detail: { on, error, far } }));
@@ -206,7 +210,8 @@ export default function LeafletMap(props: Props) {
     const Home = lib.Control.extend({
       onAdd() {
         const b = lib.DomUtil.create('button', 'locate-btn home-btn');
-        b.type = 'button'; b.textContent = cbRef.current.lang === 'en' ? '🎪 Venue' : '🎪 会場へ'; b.title = cbRef.current.lang === 'en' ? 'Back to the venue' : '会場の表示に戻る';
+        b.type = 'button'; const tx = makeTx(cbRef.current.lang ?? 'ja'), ja = (cbRef.current.lang ?? 'ja') === 'ja';
+        b.type = 'button'; b.textContent = ja ? '🎪 会場へ' : tx('🎪 Venue'); b.title = ja ? '会場の表示に戻る' : tx('Back to the venue');
         lib.DomEvent.disableClickPropagation(b);
         b.onclick = () => homeRef.current?.();
         return b;

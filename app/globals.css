@@ -911,3 +911,13 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .sheet-map { margin: 8px 0 4px; border: 2.5px solid var(--ink); border-radius: 16px; overflow: hidden; }
 .sheet-map .map.mini-map { height: 170px; min-height: 0; max-height: none; border: 0; }
 .sheet-map-note { font-size: 12px; font-weight: 800; padding: 5px 10px; background: #eff6ff; color: #1e3a8a; border-top: 1.5px solid var(--border); }
+
+/* 言語の切り替え */
+.lang-menu { position: relative; }
+.lang-menu summary { list-style: none; cursor: pointer; }
+.lang-menu summary::-webkit-details-marker { display: none; }
+.lang-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 3000; background: #fff; border: 2.5px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink); padding: 6px; display: flex; flex-direction: column; min-width: 140px; }
+.lang-list a { padding: 8px 12px; border-radius: 10px; font-weight: 800; font-size: 14px; color: var(--ink); text-decoration: none; }
+.lang-list a.on { background: #fff3c4; }
+.footer-langs { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.footer-langs a { text-decoration: underline; }

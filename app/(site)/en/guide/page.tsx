@@ -1,11 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getLang } from '@/lib/lang';
+import { altLanguages, lp, makeTx } from '@/lib/i18n';
 
-export const metadata: Metadata = {
-  title: { absolute: 'Tips for festivals & events in Japan: toilets, trash, trains | EVENOW' },
-  description: 'Practical tips for visitors from abroad at Japanese festivals, fireworks and events: how toilets work, temporary toilets, trash rules, IC cards and saving a spot.',
-  alternates: { canonical: '/en/guide' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await getLang(), tx = makeTx(lang);
+  return {
+    title: { absolute: tx('Tips for festivals & events in Japan: toilets, trash, trains | EVENOW') },
+    description: tx('Practical tips for visitors from abroad at Japanese festivals, fireworks and events: how toilets work, temporary toilets, trash rules, IC cards and saving a spot.'),
+    alternates: { canonical: `${lp(lang)}/guide`, languages: altLanguages('/guide', false) },
+  };
+}
 
 /** 海外版だけのページ：日本のイベントで知っておくと困らないこと（運営者が書いた一般的な案内。イベントごとの情報ではない） */
 const TIPS: { h: string; items: [string, string][] }[] = [
@@ -32,20 +37,21 @@ const TIPS: { h: string; items: [string, string][] }[] = [
   ] },
 ];
 
-export default function GuideEn() {
+export default async function GuideForeign() {
+  const lang = await getLang(), tx = makeTx(lang);
   return (
     <div className="container guide-page" style={{ maxWidth: 760 }}>
-      <h1 className="page-title">Tips for events in Japan</h1>
-      <p className="muted">Short, practical tips for visitors from abroad. Rules can differ by event — always follow the venue’s signs and staff.</p>
+      <h1 className="page-title">{tx('Tips for events in Japan')}</h1>
+      <p className="muted">{tx('Short, practical tips for visitors from abroad. Rules can differ by event — always follow the venue’s signs and staff.')}</p>
       {TIPS.map((sec) => (
         <section className="section" key={sec.h}>
-          <h2>{sec.h}</h2>
+          <h2>{tx(sec.h)}</h2>
           {sec.items.map(([t, d]) => (
-            <div className="tip-card" key={t}><h3>{t}</h3><p>{d}</p></div>
+            <div className="tip-card" key={t}><h3>{tx(t)}</h3><p>{tx(d)}</p></div>
           ))}
         </section>
       ))}
-      <p><Link className="btn" href="/en">Find an event</Link></p>
+      <p><Link className="btn" href={lp(lang)}>{tx('Find an event')}</Link></p>
     </div>
   );
 }

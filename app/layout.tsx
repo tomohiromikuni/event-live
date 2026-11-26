@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import 'leaflet/dist/leaflet.css';
 import './globals.css';
 import { getLang } from '@/lib/lang';
+import { LANG_META } from '@/lib/i18n';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_NAME_KANA, UNOFFICIAL, siteUrl } from '@/lib/site';
 
 const OG_IMAGE = { url: '/og.png', width: 1200, height: 630, alt: `${SITE_NAME}（${SITE_NAME_KANA}）イベントの「今」がわかる。` };
@@ -21,7 +22,7 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1, them
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await getLang();
   return (
-    <html lang={lang}>
+    <html lang={LANG_META[lang].html}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

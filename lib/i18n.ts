@@ -1,10 +1,31 @@
 /**
- * 画面の言語（日本語・英語）。日本語の文言をそのまま「鍵」にして、英語のときだけ置き換える
- * （日本語版の文言を書き換えずに済み、訳が無い文言は日本語のまま出る）。
+ * 画面の言語（日本語・英語・中国語 簡体字／繁体字・韓国語）。日本語の文言をそのまま「鍵」にして英語へ置き換え、
+ * 中国語・韓国語は英語の文言を鍵にして置き換える（lib/i18n-dict.ts・繁体字は自動生成の lib/i18n-zht.ts）。
+ * 訳が無い文言は英語（英語にも無ければ日本語）のまま出る。
  * {n} などは差し込み。イベントの中身（名前・公式情報・施設名）は AI で訳したもの（lib/translate.ts）を使う。
  */
-export type Lang = 'ja' | 'en';
-export const LANGS: Lang[] = ['ja', 'en'];
+import { DICT } from './i18n-dict';
+import { ZHT } from './i18n-zht';
+
+export type Lang = 'ja' | 'en' | 'zh' | 'zh-tw' | 'ko';
+export const LANGS: Lang[] = ['ja', 'en', 'zh', 'zh-tw', 'ko'];
+/** 外国語版（URL の頭に /en・/zh・/zh-tw・/ko） */
+export const FOREIGN: Exclude<Lang, 'ja'>[] = ['en', 'zh', 'zh-tw', 'ko'];
+export const LANG_META: Record<Lang, { label: string; short: string; hreflang: string; html: string; og: string; locale: string }> = {
+  ja: { label: '日本語', short: '日本語', hreflang: 'ja', html: 'ja', og: 'ja_JP', locale: 'ja-JP' },
+  en: { label: 'English', short: 'EN', hreflang: 'en', html: 'en', og: 'en_US', locale: 'en-US' },
+  zh: { label: '简体中文', short: '简体', hreflang: 'zh-Hans', html: 'zh-Hans', og: 'zh_CN', locale: 'zh-CN' },
+  'zh-tw': { label: '繁體中文', short: '繁體', hreflang: 'zh-Hant', html: 'zh-Hant', og: 'zh_TW', locale: 'zh-TW' },
+  ko: { label: '한국어', short: '한국어', hreflang: 'ko', html: 'ko', og: 'ko_KR', locale: 'ko-KR' },
+};
+export const isLang = (x: string | null | undefined): x is Lang => !!x && (LANGS as string[]).includes(x);
+/** URL の頭（日本語は ''） */
+export const lp = (lang: Lang) => (lang === 'ja' ? '' : `/${lang}`);
+/** hreflang の対応表（bare は日本語版のパス。withJa=false は外国語版だけのページ） */
+export function altLanguages(bare: string, withJa = true): Record<string, string> {
+  const path = (l: Lang) => `${lp(l)}${bare === '/' ? '' : bare}` || '/';
+  return Object.fromEntries(LANGS.filter((l) => withJa || l !== 'ja').map((l) => [LANG_META[l].hreflang, path(l)]));
+}
 
 const EN: Record<string, string> = {
   // 上部・タブ
@@ -53,7 +74,7 @@ const EN: Record<string, string> = {
   '投稿は開催期間中のみ受け付けています': 'Reports are accepted only during the event', '報告は開催中だけ受け付けています': 'Reports are accepted only during the event',
   '会場の近く（1.5km以内）にいるときだけ報告できます': 'You can report only within 1.5 km of the venue',
   // みんなに伝える・ページ下部
-  'みんなに伝える': 'Share', 'X に投稿する': 'Post on X', 'LINE で送る': 'Send on LINE', '🔗 リンクをコピー': '🔗 Copy link', 'コピーしました': 'Copied',
+  'みんなに伝える': 'Share', 'に投稿する': 'Post', 'LINE で送る': 'Send on LINE', '🔗 リンクをコピー': '🔗 Copy link', 'コピーしました': 'Copied',
   'ほかのアプリで送る': 'Share via…', 'X でみんなの投稿を見る →': 'See posts on X →', 'X に投稿すると ': 'Posting on X adds ', ' が付き、同じイベントに行く人とつながれます': ' so you can connect with others at the event',
   '開催概要': 'Event details', '開催時間': 'Hours', '開催場所': 'Venue', 'アクセス': 'Access', '最寄り駅': 'Nearest station', '入場料・チケット': 'Tickets', '主催者': 'Organizer', '公式サイト': 'Official site',
   '開催状況': 'Status', '開催予定': 'Scheduled', '中止': 'Canceled', '延期': 'Postponed', '公式サイトを開く ↗': 'Open official site ↗', '未確認：': 'Not confirmed: ', '情報元：': 'Source: ', '確認': 'checked',
@@ -63,40 +84,103 @@ const EN: Record<string, string> = {
   '開催中・近日のイベント': 'Happening now & soon', '開催予定のイベント': 'Upcoming events', '件': ' events', '探す': 'Search', '実績': 'Me',
 };
 
-export type T = (key: string, vars?: Record<string, string | number>) => string;
-
-export function makeT(lang: Lang = 'ja'): T {
-  return (key, vars) => {
-    let s = lang === 'en' ? EN[key] ?? key : key;
-    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
-    return s;
-  };
+function fill(s: string, vars?: Record<string, string | number>) {
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
+  return s;
+}
+/** 英語の文言を中国語・韓国語へ（無ければ英語のまま） */
+function fromEn(en: string, lang: Lang): string {
+  if (lang === 'zh') return DICT[en]?.[0] ?? en;
+  if (lang === 'ko') return DICT[en]?.[1] ?? en;
+  if (lang === 'zh-tw') return ZHT[en] ?? en;
+  return en;
 }
 
-/** 投稿の選択肢（DB の日本語の表示名）→ 英語 */
+export type T = (key: string, vars?: Record<string, string | number>) => string;
+
+/** 日本語の文言を鍵にした翻訳（日本語版の文言をそのまま使える） */
+export function makeT(lang: Lang = 'ja'): T {
+  return (key, vars) => fill(lang === 'ja' ? key : fromEn(EN[key] ?? key, lang), vars);
+}
+/** 英語の文言を鍵にした翻訳（外国語版だけのページ・英語で書いた文言用） */
+export function makeTx(lang: Lang): T {
+  return (en, vars) => fill(fromEn(en, lang), vars);
+}
+
+/** 投稿の選択肢（DB の日本語の表示名）→ 各言語 */
 const LABEL_EN: Record<string, string> = {
   '空いている': 'No line', '少し並ぶ': 'Short line', '長い列': 'Long line', 'すぐ乗れる': 'Board now', '長い列（30分以上の目安）': 'Long line (30+ min)', '運休・終了': 'Not running',
   '空きあり': 'Spaces', '残りわずか': 'Almost full', '満車・入庫待ち': 'Full / queue', 'スムーズ': 'Smooth', 'やや渋滞': 'Slow', '渋滞': 'Jammed', '通行止め': 'Closed',
   'やや混雑': 'A bit busy', '混雑': 'Busy', '非常に混雑': 'Very busy',
 };
-export const trLabel = (label: string, lang: Lang) => (lang === 'en' ? LABEL_EN[label] ?? label : label);
+export const trLabel = (label: string, lang: Lang) => (lang === 'ja' ? label : fromEn(LABEL_EN[label] ?? label, lang));
 
-const DIR_EN: Record<string, string> = { 北: 'north', 北東: 'northeast', 東: 'east', 南東: 'southeast', 南: 'south', 南西: 'southwest', 西: 'west', 北西: 'northwest' };
-/** 自動で作った施設名・説明（「トイレ（会場から北へ約200m）」「立体・有料・規模：中（目安）」など）を英語に */
+type Auto = {
+  dir: Record<string, string>; ofYou: (n: string, u: string, d: string) => string; near: string;
+  ofVenue: (m: string, d: string) => string; within: (d: string) => string;
+  paren: (a: string, b: string) => string; toilet: string; toilets: string; parking: string; nearby: string;
+  size: Record<string, string>; cars: (s: string, n: string) => string; approx: (s: string) => string; words: [RegExp, string][]; sep: string;
+};
+const ZH_WORDS: [RegExp, string][] = [
+  [/立体/g, '立体'], [/地下/g, '地下'], [/平面/g, '平面'], [/有料/g, '收费'], [/無料/g, '免费'], [/車いす対応/g, '无障碍'], [/おむつ替え台/g, '换尿布台'], [/男女共用/g, '男女共用'],
+  [/臨時駐車場（公式・(公式サイト|ガイドマップ)）/g, '临时停车场（官方）'], [/仮設トイレ（公式・(公式サイト|ガイドマップ)）/g, '临时厕所（官方）'], [/シャトルバス乗り場（公式・(公式サイト|ガイドマップ)）/g, '接驳巴士乘车处（官方）'],
+  [/位置は名前からの目安/g, '根据名称推测的大致位置'], [/地図の位置は未確認/g, '位置未确认'], [/位置は地図データの同じ名前の施設/g, '按名称定位'], [/（来場者の報告）/g, '（到场者报告）'],
+  [/来場者が現地から報告した場所（公式の情報ではありません）/g, '到场者在现场报告的地点（非官方信息）'],
+];
+const ZHT_WORDS: [RegExp, string][] = ZH_WORDS.map(([r, w]) => [r, w.replace('收费', '收費').replace('免费', '免費').replace('无障碍', '無障礙').replace('换尿布台', '尿布台').replace('临时停车场', '臨時停車場').replace('临时厕所', '臨時廁所')
+  .replace('接驳巴士乘车处', '接駁巴士乘車處').replace('根据名称推测的大致位置', '依名稱推測的大致位置').replace('位置未确认', '位置未確認').replace('按名称定位', '依名稱定位').replace('到场者报告', '到場者回報')
+  .replace('到场者在现场报告的地点（非官方信息）', '到場者在現場回報的地點（非官方資訊）')]);
+const AUTO: Record<Exclude<Lang, 'ja'>, Auto> = {
+  en: {
+    dir: { 北: 'north', 北東: 'northeast', 東: 'east', 南東: 'southeast', 南: 'south', 南西: 'southwest', 西: 'west', 北西: 'northwest' },
+    ofYou: (n, u, d) => `about ${n} ${u} ${d} of you`, near: 'right near you', ofVenue: (m, d) => `about ${m} m ${d} of the venue`, within: (d) => `within 100 m ${d} of the venue`,
+    paren: (a, b) => `${a} (${b})`, toilet: 'Toilet', toilets: 'Toilets', parking: 'Parking', nearby: 'nearby',
+    size: { 大: 'Large', 中: 'Medium', 小: 'Small' }, cars: (s, n) => `${s} (~${n} cars)`, approx: (s) => `${s} (approx.)`,
+    words: [
+      [/立体/g, 'Multi-storey'], [/地下/g, 'Underground'], [/平面/g, 'Open-air'], [/有料/g, 'Paid'], [/無料/g, 'Free'], [/車いす対応/g, 'Wheelchair'], [/おむつ替え台/g, 'Baby changing'], [/男女共用/g, 'Unisex'],
+      [/臨時駐車場（公式・(公式サイト|ガイドマップ)）/g, 'Temporary parking (official)'], [/仮設トイレ（公式・(公式サイト|ガイドマップ)）/g, 'Temporary toilets (official)'], [/シャトルバス乗り場（公式・(公式サイト|ガイドマップ)）/g, 'Shuttle stop (official)'],
+      [/位置は名前からの目安/g, 'approx. location'], [/地図の位置は未確認/g, 'location not confirmed'], [/位置は地図データの同じ名前の施設/g, 'located by name'], [/（来場者の報告）/g, ' (visitor report)'],
+      [/来場者が現地から報告した場所（公式の情報ではありません）/g, 'Reported by a visitor (not official)'],
+    ], sep: ' · ',
+  },
+  zh: {
+    dir: { 北: '北', 北東: '东北', 東: '东', 南東: '东南', 南: '南', 南西: '西南', 西: '西', 北西: '西北' },
+    ofYou: (n, u, d) => `在你${d}方约${n}${u}`, near: '就在你附近', ofVenue: (m, d) => `在会场${d}方约${m}m`, within: (d) => `在会场${d}方100m以内`,
+    paren: (a, b) => `${a}（${b}）`, toilet: '厕所', toilets: '厕所', parking: '停车场', nearby: '周边',
+    size: { 大: '大', 中: '中', 小: '小' }, cars: (s, n) => `规模：${s}（约${n}辆）`, approx: (s) => `规模：${s}（估计）`, words: ZH_WORDS, sep: '・',
+  },
+  'zh-tw': {
+    dir: { 北: '北', 北東: '東北', 東: '東', 南東: '東南', 南: '南', 南西: '西南', 西: '西', 北西: '西北' },
+    ofYou: (n, u, d) => `在你${d}方約${n}${u}`, near: '就在你附近', ofVenue: (m, d) => `在會場${d}方約${m}m`, within: (d) => `在會場${d}方100m以內`,
+    paren: (a, b) => `${a}（${b}）`, toilet: '廁所', toilets: '廁所', parking: '停車場', nearby: '周邊',
+    size: { 大: '大', 中: '中', 小: '小' }, cars: (s, n) => `規模：${s}（約${n}輛）`, approx: (s) => `規模：${s}（估計）`, words: ZHT_WORDS, sep: '・',
+  },
+  ko: {
+    dir: { 北: '북', 北東: '북동', 東: '동', 南東: '남동', 南: '남', 南西: '남서', 西: '서', 北西: '북서' },
+    ofYou: (n, u, d) => `내 위치에서 ${d}쪽 약 ${n}${u}`, near: '바로 근처', ofVenue: (m, d) => `행사장에서 ${d}쪽 약 ${m}m`, within: (d) => `행사장에서 ${d}쪽 100m 이내`,
+    paren: (a, b) => `${a} (${b})`, toilet: '화장실', toilets: '화장실', parking: '주차장', nearby: '주변',
+    size: { 大: '대', 中: '중', 小: '소' }, cars: (s, n) => `규모: ${s} (약 ${n}대)`, approx: (s) => `규모: ${s} (추정)`,
+    words: [
+      [/立体/g, '입체'], [/地下/g, '지하'], [/平面/g, '평면'], [/有料/g, '유료'], [/無料/g, '무료'], [/車いす対応/g, '휠체어 이용 가능'], [/おむつ替え台/g, '기저귀 교환대'], [/男女共用/g, '남녀 공용'],
+      [/臨時駐車場（公式・(公式サイト|ガイドマップ)）/g, '임시 주차장 (공식)'], [/仮設トイレ（公式・(公式サイト|ガイドマップ)）/g, '임시 화장실 (공식)'], [/シャトルバス乗り場（公式・(公式サイト|ガイドマップ)）/g, '셔틀버스 승차장 (공식)'],
+      [/位置は名前からの目安/g, '이름으로 찾은 대략적인 위치'], [/地図の位置は未確認/g, '위치 미확인'], [/位置は地図データの同じ名前の施設/g, '이름으로 위치 확인'], [/（来場者の報告）/g, ' (방문자 제보)'],
+      [/来場者が現地から報告した場所（公式の情報ではありません）/g, '방문자가 현장에서 제보한 장소 (공식 정보 아님)'],
+    ], sep: ' · ',
+  },
+};
+const D = '(北東|北西|南東|南西|北|東|南|西)';
+/** 自動で作った施設名・説明（「トイレ（会場から北へ約200m）」「立体・有料・規模：中（目安）」など）を各言語に */
 export function trAuto(text: string, lang: Lang): string {
-  if (lang !== 'en' || !text) return text;
-  return text
-    .replace(/あなたから(北東|北西|南東|南西|北|東|南|西)へ約([\d.]+)(m|km)/g, (_, d, n, u) => `about ${n} ${u} ${DIR_EN[d]} of you`).replace(/あなたのすぐ近く/g, 'right near you')
-    .replace(/会場から(北東|北西|南東|南西|北|東|南|西)へ(100m以内|約(\d+)m)/g, (_, d, all, m) => (m ? `about ${m} m ${DIR_EN[d]} of the venue` : `within 100 m ${DIR_EN[d]} of the venue`))
-    .replace(/^トイレ（(.+)）$/, 'Toilet ($1)').replace(/^駐車場（(.+)）$/, 'Parking ($1)').replace(/^駐車場（周辺）$/, 'Parking (nearby)').replace(/^トイレ$/, 'Toilets')
-    .replace(/規模：(大|中|小)（約(\d+)台）/, (_, s, n) => `${{ 大: 'Large', 中: 'Medium', 小: 'Small' }[s as '大']} (~${n} cars)`)
-    .replace(/規模：(大|中|小)（目安）/, (_, s) => `${{ 大: 'Large', 中: 'Medium', 小: 'Small' }[s as '大']} (approx.)`)
-    .replace(/立体/g, 'Multi-storey').replace(/地下/g, 'Underground').replace(/平面/g, 'Open-air').replace(/有料/g, 'Paid').replace(/無料/g, 'Free')
-    .replace(/車いす対応/g, 'Wheelchair').replace(/おむつ替え台/g, 'Baby changing').replace(/男女共用/g, 'Unisex')
-    .replace(/臨時駐車場（公式・(公式サイト|ガイドマップ)）/g, 'Temporary parking (official)').replace(/仮設トイレ（公式・(公式サイト|ガイドマップ)）/g, 'Temporary toilets (official)')
-    .replace(/シャトルバス乗り場（公式・(公式サイト|ガイドマップ)）/g, 'Shuttle stop (official)').replace(/位置は名前からの目安/g, 'approx. location').replace(/地図の位置は未確認/g, 'location not confirmed')
-    .replace(/位置は地図データの同じ名前の施設/g, 'located by name').replace(/（来場者の報告）/g, ' (visitor report)').replace(/来場者が現地から報告した場所（公式の情報ではありません）/g, 'Reported by a visitor (not official)')
-    .replace(/・/g, ' · ');
+  if (lang === 'ja' || !text) return text;
+  const a = AUTO[lang];
+  let s = text
+    .replace(new RegExp(`あなたから${D}へ約([\\d.]+)(m|km)`, 'g'), (_, d, n, u) => a.ofYou(n, u, a.dir[d])).replace(/あなたのすぐ近く/g, a.near)
+    .replace(new RegExp(`会場から${D}へ(100m以内|約(\\d+)m)`, 'g'), (_, d, _all, m) => (m ? a.ofVenue(m, a.dir[d]) : a.within(a.dir[d])))
+    .replace(/^トイレ（(.+)）$/, (_, x) => a.paren(a.toilet, x)).replace(/^駐車場（周辺）$/, a.paren(a.parking, a.nearby)).replace(/^駐車場（(.+)）$/, (_, x) => a.paren(a.parking, x)).replace(/^トイレ$/, a.toilets)
+    .replace(/規模：(大|中|小)（約(\d+)台）/, (_, z, n) => a.cars(a.size[z], n))
+    .replace(/規模：(大|中|小)（目安）/, (_, z) => a.approx(a.size[z]));
+  for (const [r, w] of a.words) s = s.replace(r, w);
+  return s.replace(/・/g, a.sep);
 }
 
 const PREF_EN: Record<string, string> = {
@@ -106,19 +190,37 @@ const PREF_EN: Record<string, string> = {
   鳥取県: 'Tottori', 島根県: 'Shimane', 岡山県: 'Okayama', 広島県: 'Hiroshima', 山口県: 'Yamaguchi', 徳島県: 'Tokushima', 香川県: 'Kagawa', 愛媛県: 'Ehime', 高知県: 'Kochi', 福岡県: 'Fukuoka',
   佐賀県: 'Saga', 長崎県: 'Nagasaki', 熊本県: 'Kumamoto', 大分県: 'Oita', 宮崎県: 'Miyazaki', 鹿児島県: 'Kagoshima', 沖縄県: 'Okinawa',
 };
+const PREF_KO: Record<string, string> = {
+  北海道: '홋카이도', 青森県: '아오모리현', 岩手県: '이와테현', 宮城県: '미야기현', 秋田県: '아키타현', 山形県: '야마가타현', 福島県: '후쿠시마현', 茨城県: '이바라키현', 栃木県: '도치기현', 群馬県: '군마현',
+  埼玉県: '사이타마현', 千葉県: '지바현', 東京都: '도쿄도', 神奈川県: '가나가와현', 新潟県: '니가타현', 富山県: '도야마현', 石川県: '이시카와현', 福井県: '후쿠이현', 山梨県: '야마나시현', 長野県: '나가노현',
+  岐阜県: '기후현', 静岡県: '시즈오카현', 愛知県: '아이치현', 三重県: '미에현', 滋賀県: '시가현', 京都府: '교토부', 大阪府: '오사카부', 兵庫県: '효고현', 奈良県: '나라현', 和歌山県: '와카야마현',
+  鳥取県: '돗토리현', 島根県: '시마네현', 岡山県: '오카야마현', 広島県: '히로시마현', 山口県: '야마구치현', 徳島県: '도쿠시마현', 香川県: '가가와현', 愛媛県: '에히메현', 高知県: '고치현', 福岡県: '후쿠오카현',
+  佐賀県: '사가현', 長崎県: '나가사키현', 熊本県: '구마모토현', 大分県: '오이타현', 宮崎県: '미야자키현', 鹿児島県: '가고시마현', 沖縄県: '오키나와현',
+};
 export const prefEn = (p: string) => PREF_EN[p] ?? p;
+/** 都道府県名（中国語は漢字のまま） */
+export const prefName = (p: string, lang: Lang) => (lang === 'en' ? prefEn(p) : lang === 'ko' ? PREF_KO[p] ?? p : p);
 
-/** 日付の範囲（英語）：Nov 20 – Dec 25, 2026 */
-export function fmtRangeEn(start: string, end: string): string {
-  const f = (d: string, year = false) => new Date(`${d}T00:00:00+09:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' } : {}), timeZone: 'Asia/Tokyo' });
-  return start === end ? f(start, true) : `${f(start)} – ${f(end, true)}`;
+/** 日付の範囲：Nov 20 – Dec 25, 2026 ／ 2026年11月20日～12月25日 ／ 2026년 11월 20일 ~ 12월 25일 */
+export function fmtRangeL(start: string, end: string, lang: Lang): string {
+  const loc = LANG_META[lang].locale;
+  const f = (d: string, o: Intl.DateTimeFormatOptions) => new Date(`${d}T00:00:00+09:00`).toLocaleDateString(loc, { ...o, timeZone: 'Asia/Tokyo' });
+  if (lang === 'en' || lang === 'ja') {
+    return start === end ? f(start, { month: 'short', day: 'numeric', year: 'numeric' }) : `${f(start, { month: 'short', day: 'numeric' })} – ${f(end, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  }
+  const md = { month: 'long', day: 'numeric' } as const, ymd = { year: 'numeric', month: 'long', day: 'numeric' } as const;
+  if (start === end) return f(start, ymd);
+  return `${f(start, ymd)} ~ ${start.slice(0, 4) === end.slice(0, 4) ? f(end, md) : f(end, ymd)}`;
 }
+export const fmtRangeEn = (start: string, end: string) => fmtRangeL(start, end, 'en');
 
-/** 「○分前」の英語版 */
-export function relTimeEn(ts: number, now: number): string {
+/** 「○分前」の外国語版 */
+export function relTimeL(ts: number, now: number, lang: Lang): string {
+  const tx = makeTx(lang);
   const m = Math.max(0, Math.floor((now - ts) / 60000));
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m} min ago`;
+  if (m < 1) return tx('just now');
+  if (m < 60) return tx('{m} min ago', { m });
   const h = Math.floor(m / 60);
-  return `${h} h${m % 60 ? ` ${m % 60} min` : ''} ago`;
+  return m % 60 ? tx('{h} h {m} min ago', { h, m: m % 60 }) : tx('{h} h ago', { h });
 }
+export const relTimeEn = (ts: number, now: number) => relTimeL(ts, now, 'en');

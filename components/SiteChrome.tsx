@@ -1,26 +1,42 @@
 import Link from 'next/link';
 import { BubbleMark, LogoLockup } from '@/components/Logo';
 import { SITE_NAME, SITE_NAME_KANA, UNOFFICIAL } from '@/lib/site';
-import { currentPath, getLang, otherLangPath } from '@/lib/lang';
+import { currentPath, getLang, langPath } from '@/lib/lang';
+import { LANG_META, LANGS, lp, makeTx, type Lang } from '@/lib/i18n';
+
+/** 言語の切り替え（押すと5つの言語が出る。同じページの別の言語へ） */
+function LangMenu({ lang, path }: { lang: Lang; path: string }) {
+  return (
+    <details className="lang-menu">
+      <summary className="header-link header-lang" aria-label="Language / 言語">🌐 {lang === 'ja' ? 'EN' : LANG_META[lang].short}</summary>
+      <div className="lang-list">
+        {LANGS.map((l) => (
+          <a key={l} href={langPath(path, l)} hrefLang={LANG_META[l].hreflang} lang={LANG_META[l].html} className={l === lang ? 'on' : ''}>{LANG_META[l].label}</a>
+        ))}
+      </div>
+    </details>
+  );
+}
 
 /** 公開サイトのヘッダー（管理画面では使わない） */
 export async function SiteHeader() {
   const lang = await getLang();
-  const en = lang === 'en';
-  const other = otherLangPath(await currentPath(), lang);
+  const en = lang !== 'ja';
+  const tx = makeTx(lang);
+  const path = await currentPath();
   return (
     <header className="site-header">
       <div className="container header-inner">
-        <Link href={en ? '/en' : '/'} className="logo">
+        <Link href={en ? lp(lang) : '/'} className="logo">
           <BubbleMark size={34} />{SITE_NAME}{!en && <span className="logo-kana">{SITE_NAME_KANA}</span>}
-          {UNOFFICIAL && <span className="unofficial-tag">{en ? 'Unofficial' : '非公式'}</span>}
+          {UNOFFICIAL && <span className="unofficial-tag">{en ? tx('Unofficial') : '非公式'}</span>}
         </Link>
         <div className="header-actions">
-          <Link href={other} className="header-link header-lang" hrefLang={en ? 'ja' : 'en'} aria-label={en ? '日本語で見る' : 'English'}>{en ? '日本語' : 'EN'}</Link>
+          <LangMenu lang={lang} path={path} />
           {!en && <Link href="/me" className="header-link header-me" aria-label="この端末の貢献実績">実績</Link>}
-          <Link href={en ? '/en/search' : '/search'} className="header-link">
+          <Link href={en ? `${lp(lang)}/search` : '/search'} className="header-link">
             <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
-            {en ? 'Search' : '探す'}
+            {en ? tx('Search') : '探す'}
           </Link>
         </div>
       </div>
@@ -30,19 +46,21 @@ export async function SiteHeader() {
 
 /** 公開サイトのフッター */
 export async function SiteFooter() {
-  const en = (await getLang()) === 'en';
-  if (en) {
+  const lang = await getLang();
+  if (lang !== 'ja') {
+    const tx = makeTx(lang);
     return (
       <footer className="site-footer">
         <div className="container">
           <div className="footer-logo"><LogoLockup fontSize={30} /></div>
-          <p><strong>{SITE_NAME} is an unofficial service.</strong> It is not affiliated with, approved by or partnered with any event organizer or venue.</p>
-          <p>Always check the official website for the latest information. Live status is reported by visitors and is not guaranteed to be accurate. Event information is machine-translated from Japanese.</p>
+          <p><strong>{tx('{site} is an unofficial service.', { site: SITE_NAME })}</strong> {tx('It is not affiliated with, approved by or partnered with any event organizer or venue.')}</p>
+          <p>{tx('Always check the official website for the latest information. Live status is reported by visitors and is not guaranteed to be accurate. Event information is machine-translated from Japanese.')}</p>
           <p>
-            <Link href="/en/guide" style={{ textDecoration: 'underline' }}>Tips for events in Japan</Link>
-            {'　'}<Link href="/about#photo-credits" style={{ textDecoration: 'underline' }}>Photo credits</Link>
-            {'　'}<Link href="/contact" style={{ textDecoration: 'underline' }}>Contact (Japanese)</Link>
+            <Link href={`${lp(lang)}/guide`} style={{ textDecoration: 'underline' }}>{tx('Tips for events in Japan')}</Link>
+            {'　'}<Link href="/about#photo-credits" style={{ textDecoration: 'underline' }}>{tx('Photo credits')}</Link>
+            {'　'}<Link href="/contact" style={{ textDecoration: 'underline' }}>{tx('Contact (Japanese)')}</Link>
           </p>
+          <p className="footer-langs">{LANGS.map((l) => <a key={l} href={langPath('/', l)} hrefLang={LANG_META[l].hreflang} lang={LANG_META[l].html}>{LANG_META[l].label}</a>)}</p>
         </div>
       </footer>
     );
@@ -59,8 +77,8 @@ export async function SiteFooter() {
           <Link href="/about" style={{ textDecoration: 'underline' }}>このサイトについて</Link>
           <Link href="/about#photo-credits" style={{ textDecoration: 'underline', marginLeft: 12 }}>写真のクレジット</Link>
           {'　'}<Link href="/contact" style={{ textDecoration: 'underline' }}>お問い合わせ</Link>
-          {'　'}<Link href="/en" style={{ textDecoration: 'underline' }} hrefLang="en">English</Link>
         </p>
+        <p className="footer-langs">{LANGS.filter((l) => l !== 'ja').map((l) => <a key={l} href={langPath('/', l)} hrefLang={LANG_META[l].hreflang} lang={LANG_META[l].html}>{LANG_META[l].label}</a>)}</p>
       </div>
     </footer>
   );

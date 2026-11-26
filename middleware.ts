@@ -11,12 +11,21 @@ function entryPath() {
   return (process.env.ADMIN_ENTRY_PATH || '').trim().replace(/^\/+|\/+$/g, '');
 }
 
-/** 英語版（/en/…）かどうかと、いまのパスをページに伝える（<html lang>・言語の切り替えリンクに使う） */
+/**
+ * 外国語版（/en・/zh・/zh-tw・/ko）かどうかと、いまのパスをページに伝える（<html lang>・言語の切り替えリンクに使う）。
+ * 中国語・韓国語のページは英語版のページ（app/(site)/en/…）を同じ作りで使う（中で言語を切り替える）。
+ */
 function withLang(req: NextRequest) {
   const h = new Headers(req.headers);
   const path = req.nextUrl.pathname;
-  h.set('x-evenow-lang', path === '/en' || path.startsWith('/en/') ? 'en' : 'ja');
+  const m = path.match(/^\/(en|zh-tw|zh|ko)(?=\/|$)/);
+  h.set('x-evenow-lang', m ? m[1] : 'ja');
   h.set('x-evenow-path', path);
+  if (m && m[1] !== 'en') {
+    const url = req.nextUrl.clone();
+    url.pathname = `/en${path.slice(m[0].length)}`;
+    return NextResponse.rewrite(url, { request: { headers: h } });
+  }
   return NextResponse.next({ request: { headers: h } });
 }
 
