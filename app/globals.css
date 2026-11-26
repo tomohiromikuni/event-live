@@ -967,3 +967,5 @@ details.tc-off[open] > summary { margin-bottom: 4px; }
 .now-ago strong { font-size: 20px; font-weight: 900; }
 .now-card.old .now-ago strong { color: #b45309; }
 .now-ago small { font-size: 11px; color: var(--muted); font-weight: 700; }
+.ago { color: var(--ink); font-weight: 900; }
+.ago.old { color: #b45309; }

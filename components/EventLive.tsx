@@ -310,8 +310,9 @@ export default function EventLive(p: Props) {
   const when = (s: Spot, latest: Report | undefined) => {
     const c = statusBySpot.get(s.id);
     if (!latest || !c) return '';
-    if (c.stale) return lang !== 'ja' ? makeTx(lang)('⚠️ from {t}', { t: rel(latest.created_at, now) }) : `⚠️ ${rel(latest.created_at, now)}の情報`;
-    return `${rel(latest.created_at, now)}・${consensusNote(c, lang, lab)}`;
+    // 何分前かを太字で目立たせる（古い情報はオレンジ＋⚠️）
+    if (c.stale) return lang !== 'ja' ? <strong className="ago old">{makeTx(lang)('⚠️ from {t}', { t: rel(latest.created_at, now) })}</strong> : <><strong className="ago old">⚠️ {rel(latest.created_at, now)}</strong>の情報</>;
+    return <><strong className="ago">{rel(latest.created_at, now)}</strong>・{consensusNote(c, lang, lab)}</>;
   };
 
   return (
