@@ -23,8 +23,10 @@ jobs:
           mkdir -p out && cd out
           IFS='|' read -ra ARGS <<< "$LIST"
           python3 -I ../scripts/themes/fetch_commons.py "${ARGS[@]}"
-          for f in *_?.jpg; do convert "$f" -auto-orient -resize '1200x480^' -gravity center -extent 1200x480 -strip -quality 72 "$f"; done
-          montage -label '%t' *_?.jpg -tile 4x -geometry 360x144+6+6 -pointsize 16 sheet.png && convert sheet.png -quality 80 sheet.jpg && rm sheet.png
+          for f in *.jpg; do convert "$f" -auto-orient -resize '1200x480^' -gravity center -extent 1200x480 -strip -quality 72 "$f"; done
+          # 決めた写真（名前に _番号 が無いもの）は、軽い WebP も作る
+          for f in *.jpg; do case "$f" in *_[0-9].jpg) ;; *) convert "$f" -quality 68 "${f%.jpg}.webp" && echo "webp ${f%.jpg} $(stat -c%s ${f%.jpg}.webp)";; esac; done
+          montage -label '%t' *.jpg -tile 4x -geometry 360x144+6+6 -pointsize 16 sheet.png && convert sheet.png -quality 80 sheet.jpg && rm sheet.png
           echo '{"git":{"deploymentEnabled":false}}' > vercel.json
           git init -q -b theme-candidates && git config user.name 'github-actions[bot]' && git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A && git commit -qm 'テーマ画像の候補' && git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" theme-candidates && echo published

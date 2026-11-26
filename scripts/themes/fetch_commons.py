@@ -20,11 +20,9 @@ def strip(s):
 meta = {}
 for arg in sys.argv[1:]:
     theme, q = arg.split('=', 1)
-    params = {
-        'action': 'query', 'format': 'json', 'generator': 'search', 'gsrnamespace': '6',
-        'gsrsearch': f'{q} filetype:bitmap', 'gsrlimit': '30', 'prop': 'imageinfo',
-        'iiprop': 'url|extmetadata|size', 'iiurlwidth': '1600',
-    }
+    exact = q.startswith('File:')  # 「File:ファイル名」なら、そのファイルだけを取る（決めた写真の取り直し）
+    params = {'action': 'query', 'format': 'json', 'prop': 'imageinfo', 'iiprop': 'url|extmetadata|size', 'iiurlwidth': '1600'}
+    params.update({'titles': q} if exact else {'generator': 'search', 'gsrnamespace': '6', 'gsrsearch': f'{q} filetype:bitmap', 'gsrlimit': '30'})
     data = json.loads(get('https://commons.wikimedia.org/w/api.php?' + urllib.parse.urlencode(params)))
     pages = sorted((data.get('query') or {}).get('pages', {}).values(), key=lambda p: p.get('index', 99))
     n = 0
@@ -33,10 +31,10 @@ for arg in sys.argv[1:]:
         em = ii.get('extmetadata', {})
         lic = strip(em.get('LicenseShortName', {}).get('value', ''))
         w, h = ii.get('width', 0), ii.get('height', 0)
-        if not OK.match(lic) or w < 1600 or w < h * 1.3:
+        if not OK.match(lic) or (not exact and (w < 1600 or w < h * 1.3)):
             continue
         n += 1
-        name = f'{theme}_{n}'
+        name = theme if exact else f'{theme}_{n}'
         open(f'{name}.jpg', 'wb').write(get(ii['thumburl']))
         meta[name] = {'title': p['title'], 'license': lic, 'artist': strip(em.get('Artist', {}).get('value', ''))[:80],
                       'page': ii.get('descriptionurl'), 'size': f'{w}x{h}'}
