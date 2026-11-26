@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation';
  * 本番では管理者アカウント（Supabase Auth / Auth.js 等）＋権限管理に置き換える。
  */
 const COOKIE = 'evl_admin';
-const TTL_MS = 12 * 3600_000;
+const TTL_MS = 30 * 86400_000; // 30日（管理者は運営者1人。毎日のログインし直しを避ける）
 
 /** 本番環境では ADMIN_PASSWORD が未設定だと管理画面にログインできない（初期パスワードでの公開を防ぐ） */
 export function adminPassword(): string | null {
