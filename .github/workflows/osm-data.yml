@@ -21,19 +21,24 @@ jobs:
       - name: Extract toilets and parking
         run: |
           osmium tags-filter japan.osm.pbf nwr/amenity=toilets,parking -o f.osm.pbf --overwrite
+          # 会場になりやすい場所の外形（会場の範囲を薄く囲うため）
+          osmium tags-filter japan.osm.pbf wr/leisure=park,garden,stadium,common,recreation_ground,sports_centre wr/place=square wr/landuse=recreation_ground wr/tourism=theme_park,zoo wr/amenity=events_venue,exhibition_centre -o v.osm.pbf --overwrite
           rm japan.osm.pbf
+          osmium export v.osm.pbf -f geojsonseq --geometry-types=polygon -a type,id -o v.geojsonseq --overwrite
+          ls -lh v.osm.pbf v.geojsonseq
           osmium export f.osm.pbf -f geojsonseq --geometry-types=point,polygon -a type,id -o f.geojsonseq --overwrite
           ls -lh f.osm.pbf f.geojsonseq
       - name: Build tiles
         run: |
           python3 -I scripts/osm/build_tiles.py out < f.geojsonseq
+          python3 -I scripts/osm/build_areas.py out < v.geojsonseq
           du -sh out; ls out/t | wc -l
       - name: Publish to osm-data branch
         run: |
           cd out
           cat > README.md <<'MD'
           # EVENOW 用 OpenStreetMap 抽出データ（トイレ・駐車場）
-          日本全国の OpenStreetMap から amenity=toilets / amenity=parking を抜き出し、0.1度ごとに分けたもの。月1回自動で作り直す。
+          日本全国の OpenStreetMap から amenity=toilets / amenity=parking（t/）と、公園・広場などの外形（a/）を抜き出し、0.1度ごとに分けたもの。月1回自動で作り直す。
           データ © OpenStreetMap contributors。ライセンスは ODbL 1.0（https://opendatacommons.org/licenses/odbl/）。
           MD
           sed -i 's/^          //' README.md

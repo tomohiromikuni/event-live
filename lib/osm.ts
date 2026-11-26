@@ -66,7 +66,7 @@ const roundDist = (m: number) => (m < 100 ? '100m以内' : `約${Math.round(m / 
  * 日本全国の OpenStreetMap から抜き出したトイレ・駐車場（0.1度ごとのファイル）。
  * .github/workflows/osm-data.yml が月1回作り直して osm-data ブランチに置く。© OpenStreetMap contributors（ODbL）
  */
-const TILES_BASE = process.env.OSM_TILES_URL || 'https://raw.githubusercontent.com/tomohiromikuni/event-live/osm-data';
+export const TILES_BASE = process.env.OSM_TILES_URL || 'https://raw.githubusercontent.com/tomohiromikuni/event-live/osm-data';
 type TileRow = [string, number, number, number, string?, string?, string?, string?];
 
 async function fromTiles(center: Geo): Promise<OsmEl[] | null> {
