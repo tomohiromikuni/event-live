@@ -75,7 +75,11 @@ export default function EventLive(p: Props) {
   // タブ：駐車場・（シャトルバス）・トイレ・地図・概要。最初は駐車場（検索でいちばん探される）。#toilet などで開くタブを指定できる
   const spotsOf = useCallback((cats: readonly string[]) => visibleSpots.filter((s) => cats.includes(catById.get(s.category_id)?.slug ?? '') && catById.get(s.category_id)!.options.length > 0), [visibleSpots, catById]);
   const topics = TOPICS.filter((t) => t.always || spotsOf(t.cats).length > 0 || !!p.official?.[t.id]?.trim());
-  const tabIds = [...topics.map((t) => t.id as string), ...(!p.simple ? ['map'] : []), ...(p.overview ? ['info'] : [])];
+  // 屋台：場所の案内だけ（混雑の投稿は受け付けない＝運営者の判断）。屋台の地点・エリア・公式情報のどれかがあるときだけタブを出す
+  const foodSpots = visibleSpots.filter((s) => !s.generic && catById.get(s.category_id)?.slug === 'food');
+  const foodAreas = p.shapes.filter((sh) => sh.kind === 'area' && sh.style === 'food');
+  const hasFood = foodSpots.length > 0 || foodAreas.length > 0 || !!p.official?.food?.trim();
+  const tabIds = [...topics.map((t) => t.id as string), ...(hasFood ? ['food'] : [])];
   const [tab, setTab] = useState<string>(topics[0]?.id ?? 'parking');
   const tabsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -144,8 +148,8 @@ export default function EventLive(p: Props) {
 
   // 公開マップは簡易表示：施設は決まった種類だけ、エリアは四角に簡略化、線は出さない（lib/shapes.ts）
   const mapShapes = useMemo(() => simplifyShapes(p.shapes), [p.shapes]);
-  const tabCats = (TOPICS.find((t) => t.id === tab)?.cats ?? null) as readonly string[] | null;
-  const markers: MapMarker[] = useMemo(() => visibleSpots.filter((s) => !s.generic && PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '')
+  const tabCats = (tab === 'food' ? ['food'] : TOPICS.find((t) => t.id === tab)?.cats ?? null) as readonly string[] | null;
+  const markers: MapMarker[] = useMemo(() => visibleSpots.filter((s) => !s.generic && (PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '') || tab === 'food')
     && (!tabCats || tabCats.includes(catById.get(s.category_id)?.slug ?? ''))).map((s) => {
     const c = catById.get(s.category_id)!;
     const latest = latestBySpot.get(s.id);
@@ -156,7 +160,7 @@ export default function EventLive(p: Props) {
       id: s.id, lat: s.lat, lng: s.lng, title: s.name,
       html: `<div class="mk${selected === s.id ? ' selected' : ''}${stale ? ' stale' : ''}${s.source === 'guide' ? ' est' : ''}" style="border-color:${border}">${iconHtml('category', c.slug, c.icon, 18)}${badge}</div>`,
     };
-  }), [visibleSpots, catById, latestBySpot, selected, now, tabCats]);
+  }), [visibleSpots, catById, latestBySpot, selected, now, tabCats, tab]);
 
   async function post(spotId: number, value: string) {
     if (posting) return;
@@ -223,7 +227,7 @@ export default function EventLive(p: Props) {
           : <>まだ投稿はありません。タップで投稿できます（登録不要）</>}
       </div>
 
-      <div className="ev-tabs" role="tablist" aria-label="表示の切り替え" ref={tabsRef} style={{ ['--n' as string]: tabIds.length }}>
+      <div className="ev-tabs seg" role="tablist" aria-label="表示の切り替え" ref={tabsRef} style={{ ['--n' as string]: tabIds.length }}>
         {topics.map((t) => {
           const spots = spotsOf(t.cats);
           const cat = p.categories.find((c) => (t.cats as readonly string[]).includes(c.slug));
@@ -233,22 +237,17 @@ export default function EventLive(p: Props) {
           return (
             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} aria-controls={`topic-${t.id}`}
               className={`ev-tab ${tab === t.id ? 'on' : ''}`} style={{ ['--c' as string]: cat?.color ?? '#64748b' }} onClick={() => openTab(t.id)}>
-              <span className="et-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={18} />}</span>
-              <span className="et-name">{t.id === 'shuttle' ? 'バス' : t.title}</span>
+              <span className="et-head"><span className="et-icon">{cat && <KindIcon kind="category" slug={cat.slug} emoji={cat.icon} size={16} />}</span>
+              <span className="et-name">{t.id === 'shuttle' ? 'バス' : t.title}</span></span>
               {best ? <span className={`et-val ${stale ? 'stale' : ''}`} style={{ background: levelColor(best.level) }}>{best.label}</span>
                 : <span className="et-val none">投稿なし</span>}
             </button>
           );
         })}
-        {!p.simple && (
-          <button type="button" role="tab" aria-selected={tab === 'map'} aria-controls="map" className={`ev-tab ${tab === 'map' ? 'on' : ''}`} style={{ ['--c' as string]: '#b45309' }} onClick={() => openTab('map')}>
-            <span className="et-icon" aria-hidden>🗺️</span><span className="et-name">地図</span>
-            <span className="et-val none">{visibleSpots.filter((s) => !s.generic && PUBLIC_SPOT_CATS.includes(catById.get(s.category_id)?.slug ?? '')).length}か所</span>
-          </button>
-        )}
-        {p.overview && (
-          <button type="button" role="tab" aria-selected={tab === 'info'} aria-controls="info" className={`ev-tab ${tab === 'info' ? 'on' : ''}`} style={{ ['--c' as string]: '#1c1730' }} onClick={() => openTab('info')}>
-            <span className="et-icon" aria-hidden>ℹ️</span><span className="et-name">概要</span><span className="et-val none">開催情報</span>
+        {hasFood && (
+          <button type="button" role="tab" aria-selected={tab === 'food'} aria-controls="topic-food" className={`ev-tab ${tab === 'food' ? 'on' : ''}`} style={{ ['--c' as string]: '#ea580c' }} onClick={() => openTab('food')}>
+            <span className="et-head"><span className="et-icon" aria-hidden>🍢</span><span className="et-name">屋台</span></span>
+            <span className="et-val none">{foodSpots.length + foodAreas.length ? `${foodSpots.length + foodAreas.length}か所` : '場所の案内'}</span>
           </button>
         )}
       </div>
@@ -318,9 +317,31 @@ export default function EventLive(p: Props) {
         );
       })}
 
+      {hasFood && (
+        <div className={`topic-card colored ${tab === 'food' ? '' : 'tab-off'}`} role="tabpanel" id="topic-food" style={{ ['--c' as string]: '#ea580c', scrollMarginTop: 70 }}>
+          <div className="tc-head">
+            <span className="tc-icon" aria-hidden>🍢</span>
+            <h3>屋台・飲食エリア</h3>
+            {foodSpots.length + foodAreas.length > 0 && <span className="muted small" style={{ fontWeight: 800 }}>{foodSpots.length + foodAreas.length}か所</span>}
+          </div>
+          {foodSpots.length > 0 && (
+            <div className="tc-rows">
+              {foodSpots.map((s) => (
+                <button key={s.id} className="tc-row spot-item" onClick={() => setSelected(s.id)}>
+                  <span className="tc-name"><span className="spot-name">{s.name}</span><span className="tc-sub">場所の案内のみ</span></span>
+                  <span className="tc-go">地図で見る ›</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {foodAreas.length > 0 && <div className="tc-when">地図のオレンジの範囲が、屋台・飲食エリアです</div>}
+          <div className="tc-off"><span className="src-tag official">公式情報</span><div style={{ whiteSpace: 'pre-wrap' }}>{p.official?.food?.trim() || <span className="none">未確認</span>}</div></div>
+        </div>
+      )}
+
       {!p.simple && (
-        <div className={`topic-card map-card ${tab === 'info' ? 'map-off' : ''}`} id="map" role={tab === 'map' ? 'tabpanel' : undefined} style={{ scrollMarginTop: 70 }}>
-          <div className="tc-head"><h3>{tabCats ? `${TOPICS.find((t) => t.id === tab)?.title}の地図` : '会場マップ'}</h3></div>
+        <div className="topic-card map-card" id="map" style={{ scrollMarginTop: 70 }}>
+          <div className="tc-head"><h3>{tab === 'food' ? '屋台' : TOPICS.find((t) => t.id === tab)?.title ?? '会場'}の地図</h3></div>
           <p className="muted small one-line" style={{ margin: '0 0 8px' }}>地点をタップで、状況の確認・投稿ができます</p>
           {p.geo && <LocateButton />}
           <div className="live-map">
@@ -331,18 +352,16 @@ export default function EventLive(p: Props) {
               <span><i style={{ background: '#94a3b8' }} />情報なし</span>
               <span>点線＝{FRESH_MIN}分以上前</span>
               {visibleSpots.some((s) => s.source === 'guide') && <span><i className="est-i" />破線の枠＝位置は目安</span>}
+              {(visibleSpots.some((s) => s.source === 'osm') || p.shapes.some((sh) => sh.style === 'venue')) && (
+                <span className="legend-credit">施設・会場の範囲の一部：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></span>
+              )}
             </div>
-            {visibleSpots.some((s) => s.source === 'osm') && (
-              <div className="muted small one-line" style={{ padding: '0 12px 10px' }}>
-                施設の一部：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a>
-              </div>
-            )}
           </div>
         </div>
       )}
 
       {p.overview && (
-        <div className={`topic-card info-card ${tab === 'info' ? '' : 'tab-off'}`} id="info" role="tabpanel" style={{ scrollMarginTop: 70 }}>
+        <div className="topic-card info-card" id="info" style={{ scrollMarginTop: 70 }}>
           {p.overview}
         </div>
       )}
@@ -360,7 +379,7 @@ export default function EventLive(p: Props) {
                 📍 {sel.source === 'guide' ? 'この辺りに行く' : 'この場所に行く'}（Googleマップ）
               </a>
             ) : null}
-            {selCat.options.length > 0 ? (
+            {selCat.options.length > 0 && selCat.slug !== 'food' ? (
               <>
                 {!p.postable && (
                   <div className="current">
@@ -398,7 +417,7 @@ export default function EventLive(p: Props) {
                   </div>
                 )}
               </>
-            ) : <p className="muted small">この地点は施設の位置情報のみ掲載しています。</p>}
+            ) : <p className="muted small">{selCat.slug === 'food' ? '屋台・飲食エリアは場所の案内のみです（混雑の投稿は受け付けていません）。' : 'この地点は施設の位置情報のみ掲載しています。'}</p>}
             <button className="btn ghost" style={{ width: '100%', marginTop: 12 }} onClick={() => setSelected(null)}>閉じる</button>
           </div>
         </>
