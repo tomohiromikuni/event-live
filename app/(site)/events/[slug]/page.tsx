@@ -10,8 +10,7 @@ import { eventDescription, eventTitle } from '@/lib/seo';
 import { INFO_FIELDS } from '@/lib/prefectures';
 import type { EventCard } from '@/lib/types';
 import { UNOFFICIAL, siteUrl } from '@/lib/site';
-import ShareButtons from '@/components/ShareButtons';
-import XTalk from '@/components/XTalk';
+import ShareBlock from '@/components/ShareBlock';
 import MapThumb from '@/components/MapThumb';
 import ViewBeacon from '@/components/ViewBeacon';
 import { eventTag, hashtagsFor, type TagContext } from '@/lib/hashtags';
@@ -134,15 +133,6 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       COALESCE(SUM(visitors) FILTER (WHERE day = $2), 0)::int AS today, COALESCE(SUM(visitors), 0)::int AS total
     FROM event_views WHERE event_id = $1`, [e.id, todayJST()]).then((r) => r[0]).catch(() => undefined);
   const nowMs = Date.now();
-  // 関連イベント（内部リンク）：同じ都道府県 → 足りなければ同じジャンル。開催中・これからのものだけ。サンプルは実イベントに混ぜない
-  const pickRelated = (list: EventCard[]) => list.filter((x) => x.id !== e.id && (!!x.is_sample === !!e.is_sample));
-  let related = pickRelated(await searchEvents({ pref: e.prefecture, limit: 8 }));
-  if (related.length < 4) {
-    const more = pickRelated(await searchEvents({ genre: genre.slug, limit: 8 })).filter((x) => !related.some((r) => r.id === x.id));
-    related = [...related, ...more];
-  }
-  related = related.slice(0, 4);
-
   // 共有リンク（?ref=x など）から来た訪問を記録（SNSからの流入の目安。個人情報は保存しない）
   const { ref } = await searchParams;
   if (ref && /^[a-z_]{1,20}$/.test(ref) && e.published) {
@@ -275,40 +265,24 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         share={!e.is_sample && e.published ? { eventName: e.name, base, path: eventPath, tags: liveTags } : undefined}
         overview={overview} />
 
-      {!e.is_sample && e.published && talkTag && <XTalk tag={talkTag} tags={liveTags} url={shareUrl(base, eventPath, 'x_talk')} />}
+      {!e.is_sample && e.published && (
+        <ShareBlock eventId={e.id} tag={talkTag} url={shareUrl(base, eventPath, 'copy')}
+          xText={composePost(shareLines, shareUrl(base, eventPath, 'x'), tags)}
+          lineText={composePost(shareLines, shareUrl(base, eventPath, 'line'), tags, 1000)} />
+      )}
 
-      <section className="section page-foot">
-        {!e.is_sample && e.published ? (
-          <ShareButtons eventId={e.id} iconOnly url={shareUrl(base, eventPath, 'copy')}
-            xText={composePost(shareLines, shareUrl(base, eventPath, 'x'), tags)}
-            lineText={composePost(shareLines, shareUrl(base, eventPath, 'line'), tags, 1000)} />
-        ) : null}
+      {/* 注意書き・連絡先（いちばん下に小さく） */}
+      <footer className="page-note">
         {UNOFFICIAL && (
-          <p className="muted small one-line">
-            <strong>非公式</strong>ページです。最新は{e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>公式サイト</a> : '公式発表'}で確認を
+          <p>
+            <strong>非公式</strong>ページです。最新の情報は{e.official_url ? <a href={e.official_url} target="_blank" rel="noopener noreferrer">公式サイト</a> : '公式発表'}でご確認ください。
           </p>
         )}
-        <p className="small one-line">
-          <a href={`/contact?event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">訂正・お問い合わせ</a>
-          {'　｜　'}<a href={`/contact?type=removal&event=${encodeURIComponent(e.slug)}`} style={{ textDecoration: 'underline' }} rel="nofollow">掲載停止の申請</a>
+        <p>
+          <a href={`/contact?event=${encodeURIComponent(e.slug)}`} rel="nofollow">訂正・お問い合わせ</a>
+          {'　・　'}<a href={`/contact?type=removal&event=${encodeURIComponent(e.slug)}`} rel="nofollow">掲載停止の申請</a>
         </p>
-      </section>
-
-      {related.length > 0 && (
-        <section className="section">
-          <div className="section-head"><h2>近くのイベント</h2></div>
-          <ul className="related-lines">
-            {related.slice(0, 3).map((r) => (
-              <li key={r.id}>
-                <a href={`/events/${r.slug}`}>
-                  <span className="rl-name">{r.name}</span>
-                  <span className="rl-date">{fmtRange(r.start_date, r.end_date)}・{r.city || r.prefecture}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      </footer>
     </div>
   );
 }
