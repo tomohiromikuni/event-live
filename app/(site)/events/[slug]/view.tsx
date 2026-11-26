@@ -269,6 +269,14 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
 
       <div className="event-head">
         {/* お気に入り（この端末だけ・写真の右上） */}
+        {/* 見た人の数（写真の右上・ハートの左。実データのみ・少ないうちは出さない） */}
+        {!isEn && !e.is_sample && views && views.total >= MIN_VIEWS_TO_SHOW && (
+          <span className="views-chip" title={`${views.today > 0 ? `今日${views.today.toLocaleString()}人・` : ''}これまでのべ${views.total.toLocaleString()}人が見ました`}
+            aria-label={`${views.today > 0 ? `今日${views.today.toLocaleString()}人・` : ''}これまでのべ${views.total.toLocaleString()}人が見ました`}>
+            <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
+            {views.total.toLocaleString()}
+          </span>
+        )}
         {!e.is_sample && <FavButton lang={lang} ev={{ slug: e.slug, name: e.name, start: e.start_date, end: e.end_date, place: `${fmt(e.start_date, e.end_date)}・${place}` }} />}
         {/* ページ上部のサムネイル：利用許諾済みの写真があればそれ、無ければジャンルの色とイラストで作る（公式サイトの画像は転載しない） */}
         {e.image_url ? (
@@ -307,12 +315,6 @@ export async function EventView({ slug, searchParams, lang }: { slug: string; se
             <svg aria-label="場所" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
             <span className="one-line">{place}{isEn ? ' · ' : '・'}{e.venue_name || (isEn ? tx('Venue not confirmed') : '会場情報なし')}</span>
           </span>
-          {!isEn && !e.is_sample && views && views.total >= MIN_VIEWS_TO_SHOW && (
-            <span>
-              <svg aria-label="閲覧" role="img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
-              <span>{views.today > 0 ? `今日${views.today.toLocaleString()}人・` : ''}これまでのべ{views.total.toLocaleString()}人が見ました</span>
-            </span>
-          )}
         </div>
       </div>
 
